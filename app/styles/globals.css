@@ -1,0 +1,123 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource/sora/400.css";
+@import "@fontsource/sora/600.css";
+@import "@fontsource/sora/700.css";
+@import "@fontsource/sora/800.css";
+@import "@fontsource/manrope/400.css";
+@import "@fontsource/manrope/500.css";
+@import "@fontsource/manrope/600.css";
+@import "@fontsource/manrope/700.css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.75rem;
+
+  --background: #f5f0e0;
+  --foreground: #0f172a;
+  --card: #fbf9f2;
+  --card-foreground: #0f172a;
+  --popover: #fbf9f2;
+  --popover-foreground: #0f172a;
+  --primary: #064e3b;
+  --primary-foreground: #f5f0e0;
+  --secondary: #eae2cb;
+  --secondary-foreground: #064e3b;
+  --muted: #eae2cb;
+  --muted-foreground: #78716c;
+  --accent: #c9a84c;
+  --accent-foreground: #022c22;
+  --destructive: #dc2626;
+  --destructive-foreground: #f5f0e0;
+  --border: #dcd3b4;
+  --input: #dcd3b4;
+  --ring: #c9a84c;
+
+  --chart-1: #064e3b;
+  --chart-2: #c9a84c;
+  --chart-3: #059669;
+  --chart-4: #a8763e;
+  --chart-5: #065f46;
+
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Sora", ui-sans-serif, system-ui, sans-serif;
+}
+
+.dark {
+  --background: #022c22;
+  --foreground: #f8fafc;
+  --card: #064e3b;
+  --card-foreground: #f8fafc;
+  --popover: #064e3b;
+  --popover-foreground: #f8fafc;
+  --primary: #c9a84c;
+  --primary-foreground: #022c22;
+  --secondary: #065f46;
+  --secondary-foreground: #f8fafc;
+  --muted: #065f46;
+  --muted-foreground: #9fb8ac;
+  --accent: #c9a84c;
+  --accent-foreground: #022c22;
+  --destructive: #f87171;
+  --destructive-foreground: #022c22;
+  --border: color-mix(in oklab, white 12%, transparent);
+  --input: color-mix(in oklab, white 15%, transparent);
+  --ring: #c9a84c;
+
+  --chart-1: #34d399;
+  --chart-2: #c9a84c;
+  --chart-3: #6ee7b7;
+  --chart-4: #d8b978;
+  --chart-5: #a7f3d0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--font-sans);
+  --font-heading: var(--font-heading);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading;
+  }
+}
