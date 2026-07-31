@@ -24,7 +24,7 @@ Each entry is tagged **Built** (exists in the product today) or **Planned** (def
 | [Competency](#competency) | Conceptual | A skill or strand within a subject — not yet a distinct data object. |
 | [Assignment](#assignment) | Conceptual | The act of a teacher giving work to students — realized as a Task or a Quiz, never its own object. |
 | [Task](#task) | Built | A to-do item owned by one student — personal, practice, or quiz-linked. |
-| [Practice Task](#practice-task) | Planned | A teacher-assigned, ungraded rehearsal task, distinct from a personal Task. |
+| [Practice Task](#practice-task) | Built (Sprint 1) | A teacher-assigned, ungraded rehearsal task, distinct from a personal Task. |
 | [Quiz](#quiz) | Built | A graded, certifying assessment with questions and choices. |
 | [Assessment](#assessment) | Conceptual | The general concept of certifying evaluation — realized specifically as a Quiz. |
 | [Resource](#resource) | Planned | A file or link a teacher shares with a class. |
@@ -162,10 +162,10 @@ Each entry is tagged **Built** (exists in the product today) or **Planned** (def
 **Consumers:** The owning student only.
 **May include:** title, description, priority, due date, completed state, linked quiz (optional).
 **Related objects:** Quiz (optional link), Focus Session (optional link).
-**Not to be confused with:** Practice Task (see next entry — a genuinely different, teacher-initiated object, not yet built) or Quiz (a Task can point *at* a quiz; it is never the quiz itself).
+**Not to be confused with:** Practice Task (see next entry — a genuinely different, teacher-initiated object) or Quiz (a Task can point *at* a quiz; it is never the quiz itself).
 
 ### Practice Task
-**Status: Planned** (Phase 2 of the redesign roadmap; see [02_Product_Definition.md](02_Product_Definition.md)).
+**Status: Built** (Sprint 1).
 **Definition:** A teacher-assigned, **ungraded** rehearsal activity, scoped to a Class, distinct from both a personal Task and a graded Quiz. Where a Quiz certifies whether a skill has been mastered, a Practice Task exists purely for low-stakes retrieval rehearsal — it is safe to get wrong and does not feed a permanent grade.
 **Owner:** Teacher (creates a `task_templates` row; the system fans it out to one Task-like row per enrolled student).
 **Consumers:** Enrolled students in the class it was assigned to.

@@ -59,6 +59,7 @@ export const enrollments = pgTable(
     pgPolicy('enrollments_select', { for: 'select' }),
     pgPolicy('enrollments_insert', { for: 'insert' }),
     pgPolicy('enrollments_delete', { for: 'delete' }),
+    pgPolicy('enrollments_update', { for: 'update' }),
   ],
 ).enableRLS()
 

@@ -60,8 +60,15 @@ export const deleteTaskFn = createServerFn({ method: 'POST' })
   .validator(deleteTaskSchema)
   .handler(async ({ data }): Promise<{ success: true }> => {
     const user = await requireUser()
+    // Sprint 1: a student deleting their own copy of an assigned Practice
+    // or Quiz task would silently corrupt the teacher's aggregate
+    // completion count (fewer rows = looks like fewer students were ever
+    // assigned it) — only a personal task may be deleted this way.
     const deleted = await withRlsContext(user.id, (tx) =>
-      tx.delete(tasks).where(and(eq(tasks.id, data.id), eq(tasks.userId, user.id))).returning(),
+      tx
+        .delete(tasks)
+        .where(and(eq(tasks.id, data.id), eq(tasks.userId, user.id), eq(tasks.taskType, 'personal')))
+        .returning(),
     )
     if (deleted.length === 0) throw new Error('Task not found')
     return { success: true }

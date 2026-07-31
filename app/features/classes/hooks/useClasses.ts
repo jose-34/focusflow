@@ -4,7 +4,14 @@ import { withRlsContext } from '@/db'
 import { adminDb } from '@/db/admin'
 import { classes, enrollments } from '@/db/schema'
 import { requireUser } from '@/features/auth/utils'
-import { classIdSchema, createClassSchema, joinClassSchema, type CreateClassInput } from '@/features/classes/schemas'
+import {
+  classIdSchema,
+  createClassSchema,
+  joinClassSchema,
+  removeStudentSchema,
+  type CreateClassInput,
+} from '@/features/classes/schemas'
+import { eq, and } from 'drizzle-orm'
 
 const classesQueryKey = ['classes'] as const
 
@@ -186,6 +193,28 @@ export const getClassDetailFn = createServerFn({ method: 'POST' })
     })
   })
 
+// Sprint 1: soft-delete (status = 'dropped'), never a hard delete — the
+// student's own historical Task/Quiz/Focus Session records are entirely
+// unaffected, since none of those are foreign-keyed to `enrollments`.
+export const removeStudentFn = createServerFn({ method: 'POST' })
+  .validator(removeStudentSchema)
+  .handler(async ({ data }): Promise<{ success: true }> => {
+    const user = await requireUser()
+    if (user.role !== 'teacher') {
+      throw new Error('Only teachers can remove a student from a class')
+    }
+
+    return withRlsContext(user.id, async (tx) => {
+      const updated = await tx
+        .update(enrollments)
+        .set({ status: 'dropped' })
+        .where(and(eq(enrollments.classId, data.classId), eq(enrollments.studentId, data.studentId)))
+        .returning()
+      if (updated.length === 0) throw new Error('Enrollment not found')
+      return { success: true }
+    })
+  })
+
 export function useClasses() {
   const queryClient = useQueryClient()
 
@@ -219,9 +248,24 @@ export function useClasses() {
 }
 
 export function useClassDetail(classId: string) {
-  return useQuery({
+  const queryClient = useQueryClient()
+
+  const query = useQuery({
     queryKey: ['classes', classId],
     queryFn: () => getClassDetailFn({ data: { classId } }),
     retry: false,
   })
+
+  const removeStudentMutation = useMutation({
+    mutationFn: (studentId: string) => removeStudentFn({ data: { classId, studentId } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['classes', classId] })
+    },
+  })
+
+  return {
+    ...query,
+    removeStudent: removeStudentMutation.mutateAsync,
+    isRemovingStudent: removeStudentMutation.isPending,
+  }
 }

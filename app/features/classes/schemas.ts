@@ -22,3 +22,26 @@ export const joinClassSchema = z.object({
 })
 
 export type JoinClassInput = z.infer<typeof joinClassSchema>
+
+export const removeStudentSchema = z.object({
+  classId: z.string().uuid(),
+  studentId: z.string().uuid(),
+})
+
+export type RemoveStudentInput = z.infer<typeof removeStudentSchema>
+
+export const createPracticeTaskSchema = z.object({
+  classId: z.string().uuid(),
+  title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
+  description: z.string().max(2000, 'Description is too long').optional(),
+  dueDate: z
+    .union([z.string().min(1), z.literal('')])
+    .optional()
+    .transform((v) => (v === '' || v === undefined ? undefined : v)),
+})
+
+export type CreatePracticeTaskInput = z.infer<typeof createPracticeTaskSchema>
+
+export const taskTemplateIdSchema = z.object({
+  templateId: z.string().uuid(),
+})

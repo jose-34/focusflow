@@ -176,10 +176,28 @@ erDiagram
 | created_at | timestamptz | not null |
 | completed_at | timestamptz | nullable |
 | quiz_id | uuid | FK → quizzes, cascade, nullable |
+| task_type | enum(`personal`,`practice`,`quiz_assignment`) | not null, default `personal` — Sprint 1 |
+| template_id | uuid | FK → task_templates, cascade, nullable — Sprint 1 |
+| class_id | uuid | FK → classes, cascade, nullable — Sprint 1 |
 
-**Indexes:** `user_id`, `quiz_id`.
-**RLS:** `tasks_self_access` (owner, full access) + `tasks_teacher_select` (a teacher sees only rows where `quiz_id is not null and fn_quiz_owned_by_teacher(quiz_id)` — never a student's personal, non-quiz-linked tasks).
-**Planned additions** ([C2](04_Product_Requirements_Document.md#c2-practice-task-assignment)): `template_id` (→ a new `task_templates` table), `class_id`, and a `task_type` enum (`personal`/`practice`/`quiz_assignment`).
+**Indexes:** `user_id`, `quiz_id`, `template_id`, `class_id`.
+**RLS:** `tasks_self_access` (owner, full access) + `tasks_teacher_select` (a teacher sees rows where `quiz_id is not null and fn_quiz_owned_by_teacher(quiz_id)` **or** `class_id is not null and fn_is_class_teacher(class_id)` — Sprint 1 extended this for Practice Tasks) + **`tasks_teacher_insert_practice`** (Sprint 1, INSERT only).
+
+**A real RLS gap found by testing, not assumed away**: `tasks_self_access`'s `WITH CHECK` requires the inserted row's `user_id` to equal the current session's user — which meant the Practice Task fan-out (a teacher's session inserting rows on behalf of their students) failed outright, confirmed by a direct script reproducing the exact `PostgresError: new row violates row-level security policy for table "tasks"`. Fixed with a second, narrowly-scoped INSERT policy: `withCheck: task_type = 'practice' and class_id is not null and fn_is_class_teacher(class_id)`. Verified it cannot be used to insert a `personal`-typed row for someone else, and cannot be used by a teacher who doesn't own that class.
+
+### `task_templates`
+| Column | Type | Constraint |
+|---|---|---|
+| id | uuid | PK |
+| class_id | uuid | FK → classes, cascade |
+| teacher_id | uuid | FK → users, cascade |
+| title | text | not null |
+| description | text | nullable |
+| due_date | timestamptz | nullable |
+| created_at, updated_at | timestamptz | not null |
+
+**Indexes:** `class_id`, `teacher_id`.
+**RLS:** `task_templates_all` (`for: 'all'`, `fn_is_class_teacher(class_id)`) — the owning teacher only; a student never reads a template directly, only their own fanned-out `tasks` row. Deleting a template cascades to every task it fanned out, by design — one delete removes the assignment from every student's list at once.
 
 ---
 

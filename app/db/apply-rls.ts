@@ -373,8 +373,30 @@ const policies: Array<RlsPolicy> = [
     table: 'tasks',
     name: 'tasks_teacher_select',
     for: 'select',
-    using: `quiz_id is not null and fn_quiz_owned_by_teacher(quiz_id)`,
+    // Sprint 1: OR'd with the Practice Task case — class_id is likewise
+    // never client-settable on the personal-task create path (only the
+    // server's fan-out sets it), so this can't be spoofed the same way
+    // quiz_id can't be.
+    using: `(quiz_id is not null and fn_quiz_owned_by_teacher(quiz_id)) or (class_id is not null and fn_is_class_teacher(class_id))`,
   },
+  // Sprint 1, found by testing (not assumed): tasks_self_access's WITH CHECK
+  // (user_id = CU) blocks the practice-task fan-out entirely — a teacher's
+  // session inserting a row on a STUDENT's behalf fails RLS, since the
+  // inserted row's user_id is the student's, not the teacher's. This is a
+  // second, additive INSERT policy narrowly scoped to exactly that one
+  // case: only 'practice'-typed rows, only into a class the inserting user
+  // teaches — it can never be used to insert a personal or quiz-linked task
+  // for someone else.
+  {
+    table: 'tasks',
+    name: 'tasks_teacher_insert_practice',
+    for: 'insert',
+    withCheck: `task_type = 'practice' and class_id is not null and fn_is_class_teacher(class_id)`,
+  },
+  // Sprint 1: task_templates is the teacher's own object end-to-end — no
+  // separate student-visibility case needed here, since a student never
+  // reads a template directly, only their own fanned-out `tasks` row.
+  { table: 'task_templates', name: 'task_templates_all', for: 'all', using: `fn_is_class_teacher(class_id)`, withCheck: `fn_is_class_teacher(class_id)` },
   {
     table: 'focus_sessions',
     name: 'focus_sessions_self_access',
@@ -485,6 +507,18 @@ const policies: Array<RlsPolicy> = [
     name: 'enrollments_delete',
     for: 'delete',
     using: `student_id = ${CU} OR fn_is_class_teacher(class_id)`,
+  },
+  // Sprint 1: didn't exist before — roster removal is a soft-delete
+  // (status = 'dropped', the schema's existing enum already has this value
+  // unused until now) rather than a hard delete, preserving historical
+  // enrollment data. Same actors as delete: the student themselves, or the
+  // teacher of that class.
+  {
+    table: 'enrollments',
+    name: 'enrollments_update',
+    for: 'update',
+    using: `student_id = ${CU} OR fn_is_class_teacher(class_id)`,
+    withCheck: `student_id = ${CU} OR fn_is_class_teacher(class_id)`,
   },
 
   // --- Quizzes: teacher owns via class; students see only published quizzes for classes they're in ---

@@ -98,6 +98,14 @@ function TasksPage() {
     return true
   })
 
+  // Sprint 1: group by taskType rather than showing one flat list — a
+  // personal to-do, a teacher-assigned Practice Task, and a quiz-linked
+  // task are genuinely different things (docs/03_Product_Glossary.md), and
+  // a student juggling assigned work benefits from seeing which is which.
+  const personalTasks = filteredTasks.filter((t) => t.taskType === 'personal')
+  const practiceTasks = filteredTasks.filter((t) => t.taskType === 'practice')
+  const quizTasks = filteredTasks.filter((t) => t.taskType === 'quiz_assignment')
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="mb-6 font-heading text-2xl font-semibold text-foreground">Tasks</h1>
@@ -181,30 +189,10 @@ function TasksPage() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-2">
-          {filteredTasks.map((task) => (
-            <div
-              key={task.id}
-              className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3"
-            >
-              <Checkbox checked={task.completed} onCheckedChange={() => handleToggle(task)} />
-              <div className="flex-1">
-                <p className={task.completed ? 'text-sm text-muted-foreground line-through' : 'text-sm text-foreground'}>
-                  {task.title}
-                </p>
-                {task.description && <p className="text-xs text-muted-foreground">{task.description}</p>}
-              </div>
-              {task.dueDate && (
-                <span className="text-xs text-muted-foreground">{new Date(task.dueDate).toLocaleDateString()}</span>
-              )}
-              <Badge variant="outline" className={priorityStyles[task.priority]}>
-                {task.priority}
-              </Badge>
-              <Button variant="ghost" size="icon" onClick={() => setTaskPendingDelete(task)} aria-label="Delete task">
-                <Trash2 className="size-4 text-muted-foreground" />
-              </Button>
-            </div>
-          ))}
+        <div className="space-y-6">
+          <TaskGroup title="Personal" tasks={personalTasks} onToggle={handleToggle} onDelete={setTaskPendingDelete} />
+          <TaskGroup title="Assigned — Practice" tasks={practiceTasks} onToggle={handleToggle} onDelete={setTaskPendingDelete} deletable={false} />
+          <TaskGroup title="Assigned — Quiz" tasks={quizTasks} onToggle={handleToggle} onDelete={setTaskPendingDelete} deletable={false} />
         </div>
       )}
 
@@ -226,6 +214,52 @@ function TasksPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+function TaskGroup({
+  title,
+  tasks,
+  onToggle,
+  onDelete,
+  deletable = true,
+}: {
+  title: string
+  tasks: Array<Task>
+  onToggle: (task: Task) => void
+  onDelete: (task: Task) => void
+  deletable?: boolean
+}) {
+  if (tasks.length === 0) return null
+
+  return (
+    <div>
+      <h2 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{title}</h2>
+      <div className="space-y-2">
+        {tasks.map((task) => (
+          <div key={task.id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
+            <Checkbox checked={task.completed} onCheckedChange={() => onToggle(task)} />
+            <div className="flex-1">
+              <p className={task.completed ? 'text-sm text-muted-foreground line-through' : 'text-sm text-foreground'}>
+                {task.title}
+              </p>
+              {task.description && <p className="text-xs text-muted-foreground">{task.description}</p>}
+            </div>
+            {task.dueDate && (
+              <span className="text-xs text-muted-foreground">{new Date(task.dueDate).toLocaleDateString()}</span>
+            )}
+            <Badge variant="outline" className={priorityStyles[task.priority]}>
+              {task.priority}
+            </Badge>
+            {deletable && (
+              <Button variant="ghost" size="icon" onClick={() => onDelete(task)} aria-label="Delete task">
+                <Trash2 className="size-4 text-muted-foreground" />
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

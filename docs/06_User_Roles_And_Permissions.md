@@ -50,9 +50,9 @@ Five roles exist or are planned. Two are Built (**Student**, **Teacher**); three
 | Own account/profile | ✅ | ✅ (register) | ✅ | — | — | — |
 | Curriculum & Subject | ✅ (read-only) | — | — | — | — | — |
 | Class | 🔶 (own only) | ✅ | 🔶 (own only) | 🔶 (own only — RLS supports it; no delete action in the UI yet) | ✅ (Class Code) | — |
-| Enrollment | 🔶 (own classes' rosters) | — (students self-join) | — | — *(no remove-student action built — open question)* | — | — |
+| Enrollment | 🔶 (own classes' rosters) | — (students self-join) | ✅ (Built, Sprint 1 — soft-delete to `dropped`) | — | — | — |
 | Personal Task | — *(never sees a student's)* / 🔶 own | ✅ (own) | ✅ (own) | ✅ (own) | — | — |
-| Practice Task | 🔶 (own-created + aggregate completion count) | ✅ (planned) | ✅ (own) | ✅ (own) | — | — |
+| Practice Task | 🔶 (own-created + aggregate completion count) | ✅ (Built, Sprint 1) | ✅ (own) | ✅ (own) | — | — |
 | Quiz | 🔶 (own classes, draft + published) | ✅ | ✅ (own) | ✅ (own) | 🔶 (publish to Public Quiz Bank, planned) | — |
 | Quiz Attempt | 🔶 (results, own classes' students only) | — | — (server-graded, immutable) | — | — | — |
 | Resource | 🔶 (own) | ✅ (planned) | ✅ (own) | ✅ (own) | ✅ (the point of it) | — |
@@ -125,7 +125,7 @@ Focus Flow's own support/operations role. Deliberately **not** a "god mode" — 
 ## Open questions carried into engineering
 
 - Should a student be able to leave/un-enroll from a class themselves, or is this teacher-initiated only?
-- Should a teacher be able to remove a student from their class roster?
+- ~~Should a teacher be able to remove a student from their class roster?~~ — **resolved, Built (Sprint 1)**: soft-delete via `enrollments.status = 'dropped'`.
 - Should a teacher eventually see aggregate or individual Mastery Path data, given CBC/CBE's own competency-reporting requirements named in [02_Product_Definition.md](02_Product_Definition.md) — and if so, at what aggregation level?
 - Should a Guardian be able to self-revoke their own access, independent of the student revoking it?
 - Should a School Administrator ever be able to provision teacher accounts for their school, or does every teacher always self-register?

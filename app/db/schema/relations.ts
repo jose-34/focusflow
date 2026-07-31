@@ -3,7 +3,28 @@ import { classes, enrollments } from './classes'
 import { curricula, subjects } from './curricula'
 import { quizAttempts, quizChoices, quizQuestions, quizzes } from './quizzes'
 import { gameAnswers, gameParticipants, gameSessions } from './game_sessions'
+import { taskTemplates } from './task_templates'
+import { tasks } from './tasks'
 import { users } from './users'
+
+export const taskTemplatesRelations = relations(taskTemplates, ({ one, many }) => ({
+  class: one(classes, {
+    fields: [taskTemplates.classId],
+    references: [classes.id],
+  }),
+  teacher: one(users, {
+    fields: [taskTemplates.teacherId],
+    references: [users.id],
+  }),
+  tasks: many(tasks),
+}))
+
+export const tasksRelations = relations(tasks, ({ one }) => ({
+  template: one(taskTemplates, {
+    fields: [tasks.templateId],
+    references: [taskTemplates.id],
+  }),
+}))
 
 export const curriculaRelations = relations(curricula, ({ many }) => ({
   subjects: many(subjects),

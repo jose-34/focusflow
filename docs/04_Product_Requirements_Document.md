@@ -178,16 +178,18 @@ This document does not cover screens, layouts, or visual design — see [11_UI_U
 
 **Actors:** Teacher (full roster), Student (their own membership + teacher's name only).
 
-**Inputs:** None (read-only view).
+**Inputs:** None for viewing. Removal: a `studentId` (teacher-only action).
 **Outputs:** Teacher sees every active student's name and email; a Student sees the class name, code, curriculum/subject badges, and teacher's name — never their classmates' details.
 
 **Rules**
 - A Student can never see another student enrolled in the same class through this feature (no peer roster) — that is out of scope entirely, not merely hidden in the UI.
 - A dropped (inactive) enrollment disappears from the active roster count but is not deleted (historical record preserved).
+- **Sprint 1**: a teacher can remove a student from their class — implemented as `enrollments.status = 'dropped'`, never a hard delete, so the student's own historical Task/Quiz/Focus Session records are entirely unaffected. Required adding an `enrollments_update` RLS policy that didn't exist before (only select/insert/delete did).
 
 **Acceptance Criteria**
 - ✓ A Teacher viewing their own class roster sees every active student.
 - ✓ A Student viewing the same class never sees a peer's name, email, or any of their data.
+- ✓ Removing a student soft-deletes their enrollment; their own Tasks, Quiz Attempts, and Focus Sessions remain fully intact and owned by them.
 
 ---
 
@@ -213,7 +215,7 @@ This document does not cover screens, layouts, or visual design — see [11_UI_U
 ---
 
 ### C2. Practice Task Assignment
-**Status: Planned** (Phase 2 of the redesign roadmap).
+**Status: Built** (Sprint 1). A real RLS gap was found and fixed while implementing this, not assumed away: `tasks_self_access`'s `WITH CHECK` only ever permitted inserting a row for yourself, which blocks the teacher-fans-out-to-students write entirely. Fixed with a second, narrowly-scoped INSERT policy (`tasks_teacher_insert_practice`) — verified it cannot be used to insert a `personal`-typed task for someone else, or into a class the caller doesn't teach. See [09_Database_Design.md](09_Database_Design.md).
 **Purpose:** Give teachers a genuinely ungraded, rehearsal-only assignment type — distinct from a graded Quiz and from a student's own personal Task — closing the gap named in [01_Product_Vision.md](01_Product_Vision.md) ("tasks belong to teachers to assign, students to complete, with personal tasks kept separate").
 
 **Actors:** Teacher (assigns), Student (completes).

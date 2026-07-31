@@ -87,6 +87,7 @@ async function ensureAssignmentTask(tx: Tx, studentId: string, quiz: { id: strin
     quizId: quiz.id,
     dueDate: quiz.dueDate,
     priority: 'medium',
+    taskType: 'quiz_assignment',
   })
 }
 
