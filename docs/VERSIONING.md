@@ -57,3 +57,4 @@ Plans and reviews live in `docs/sprints/`, numbered to match the sprint (`00_Spr
 | Version | Date | Status | Summary |
 |---|---|---|---|
 | v1.0 | 2026-07-31 | **Engineering Approved** | The full `-01`–`19` specification, [Architecture Review](ARCHITECTURE_REVIEW.md), and [Design Review Board](DESIGN_REVIEW_BOARD.md) verdict — all five blockers closed and empirically verified. Sprint 0 authorized. |
+| v1.0 (Sprint 0) | 2026-07-31 | **Complete** | Git repo, CI pipeline, Vitest + 12 unit tests, audit-log table, error-handling standard, `CONTRIBUTING.md`, and a real `focusflow_app` role-bootstrap script (a gap found while wiring CI, not in the original plan). One React Rules-of-Hooks bug found and fixed via lint. See [00_Sprint_0_Review.md](sprints/00_Sprint_0_Review.md) for the full account, including one known e2e flake carried forward openly. |
