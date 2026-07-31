@@ -1,6 +1,6 @@
 # Focus Flow: Deployment Architecture
 
-*Checked directly before writing this: there is no deployment configuration anywhere in this repository — no Dockerfile, no CI workflow, no cloud provider config, and `.env.example` points at `localhost`. Focus Flow exists today only as a local development server. This document is more purely a target specification than any other in this set, and says so plainly rather than describing aspiration as if it were already real.*
+*Originally written when there was no deployment configuration anywhere in this repository. A production entry now exists (`server/prod.ts`) and is locally verified — see §4 for what changed and a real bug it surfaced. What's still not verified: an actual live deploy on the chosen host, since that requires the founder's own Railway account.*
 
 Governed by [-01_Focus_Flow_Principles.md](-01_Focus_Flow_Principles.md). Resolves the dependencies deliberately deferred here by [08_System_Architecture.md](08_System_Architecture.md) (the WebSocket production gap) and [15_Security_Privacy.md](15_Security_Privacy.md) (backups, recovery, encryption in transit/at rest).
 
@@ -16,7 +16,9 @@ Governed by [-01_Focus_Flow_Principles.md](-01_Focus_Flow_Principles.md). Resolv
 
 **Focus Flow cannot be deployed to a plain serverless-functions host (a bare Vercel/Netlify Functions deployment, for instance) without breaking Live Game Sessions.** The raw `ws` `WebSocketServer` ([08_System_Architecture.md](08_System_Architecture.md)) needs a long-running, persistent Node process to hold open connections — a serverless function that spins up per-request and tears down has no way to do this. The existing polling fallback would silently become the *only* path in that scenario, not a backup for an edge case, but the entire live-game experience degrading to a 1200ms-latency poll for every game, permanently, with no visible warning that it happened. **Any hosting decision must be evaluated against this constraint first**, before cost or familiarity.
 
-Platforms that satisfy this constraint (named as illustrative examples, not a final vendor decision, which is a business call this document doesn't make): a platform-as-a-service supporting a persistent Node process (Railway, Render, Fly.io), or a conventional VPS. Cost-sensitivity is itself a named business risk in [01_Product_Vision.md](01_Product_Vision.md) — a managed platform-as-a-service is likely the right fit for a solo/small team over raw cloud infrastructure (AWS/GCP directly), which trades lower cost for real DevOps effort this team doesn't yet have the capacity for.
+Platforms that satisfy this constraint: a platform-as-a-service supporting a persistent Node process (Railway, Render, Fly.io), or a conventional VPS. Cost-sensitivity is itself a named business risk in [01_Product_Vision.md](01_Product_Vision.md) — a managed platform-as-a-service is likely the right fit for a solo/small team over raw cloud infrastructure (AWS/GCP directly), which trades lower cost for real DevOps effort this team doesn't yet have the capacity for.
+
+**Decided**: Railway, chosen for setup simplicity over Render/Fly.io (Nixpacks auto-detection, one-click managed Postgres, generous free tier) — not a claim that it's the only valid choice, just the one made. This followed an earlier, real attempt to deploy to a bare Vercel serverless target, which produced a `404 NOT_FOUND` — Vercel's build-output convention doesn't match a fetch-handler-shaped Node app without an adapter, and even with one, it would have hit exactly the WebSocket constraint above. Switching host, not patching around it, was the correct call.
 
 ---
 
@@ -28,7 +30,11 @@ Per [16_Testing_Strategy.md](16_Testing_Strategy.md), a real CI pipeline doesn't
 
 ## 4. Production
 
-**Does not exist today.** Target shape, building on §2: one (initially) Node process running both the TanStack Start server and the WebSocket server side by side (as they already do in development), behind HTTPS termination, against a managed Postgres instance. `NODE_ENV=production` and real `DATABASE_URL`/`DATABASE_ADMIN_URL` values pointing at that managed instance, never `localhost`.
+**Built and locally verified** (not yet confirmed live on Railway itself — that step needs the founder's own account). One Node process (`server/prod.ts`) running the TanStack Start SSR handler, static asset serving for `dist/client`, and the game WebSocket server, all on one `http.Server` and one port (`process.env.PORT`) — no second exposed port needed, unlike the original standalone-port-3001 dev setup. `attachGameWebSocketServer()` ([08_System_Architecture.md](08_System_Architecture.md)) mounts the socket on the same server via a path-filtered `'upgrade'` handler (`/ws/game`) rather than binding its own port, specifically so this works behind Railway's single-domain HTTPS proxy with no extra TCP-proxy configuration.
+
+**A real, separate bug found while building this, unrelated to hosting**: the production build was silently broken regardless of host. `vite.config.ts` merged `.env`'s `NODE_ENV=development` (kept there for local dev convenience) into `process.env` even during `vite build`, and separately, an ambient empty-string shell `NODE_ENV` survived Vite's own "set if absent" default — either way, `@vitejs/plugin-react` picked the dev JSX transform (`jsxDEV`) even in a production build. The built `server.js` then threw `TypeError: jsxDEV is not a function` on its first real render, since `react-dom`'s production SSR entry has no such export. Fixed by having `vite.config.ts` force `process.env.NODE_ENV` to match Vite's own build/dev mode explicitly, before anything else reads it. This means **every prior build of this app, had one ever been produced, would have crashed identically** — not something this deployment attempt introduced, just the first time anyone tried to actually run a production build and found out.
+
+`NODE_ENV=production` and real `DATABASE_URL`/`DATABASE_ADMIN_URL` values pointing at the managed Postgres instance, never `localhost`, are still the deploy-time requirement — Railway sets `PORT` and (once configured) `NODE_ENV` automatically; `DATABASE_URL`/`DATABASE_ADMIN_URL` must be set manually to the managed Postgres instance's connection strings.
 
 **Encryption in transit**, deferred from [15_Security_Privacy.md](15_Security_Privacy.md): resolved by whichever host is chosen terminating TLS in front of the app — this is a hosting-platform default on every reasonable option named in §2, not custom work, but it must be explicitly verified once a host is chosen, not assumed.
 
@@ -83,7 +89,7 @@ flowchart LR
 
 ## Open questions carried into engineering
 
-- Final hosting platform decision (§2) — a business/cost decision this document deliberately does not make unilaterally.
+- ~~Final hosting platform decision (§2)~~ — **resolved: Railway** (§2). Still open: confirming a real, live deploy actually succeeds — that requires the founder's own Railway account and hasn't happened yet.
 - Whether CI (§3, §5) gates merges or runs informationally at first.
 - Which error-tracking/monitoring tool (§6), evaluated against the same privacy-review requirement already named for analytics tools in [08_System_Architecture.md](08_System_Architecture.md).
 - When (not if) Redis-backed pub/sub (§8) becomes necessary — tied to real usage growth, not a fixed date.

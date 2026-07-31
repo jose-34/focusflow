@@ -36,27 +36,13 @@ type GameRoom = {
 }
 
 const rooms = new Map<string, GameRoom>()
-const wss = new WebSocketServer({ port: 3001 })
 
-// listen()'s failure (e.g. EADDRINUSE from a stray leftover dev-server
-// process) fires asynchronously as an 'error' event, after the constructor
-// above has already returned — outside the synchronous try/catch that wraps
-// require('./app/lib/ws-server') in vite.config.ts. Without a listener here,
-// Node treats this as an unhandled 'error' event and crashes the ENTIRE
-// process, taking down Vite itself, not just the optional realtime feature.
-// The app already polls as a fallback whenever the socket never connects
-// (see useHostGameStateRealtime/usePlayerGameStateRealtime), so degrading to
-// a warning instead of a crash is the correct behavior here.
-wss.on('error', (err: NodeJS.ErrnoException) => {
-  if (err.code === 'EADDRINUSE') {
-    console.warn(
-      '⚠️  Game WebSocket server: port 3001 is already in use (likely a leftover dev-server process). ' +
-        'Live-game updates will fall back to polling. Stop the other process and restart `npm run dev` to restore realtime.',
-    )
-  } else {
-    console.error('Game WebSocket server error:', err)
-  }
-})
+// The production entry (server/prod.ts) mounts the game socket on the same
+// http.Server and port as the main app via attachGameWebSocketServer() — one
+// public port, one TLS cert, no extra host-side networking config. Dev keeps
+// its own standalone port (see getWss() below) since vite.config.ts's dev
+// server is a separate process from this one.
+export const GAME_WS_PATH = '/ws/game'
 
 function parseCookie(header: string | undefined, name: string): string | null {
   if (!header) return null
@@ -101,7 +87,7 @@ async function authorizeConnection(
   })
 }
 
-wss.on('connection', (ws, req) => {
+function handleGameConnection(ws: WebSocket, req: import('node:http').IncomingMessage) {
   void (async () => {
     const url = new URL(req.url ?? '/', 'http://localhost')
     const sessionId = url.searchParams.get('sessionId')
@@ -167,7 +153,7 @@ wss.on('connection', (ws, req) => {
   })().catch(() => {
     ws.close(1011, 'Internal error')
   })
-})
+}
 
 function broadcast(sessionId: string, message: unknown, exclude?: WebSocket) {
   const room = rooms.get(sessionId)
@@ -190,6 +176,58 @@ export function broadcastGameState(sessionId: string, state: GameState) {
   broadcast(sessionId, { type: 'state:update', state })
 }
 
+let devWss: WebSocketServer | null = null
+
+// Dev-only: a standalone server on its own port, called from vite.config.ts.
+// Kept exactly as before — vite's dev server is a separate process, so there
+// is no shared http.Server to attach to here.
 export function getWss() {
-  return wss
+  if (!devWss) {
+    devWss = new WebSocketServer({ port: 3001 })
+
+    // listen()'s failure (e.g. EADDRINUSE from a stray leftover dev-server
+    // process) fires asynchronously as an 'error' event, after the
+    // constructor above has already returned — outside the synchronous
+    // try/catch that wraps require('./app/lib/ws-server') in vite.config.ts.
+    // Without a listener here, Node treats this as an unhandled 'error'
+    // event and crashes the ENTIRE process, taking down Vite itself, not
+    // just the optional realtime feature. The app already polls as a
+    // fallback whenever the socket never connects (see
+    // useHostGameStateRealtime/usePlayerGameStateRealtime), so degrading to
+    // a warning instead of a crash is the correct behavior here.
+    devWss.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        console.warn(
+          '⚠️  Game WebSocket server: port 3001 is already in use (likely a leftover dev-server process). ' +
+            'Live-game updates will fall back to polling. Stop the other process and restart `npm run dev` to restore realtime.',
+        )
+      } else {
+        console.error('Game WebSocket server error:', err)
+      }
+    })
+
+    devWss.on('connection', handleGameConnection)
+  }
+  return devWss
+}
+
+// Production: mounted on the same http.Server (and therefore the same port
+// and TLS cert) as the main app, via the server's 'upgrade' event, filtered
+// to GAME_WS_PATH so it never intercepts an unrelated upgrade request.
+export function attachGameWebSocketServer(server: import('node:http').Server): WebSocketServer {
+  const prodWss = new WebSocketServer({ noServer: true })
+  prodWss.on('connection', handleGameConnection)
+
+  server.on('upgrade', (req, socket, head) => {
+    const { pathname } = new URL(req.url ?? '/', 'http://localhost')
+    if (pathname !== GAME_WS_PATH) {
+      socket.destroy()
+      return
+    }
+    prodWss.handleUpgrade(req, socket, head, (ws) => {
+      prodWss.emit('connection', ws, req)
+    })
+  })
+
+  return prodWss
 }

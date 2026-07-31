@@ -16,6 +16,22 @@ function generatePin(): string {
   return String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0')
 }
 
+// Dev's standalone WS server listens on its own port (3001, see
+// app/lib/ws-server.ts's getWss()) because vite's dev server is a separate
+// process. In production the game socket is mounted on the SAME http.Server
+// and port as the main app (see server/prod.ts's attachGameWebSocketServer),
+// so the client must connect same-origin, path-based, with no explicit port.
+function buildGameWsUrl(params: Record<string, string>): string {
+  const wsProtocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const search = new URLSearchParams(params).toString()
+  if (import.meta.env.DEV) {
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost'
+    return `${wsProtocol}//${host}:3001?${search}`
+  }
+  const host = typeof window !== 'undefined' ? window.location.host : 'localhost'
+  return `${wsProtocol}//${host}/ws/game?${search}`
+}
+
 export const createGameSessionFn = createServerFn({ method: 'POST' })
   .validator(createGameSessionSchema)
   .handler(async ({ data }) => {
@@ -577,9 +593,7 @@ export function useHostGameStateRealtime(sessionId: string) {
 
     function connect() {
       try {
-        const wsProtocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost'
-        ws = new WebSocket(`${wsProtocol}//${host}:3001?sessionId=${sessionId}&role=host`)
+        ws = new WebSocket(buildGameWsUrl({ sessionId, role: 'host' }))
         wsRef.current = ws
 
         ws.onopen = () => {
@@ -645,9 +659,7 @@ export function usePlayerGameStateRealtime(sessionId: string, participantId: str
 
     function connect() {
       try {
-        const wsProtocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost'
-        ws = new WebSocket(`${wsProtocol}//${host}:3001?sessionId=${sessionId}&role=player&participantId=${participantId}`)
+        ws = new WebSocket(buildGameWsUrl({ sessionId, role: 'player', participantId }))
         wsRef.current = ws
 
         ws.onopen = () => {

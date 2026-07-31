@@ -5,7 +5,24 @@ import tailwindcss from '@tailwindcss/vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
 
 export default defineConfig(({ mode }) => {
-  Object.assign(process.env, loadEnv(mode, process.cwd(), ''))
+  // Force process.env.NODE_ENV to match Vite's own build/dev mode,
+  // unconditionally. Two independent ways this drifted before this line
+  // existed, both confirmed by hand: (1) .env hardcodes NODE_ENV=development
+  // for local dev convenience, and the loadEnv() spread below would
+  // otherwise stomp the real value with it during `vite build` too; (2) an
+  // ambient shell NODE_ENV of '' (present, but falsy) also survives
+  // Vite's own "set NODE_ENV if absent" default, since '' still counts as
+  // present. Either way, @vitejs/plugin-react then picks the dev JSX
+  // transform (jsxDEV) even in a production build — confirmed the hard way:
+  // the resulting server.js throws "jsxDEV is not a function" the moment it
+  // tries to render, since react-dom's production SSR entry has no such
+  // export. Setting this explicitly, before anything reads it, removes the
+  // ambiguity regardless of what the calling shell/host happened to set.
+  process.env.NODE_ENV = mode === 'production' ? 'production' : 'development'
+
+  const loadedEnv = loadEnv(mode, process.cwd(), '')
+  delete loadedEnv.NODE_ENV
+  Object.assign(process.env, loadedEnv)
 
   if (mode === 'development') {
     try {
