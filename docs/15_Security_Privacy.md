@@ -34,11 +34,11 @@ Neither "depends on deployment" row should be read as "handled" — both are ope
 
 ---
 
-## 4. Audit logs — a real, significant gap this document surfaces for the first time
+## 4. Audit logs — built in Sprint 0
 
-**None exist.** No table logs who accessed what, when, or why — not for ordinary application use, and not for the one role whose entire design in [06_User_Roles_And_Permissions.md](06_User_Roles_And_Permissions.md) explicitly depends on logging existing: **Platform Administrator's access to individual student data was specified as permissible "only via an audited, logged support exception" — and no audit-logging mechanism exists anywhere in this schema to make that true.** That role's entire privacy justification is currently a promise with nothing behind it.
+**Resolved.** `audit_log` (`app/db/schema/audit_log.ts`) exists: actor user ID (nullable, `set null` on account deletion so a record outlives the actor rather than blocking their erasure), action, target table, target ID, timestamp, and a **required, non-optional** `reason` field — an audited exception with no stated reason isn't audited, it's just logged. RLS is enabled with **zero policies**, a deliberate default-deny for every app role including the actor themselves; only `adminDb`, via the `logAuditEvent()` helper (`app/db/audit.ts`), can write to it. Verified empirically: an RLS-scoped `SELECT` returns zero rows for any app-role user, while `logAuditEvent()` succeeds via `adminDb`.
 
-**This needs to be built before Platform Administrator is a real role, not after.** A minimal version: an `audit_log` table (actor user ID, action, target resource, timestamp, and — critically — a required reason/ticket-reference field for any cross-user access) written to automatically whenever an `adminDb`-bypassing query touches another user's sensitive data. This is scoped here as a concrete prerequisite, not a nice-to-have hardening pass.
+**Still not fully wired**: no current code path calls `logAuditEvent()` yet, since Platform Administrator (the role whose access this table exists to audit) isn't built. This is correct sequencing, not an oversight — the table and its access control exist and are verified *before* anything depends on them, exactly the order Sprint 0 was scoped to establish. Wire real calls to it when [18_Product_Roadmap.md](18_Product_Roadmap.md)'s Version 2.1 (Platform Administrator) is built.
 
 ---
 

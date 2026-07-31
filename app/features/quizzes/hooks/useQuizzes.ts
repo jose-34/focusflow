@@ -7,6 +7,7 @@ import { quizAnswers, quizAttempts, quizChoices, quizQuestions, quizzes, tasks }
 import { requireUser } from '@/features/auth/utils'
 import { createQuestionSchema, createQuizSchema, questionIdSchema, quizIdSchema, submitQuizSchema, togglePublishSchema } from '@/features/auth/validators'
 import { classIdSchema } from '@/features/classes/schemas'
+import { computeRiskScore } from '../riskScore'
 
 export interface ClassQuizSummary {
   id: string
@@ -367,14 +368,11 @@ export const getAssignmentInsightsFn = createServerFn({ method: 'POST' })
         const focusSessionCount = focusSessionsForStudent.length
         const totalFocusMinutes = focusSessionsForStudent.reduce((sum, session) => sum + (session.durationMinutes ?? 0), 0)
 
-        const isProcrastinating = focusSessionCount === 0 && hoursBeforeDeadline !== null && hoursBeforeDeadline <= 24
-        const riskScore = !attempt
-          ? 3
-          : focusSessionCount === 0 && hoursBeforeDeadline !== null && hoursBeforeDeadline <= 24
-          ? 2
-          : hoursBeforeDeadline !== null && hoursBeforeDeadline <= 48
-          ? 1
-          : 0
+        const { procrastinationFlag: isProcrastinating, riskScore } = computeRiskScore({
+          hasAttempt: !!attempt,
+          focusSessionCount,
+          hoursBeforeDeadline,
+        })
 
         return {
           studentId: student.id,

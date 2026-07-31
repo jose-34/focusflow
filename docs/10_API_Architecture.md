@@ -151,15 +151,15 @@ Every `Input` column above is a real zod schema, shared verbatim between the cli
 
 ## Error handling summary
 
-There is no unified error envelope or error-code taxonomy today — handlers `throw new Error('message')`, and the client surfaces `error.message` directly (typically via a toast). Two deliberate patterns recur throughout, worth naming once rather than per-function:
+**Sprint 0 decision (see [docs/VERSIONING.md](VERSIONING.md)): bare `throw new Error('message')` is the standard, deliberately, not a stopgap.** A structured `{code, message}` taxonomy was considered and explicitly declined for now — there is no i18n layer and no external API consumer today that would benefit from machine-readable codes, and every handler already follows this convention consistently. Revisit only if a real need appears (a public API, a localization pass) — don't add the taxonomy speculatively.
+
+Two deliberate patterns recur throughout, worth naming once rather than per-function:
 
 - **Generic-on-purpose errors**: login failure, class-code lookup — never reveal *which* part was wrong, to avoid user enumeration or code-guessing feedback.
-- **Silent no-ops instead of errors**: `toggleTaskFn`/`deleteTaskFn` scoping their `WHERE` to the caller's own `userId` means an ID belonging to someone else simply matches zero rows — not a thrown 403, just nothing happens. This is a real inconsistency with the rest of the system's explicit-error style, named here as an open question, not silently normalized into a rule.
+- **~~Silent no-ops instead of errors~~ — fixed.** `toggleTaskFn`/`deleteTaskFn` previously scoped their `WHERE` to the caller's own `userId`, so an ID belonging to someone else silently matched zero rows instead of throwing. Both now explicitly check the result and `throw new Error('Task not found')` when it's empty, matching the rest of the system's explicit-error convention.
 
 ## Open questions carried into engineering
 
-- Should there be a real, structured error code taxonomy (e.g. `{code, message}`) instead of bare `Error` messages, especially once a proper frontend error-boundary or i18n layer is needed?
-- Should `toggleTaskFn`/`deleteTaskFn`'s silent-no-op-on-wrong-owner behavior be made consistent with the rest of the system's explicit "not found" errors?
 - When [Phase 3's unification](08_System_Architecture.md) merges the two Focus & Behavior paths, which set of functions survives — `useFocusSession.ts`'s, `focusMode.ts`'s, or a new third API replacing both?
 
 ---

@@ -477,23 +477,13 @@ function StudentQuizView({ classId, quizId }: { classId: string; quizId: string 
   const [verifiedMinutes, setVerifiedMinutes] = useState<number | null>(null)
   const [focusHeartbeatError, setFocusHeartbeatError] = useState<string | null>(null)
 
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-10">
-        <div className="h-8 w-48 animate-pulse rounded bg-secondary" />
-      </div>
-    )
-  }
-
-  if (!quiz) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-10 text-center">
-        <p className="text-sm text-muted-foreground">Quiz not found, or it hasn&apos;t been published yet.</p>
-      </div>
-    )
-  }
-
-  const hasSubmitted = !!quiz.attempt?.submittedAt
+  // Sprint 0 fix (docs/CONTRIBUTING.md, docs/16_Testing_Strategy.md): these
+  // four hooks previously sat AFTER the isLoading/!quiz early returns below,
+  // meaning they were called conditionally — a real Rules-of-Hooks
+  // violation (not just a lint nitpick), caught by npm run lint while
+  // wiring up Sprint 0's CI pipeline. Moved above every early return; each
+  // effect already guards its own body against `quiz` being undefined.
+  const hasSubmitted = !!quiz?.attempt?.submittedAt
 
   useEffect(() => {
     const savedToken = typeof window !== 'undefined' ? sessionStorage.getItem(`focusflow.startToken.${quizId}`) : null
@@ -509,7 +499,7 @@ function StudentQuizView({ classId, quizId }: { classId: string; quizId: string 
       setTimeLeft((prev) => {
         if (prev === null || prev <= 1) {
           clearInterval(interval)
-          if (quiz.attempt && !hasSubmitted) {
+          if (quiz?.attempt && !hasSubmitted) {
             void handleSubmit()
           }
           return 0
@@ -519,6 +509,39 @@ function StudentQuizView({ classId, quizId }: { classId: string; quizId: string 
     }, 1000)
     return () => clearInterval(interval)
   }, [quiz?.timeLimitMinutes, hasSubmitted, quiz?.attempt?.id])
+
+  useEffect(() => {
+    if (!startToken && !startEventId) return
+    const interval = setInterval(() => {
+      void handleFocusHeartbeat()
+    }, 15000)
+    void handleFocusHeartbeat()
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startToken, startEventId, focusSessionId, quizId])
+
+  useEffect(() => {
+    const savedSessionId = typeof window !== 'undefined' ? sessionStorage.getItem(`focusflow.focusSessionId.${quizId}`) : null
+    if (savedSessionId) {
+      setFocusSessionId(savedSessionId)
+    }
+  }, [quizId])
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-10">
+        <div className="h-8 w-48 animate-pulse rounded bg-secondary" />
+      </div>
+    )
+  }
+
+  if (!quiz) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-10 text-center">
+        <p className="text-sm text-muted-foreground">Quiz not found, or it hasn&apos;t been published yet.</p>
+      </div>
+    )
+  }
 
   async function handleStart() {
     setIsStartingQuiz(true)
@@ -564,22 +587,6 @@ function StudentQuizView({ classId, quizId }: { classId: string; quizId: string 
       setFocusHeartbeatError(error instanceof Error ? error.message : 'Heartbeat failed')
     }
   }
-
-  useEffect(() => {
-    if (!startToken && !startEventId) return
-    const interval = setInterval(() => {
-      void handleFocusHeartbeat()
-    }, 15000)
-    void handleFocusHeartbeat()
-    return () => clearInterval(interval)
-  }, [startToken, startEventId, focusSessionId, quizId])
-
-  useEffect(() => {
-    const savedSessionId = typeof window !== 'undefined' ? sessionStorage.getItem(`focusflow.focusSessionId.${quizId}`) : null
-    if (savedSessionId) {
-      setFocusSessionId(savedSessionId)
-    }
-  }, [quizId])
 
   async function handleSubmit() {
     if (!quiz!.attempt) return

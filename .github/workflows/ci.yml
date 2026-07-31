@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  checks:
+    name: Type-check, lint, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Type-check
+        run: npx tsc -b
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm run test:unit
+
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: focusflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://focusflow_app:password@localhost:5432/focusflow
+      DATABASE_ADMIN_URL: postgresql://postgres:password@localhost:5432/focusflow
+      NODE_ENV: development
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Bootstrap the restricted app role
+        run: npm run db:bootstrap-role
+      - name: Push schema
+        run: npm run db:push
+      - name: Apply RLS policies
+        run: npm run db:rls
+      - name: Seed curricula
+        run: npm run db:seed-curricula
+      - name: Run e2e suite
+        run: npx playwright test --workers=1
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

@@ -6,16 +6,20 @@ Governed by [-01_Focus_Flow_Principles.md](-01_Focus_Flow_Principles.md). Verifi
 
 ---
 
-## 1. Unit tests — none exist
+## 1. Unit tests — adopted in Sprint 0
 
-**No unit test runner is configured in this project at all.** This is the single biggest gap in this document, and it is not abstract: **a unit test on `computeStreaks` would have caught the streak-truncation bug (named in [10_API_Architecture.md](10_API_Architecture.md) and [14_Analytics_And_Reporting.md](14_Analytics_And_Reporting.md)) in seconds, with a single test case feeding in a 20-day session history and asserting `longestStreak === 20`.** Instead, it was found by reading the handler during documentation work — which is a real way to find a bug, but a far slower and less reliable one than a test that runs on every change.
+**Vitest is now configured** (`vitest.config.ts`, `npm run test:unit`), separate from `vite.config.ts` deliberately — the app config's TanStack Start plugin and dev-only WebSocket side effect have no place in a unit-test run.
 
-**Recommendation**: adopt Vitest, since it integrates natively with the Vite bundler already in use (no new build tooling required). Priority order for what to cover first — not everything at once, the highest-value, cheapest-to-test logic first:
+**A correction to this section's own earlier claim**: it previously asserted "a unit test on `computeStreaks` would have caught the streak-truncation bug in seconds." That's imprecise, caught while actually writing the test. `computeStreaks` itself is correct — given a full history, it computes the right streak (now proven by `app/features/progress/streaks.test.ts`'s 20-day test case). **The real bug is entirely in the caller** (`getProgressDataFn`), which only ever queries 14 days of sessions before handing the result to `computeStreaks`. A pure unit test of `computeStreaks` cannot catch this — it would need an integration-level test that seeds >14 days of real sessions and asserts on `getProgressDataFn`'s actual output, which is a Version 2.2 task (the same release already scheduled to fix the bug itself), not something Sprint 0 solves by extraction alone.
 
-1. `computeStreaks` (the exact function that already has a known bug) — the concrete, motivating first test.
-2. The `riskScore` calculation inside `getAssignmentInsightsFn` ([13_Anti_Procrastination_Framework.md](13_Anti_Procrastination_Framework.md) §2) — pure, deterministic logic with real behavioral consequences if it's ever wrong.
-3. The XP economy calculations proposed in [12_Gamification_Framework.md](12_Gamification_Framework.md) §2 (once implemented) — an anti-grinding rule is exactly the kind of off-by-one-prone logic worth pinning down with a test before it ships.
-4. Zod schema edge cases (e.g., `createQuestionSchema`'s "exactly one correct choice" refine) — cheap to test, and exactly the kind of validation rule a future refactor could accidentally loosen.
+Both pure functions this section originally targeted are now extracted (out of files that import `@/db`, so they're testable without a live `DATABASE_URL`) and tested:
+
+1. `computeStreaks` → `app/features/progress/streaks.ts` + `streaks.test.ts` (6 tests, all passing) — correctly proves the function itself is sound; explicitly does **not** claim to catch the windowing bug, per the correction above.
+2. `computeRiskScore` (the risk-score logic inside `getAssignmentInsightsFn`, [13_Anti_Procrastination_Framework.md](13_Anti_Procrastination_Framework.md) §2) → `app/features/quizzes/riskScore.ts` + `riskScore.test.ts` (6 tests, all passing).
+
+**Still pending, not yet done**:
+3. The XP economy calculations proposed in [12_Gamification_Framework.md](12_Gamification_Framework.md) §2 — write these once that economy is actually implemented (Version 2.0), not before.
+4. Zod schema edge cases (e.g., `createQuestionSchema`'s "exactly one correct choice" refine) — cheap to test, not yet done.
 
 ---
 
@@ -82,11 +86,11 @@ Playwright, with `@playwright/test` installed and `test:e2e`/`test:e2e:ui` npm s
 
 Given a small team and finite time, the order below is a deliberate recommendation, not an arbitrary checklist:
 
-1. **Formalize the RLS cross-user-isolation security test suite (§6)** — highest value for lowest effort, and the only item on this list with direct, already-proven evidence of catching real, live bugs.
-2. **Unit tests for the four functions named in §1** — cheap, fast, and one of them has a *known, already-identified* bug a test would catch immediately.
-3. **Integration tests, formalizing the pattern in §2** — extends the same technique from #1 to ordinary correctness, not just security.
-4. **Accessibility fixes from the existing checklist (§5)** — the list already exists; this is execution, not new discovery.
-5. **Performance budget/Lighthouse checks (§4)** and **a formal UAT process (§7)** — valuable, but lower urgency than the above given nothing in the product today is known to violate them the way the streak bug and the RLS gaps were known violations.
+1. ~~Formalize the RLS cross-user-isolation security test suite (§6)~~ — **done, Sprint 0**: 28 checks across every RLS-protected table, all passing (see [DESIGN_REVIEW_BOARD.md](DESIGN_REVIEW_BOARD.md)).
+2. ~~Unit tests for `computeStreaks` and `computeRiskScore`~~ — **done, Sprint 0**: both extracted to dependency-free files and tested (§1). The remaining two (XP economy, zod schema edge cases) are still pending.
+3. **Integration tests, formalizing the pattern in §2** — extends the same technique used for security to ordinary correctness, not just access control. Not yet done.
+4. **Accessibility fixes from the existing checklist (§5)** — the list already exists; this is execution, not new discovery. Not yet done.
+5. **Performance budget/Lighthouse checks (§4)** and **a formal UAT process (§7)** — valuable, but lower urgency than the above. Not yet done.
 
 ---
 

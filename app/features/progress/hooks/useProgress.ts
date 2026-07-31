@@ -3,42 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 import { gte } from 'drizzle-orm'
 import { withRlsContext } from '@/db'
 import { requireUser } from '@/features/auth/utils'
+import { computeStreaks, toDateKey } from '../streaks'
 
 const DAYS_IN_CHART = 14
-
-function toDateKey(date: Date) {
-  return date.toISOString().slice(0, 10)
-}
-
-function computeStreaks(successDates: Set<string>) {
-  if (successDates.size === 0) return { current: 0, longest: 0 }
-
-  const sorted = [...successDates].sort()
-  let longest = 1
-  let run = 1
-  for (let i = 1; i < sorted.length; i++) {
-    const diffDays = Math.round((new Date(sorted[i]).getTime() - new Date(sorted[i - 1]).getTime()) / 86_400_000)
-    run = diffDays === 1 ? run + 1 : 1
-    longest = Math.max(longest, run)
-  }
-
-  const today = toDateKey(new Date())
-  const yesterday = toDateKey(new Date(Date.now() - 86_400_000))
-  let anchor: string | null = null
-  if (successDates.has(today)) anchor = today
-  else if (successDates.has(yesterday)) anchor = yesterday
-
-  let current = 0
-  if (anchor) {
-    let cursor = new Date(anchor)
-    while (successDates.has(toDateKey(cursor))) {
-      current += 1
-      cursor = new Date(cursor.getTime() - 86_400_000)
-    }
-  }
-
-  return { current, longest }
-}
 
 interface ProgressData {
   dailyMinutes: Array<{ date: string; minutes: number }>

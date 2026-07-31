@@ -48,6 +48,9 @@ export const toggleTaskFn = createServerFn({ method: 'POST' })
         .set({ completed: data.completed, completedAt: data.completed ? new Date() : null })
         .where(and(eq(tasks.id, data.id), eq(tasks.userId, user.id)))
         .returning()
+      // Sprint 0 error-handling standard (docs/VERSIONING.md, docs/10_API_Architecture.md):
+      // an id that doesn't belong to the caller must throw, not silently no-op.
+      if (!task) throw new Error('Task not found')
       const unlockedAchievements = data.completed ? await checkAndUnlockAchievements(tx, user.id) : []
       return { task, unlockedAchievements }
     })
@@ -57,7 +60,10 @@ export const deleteTaskFn = createServerFn({ method: 'POST' })
   .validator(deleteTaskSchema)
   .handler(async ({ data }): Promise<{ success: true }> => {
     const user = await requireUser()
-    await withRlsContext(user.id, (tx) => tx.delete(tasks).where(and(eq(tasks.id, data.id), eq(tasks.userId, user.id))))
+    const deleted = await withRlsContext(user.id, (tx) =>
+      tx.delete(tasks).where(and(eq(tasks.id, data.id), eq(tasks.userId, user.id))).returning(),
+    )
+    if (deleted.length === 0) throw new Error('Task not found')
     return { success: true }
   })
 
