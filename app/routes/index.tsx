@@ -175,7 +175,7 @@ function Index() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-3xl px-4 pb-20">
+      <section className="mx-auto max-w-6xl px-4 pb-20">
         <div className="mb-8 text-center">
           <h2 className="font-heading text-3xl font-bold text-foreground">Try it right now — no sign-up needed</h2>
           <p className="mt-2 text-muted-foreground">A quick taste of how FocusFlow turns real learning into a game.</p>
