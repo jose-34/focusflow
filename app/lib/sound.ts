@@ -87,3 +87,28 @@ export function playMissionCompleteSound() {
     { frequency: 1047, startOffset: 0.3, duration: 0.32, type: 'square', peakGain: 0.15 },
   ])
 }
+
+// Breathing-exercise cues — deliberately slower, softer, and sine-only
+// (vs. the peppier square-wave arcade sounds above) to match a calming
+// register rather than a game-score register. Never tied to XP or any
+// achievement — this stays a pure wellbeing feature per Principle 1
+// (XP only for verified learning actions).
+export function playBreatheInSound() {
+  playTones([{ frequency: 220, startOffset: 0, duration: 1.2, type: 'sine', peakGain: 0.07 }])
+}
+
+export function playBreatheHoldSound() {
+  playTones([{ frequency: 330, startOffset: 0, duration: 0.6, type: 'sine', peakGain: 0.05 }])
+}
+
+export function playBreatheOutSound() {
+  playTones([{ frequency: 196, startOffset: 0, duration: 1.6, type: 'sine', peakGain: 0.06 }])
+}
+
+/** Gentle two-note close when a few full breathing cycles are complete. */
+export function playCalmCompleteSound() {
+  playTones([
+    { frequency: 392, startOffset: 0, duration: 0.5, type: 'sine', peakGain: 0.08 },
+    { frequency: 523, startOffset: 0.3, duration: 0.7, type: 'sine', peakGain: 0.09 },
+  ])
+}

@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { ListTodo, Pause, Play, RotateCcw, SkipForward, Target } from 'lucide-react'
+import { ListTodo, Pause, Play, RotateCcw, SkipForward, Target, Wind } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { FOCUS_DURATION_OPTIONS, usePomodoro } from '@/features/timer/TimerContext'
 import { useTasks } from '@/features/tasks/hooks/useTasks'
 import { TimerRing } from '@/features/timer/components/TimerRing'
+import { BreathingExercise } from '@/features/wellness/components/BreathingExercise'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -138,6 +139,20 @@ function FocusPage() {
           </Button>
         )}
       </div>
+
+      {isBreak && (
+        <Card className="mt-10 w-full border-primary/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-heading text-base text-foreground">
+              <Wind className="size-4 text-primary" />
+              Make your break count
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BreathingExercise />
+          </CardContent>
+        </Card>
+      )}
 
       {!isBreak && (
         <Card className="mt-10 w-full">
