@@ -96,26 +96,26 @@ This document uses a **conceptual REST label** for every function anyway, becaus
 
 ## D. Focus & Behavior
 
-Two parallel systems exist and are **not yet unified** (Phase 3 of the redesign roadmap) — both are documented here as they really are today, not as they'll eventually become one.
+~~Two parallel systems exist and are not yet unified~~ — **unified, Sprint 4**. Both entry points below now write the same `focus_sessions` table (see [09_Database_Design.md](09_Database_Design.md)) and share one completion helper (`completeFocusSession()`, XP + `checkAndUnlockAchievements`) — they still start differently for a real reason (manual duration pick vs. heartbeat-verified engagement), not because the data model forces two tables anymore.
 
 ### Pomodoro path (`useFocusSession.ts`)
 
 | Conceptual route | Function | Input | Output | Permission rule | Key errors |
 |---|---|---|---|---|---|
-| `POST /focus-sessions` | `startFocusSessionFn` | durationMinutes, taskId? | The created session | Any authenticated user | A `taskId` the caller doesn't own is silently ignored (re-verified server-side, not trusted from the client — see the schema file's own comment) |
-| `POST /focus-sessions/:id/complete` | `completeFocusSessionFn` | id | `{ session, unlockedAchievements }` | Any authenticated user (own session, enforced by RLS) | Runs `checkAndUnlockAchievements` |
-| `POST /focus-sessions/:id/abandon` | `abandonFocusSessionFn` | id | The session, marked `wasSuccessful: false` | Any authenticated user | Does **not** call `checkAndUnlockAchievements` — an abandoned session earns nothing, by design |
+| `POST /focus-sessions` | `startFocusSessionFn` | durationMinutes, taskId?, commitment (required, [D3](04_Product_Requirements_Document.md#d3-commitment-setting), Sprint 2) | The created session | Any authenticated user | A `taskId` the caller doesn't own is silently ignored (re-verified server-side, not trusted from the client — see the schema file's own comment) |
+| `POST /focus-sessions/:id/complete` | `completeFocusSessionFn` | id, commitmentMet? | `{ session, xpAwarded, unlockedAchievements }` | Any authenticated user (own session, enforced by RLS) | Delegates entirely to the shared `completeFocusSession()` helper — XP (`floor(minutes/10)×2`, Sprint 4 — this path awarded none before) and `checkAndUnlockAchievements` both run here now, identically to the quiz path below |
+| `POST /focus-sessions/:id/abandon` | `abandonFocusSessionFn` | id | The session, marked `wasSuccessful: false` | Any authenticated user | Does **not** call the completion helper — an abandoned session earns nothing, by design |
 | `POST /focus-sessions/:id/distraction` | `logDistractionFn` | focusSessionId, durationSeconds | `{ success: true }` | Any authenticated user | — |
 
 ### Quiz-assignment engagement path (`focusMode.ts`)
 
 | Conceptual route | Function | Input | Output | Permission rule | Key errors |
 |---|---|---|---|---|---|
-| `POST /assignments/:id/start` | `startAssignmentFn` | assignmentId, startMethod?, clientTimestamp? | Start-XP confirmation + a `startToken` | Student only | "Assignment not found" if neither a quiz nor a task with that ID exists; idempotent via `onConflictDoNothing` — a second call returns "Already started," awarding 0 XP |
-| `POST /focus/heartbeat` | `reportFocusHeartbeatFn` | startToken or startEventId, clientHeartbeatAt, clientOffsetMs? | `{ accepted, focusSessionId, totalVerifiedMinutes }` | Student, and only for their own `start_event` (checked explicitly, not RLS alone, since `start_events` had no RLS until this session's fix — see [09_Database_Design.md](09_Database_Design.md)) | "Invalid or expired start token"; "Start token does not belong to current user" |
-| `POST /focus/:sessionId/end` | `endFocusSessionFn` | sessionId | `{ durationMinutes, verified, xpAwarded, unlockedAchievements }` | Any authenticated user (own session) | Session not found. ~~Does not call `checkAndUnlockAchievements`~~ — **fixed, Sprint 3**: a quiz-linked focus session now unlocks achievements exactly like the Pomodoro path already did. The full system unification (merging this table's two write paths, reconciling XP between them) remains deliberately out of scope — see [18_Product_Roadmap.md](18_Product_Roadmap.md) Version 1.2. |
+| `POST /assignments/start` | `startAssignmentFn` | quizId, startMethod? | `{ sessionId, startAt, startXPAwarded, message }` | Student only | "Assignment not found" if no quiz with that id exists. Creates the `focus_sessions` row immediately (Sprint 4 — no longer deferred to the first heartbeat); idempotent via a real unique index on `(quiz_id, user_id)` — a second call returns "Already started," awarding 0 XP |
+| `POST /focus/heartbeat` | `reportFocusHeartbeatFn` | sessionId, clientHeartbeatAt | `{ accepted, focusSessionId, lastHeartbeatAt, totalVerifiedMinutes }` | Student, own session only — enforced by RLS alone now (Sprint 4 dropped the separate opaque `startToken` ownership check; a `sessionId` the caller doesn't own simply fails to resolve under `focus_sessions_self_access`) | "Focus session not found" |
+| `POST /focus/:sessionId/end` | `endFocusSessionFn` | sessionId | `{ focusSessionId, startAt, endAt, durationMinutes, verified, xpAwarded, unlockedAchievements }` | Any authenticated user (own session) | Session not found. Delegates to the shared `completeFocusSession()` helper, passing the heuristic-computed duration as an override |
 
-**A genuinely fragile spot worth naming plainly**: `reportFocusHeartbeatFn`'s "verified minutes" calculation (`Math.floor(hbCount / 4)`, assuming ~4 heartbeats/minute) is a heuristic, not a measured duration — and `endFocusSessionFn`'s XP award (`Math.floor(durationMinutes / 10) * 2`) is computed independently, from the same heuristic. Neither is wrong, but neither should be treated as more precise than it is when this system is unified with the Pomodoro path.
+**The heuristic named here since Sprint 3 is unchanged, still worth stating plainly**: `reportFocusHeartbeatFn`'s "verified minutes" (`Math.floor(hbCount / 4)`, assuming ~4 heartbeats/minute) is an estimate, not a measured duration, and it's what `endFocusSessionFn` ultimately persists as `durationMinutes` — which is also what the shared completion helper's XP formula runs against. Not wrong, but not more precise than it is, either. Unifying the two paths didn't change this — only a real, separate measurement mechanism would.
 
 ### Achievements & Wellness
 
@@ -160,7 +160,7 @@ Two deliberate patterns recur throughout, worth naming once rather than per-func
 
 ## Open questions carried into engineering
 
-- When [Phase 3's unification](08_System_Architecture.md) merges the two Focus & Behavior paths, which set of functions survives — `useFocusSession.ts`'s, `focusMode.ts`'s, or a new third API replacing both?
+- ~~When Phase 3's unification merges the two Focus & Behavior paths, which set of functions survives?~~ — **answered, Sprint 4**: both survive, since they start sessions differently for real reasons (manual duration vs. heartbeat-verified). What unified is the data model and the completion logic, not the entry points themselves.
 
 ---
 

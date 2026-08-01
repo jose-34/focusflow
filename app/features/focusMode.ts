@@ -1,25 +1,22 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { randomBytes } from 'node:crypto'
-import { and, count, eq, gte, sql } from 'drizzle-orm'
+import { and, count, eq, gte, isNotNull, sql } from 'drizzle-orm'
 import { withRlsContext } from '@/db'
-import { startEvents, focusSessions, focusHeartbeats, xpLedger, users } from '@/db/schema'
+import { focusSessions, focusHeartbeats, xpLedger, users } from '@/db/schema'
 import { requireUser } from '@/features/auth/utils'
-import { checkAndUnlockAchievements } from '@/features/achievements/services/achievement.service'
+import { completeFocusSession } from '@/features/focus/completeFocusSession'
 
 const START_XP = 10
-const START_TOKEN_BYTES = 24
 // Anti-grinding cap (Design Review Board blocker #1): starting an assignment
 // is a real, useful signal to keep tracking unconditionally — it's the flat
 // per-start XP that was farmable by starting many different assignments in
 // quick succession. Only the first N starts per calendar day earn XP; every
-// start still creates a real start_event either way.
+// start still creates a real focus_sessions row either way.
 const MAX_XP_AWARDING_STARTS_PER_DAY = 3
 
 const startAssignmentSchema = z.object({
-  assignmentId: z.string().uuid(),
+  quizId: z.string().uuid(),
   startMethod: z.enum(['web', 'extension', 'mobile']).optional(),
-  clientTimestamp: z.string().optional(),
 })
 
 export const startAssignmentFn = createServerFn({ method: 'POST' })
@@ -29,74 +26,73 @@ export const startAssignmentFn = createServerFn({ method: 'POST' })
     if (user.role !== 'student') throw new Error('Only students can start assignments')
 
     return withRlsContext(user.id, async (tx) => {
-      // Basic existence check: ensure assignment exists (quiz or task)
-      const assignmentExists = await tx.query.quizzes.findFirst({ where: (q, { eq: eqOp }) => eqOp(q.id, data.assignmentId) })
-      if (!assignmentExists) {
-        const taskExists = await tx.query.tasks.findFirst({ where: (t, { eq: eqOp }) => eqOp(t.id, data.assignmentId) })
-        if (!taskExists) throw new Error('Assignment not found')
-      }
+      const quiz = await tx.query.quizzes.findFirst({ where: (q, { eq: eqOp }) => eqOp(q.id, data.quizId) })
+      if (!quiz) throw new Error('Assignment not found')
 
-      // Anti-grinding check: count today's XP-awarding starts BEFORE inserting
-      // this one, so the cap is exact (not off-by-one from including this row).
+      // Sprint 4: the row is created here, immediately — not deferred to the
+      // first heartbeat like the old start_events -> focus_sessions two-step.
+      // Resolve the linked task at the same time, same lookup the old
+      // heartbeat handler used to do on every call.
+      const task = await tx.query.tasks.findFirst({ where: (t, { eq: eqOp }) => eqOp(t.quizId, data.quizId) })
+
+      // Anti-grinding check: count today's XP-awarding assignment starts
+      // BEFORE inserting this one, so the cap is exact (not off-by-one from
+      // including this row). Only quiz-linked sessions count — a Pomodoro
+      // session has no assignment-start signal to grind.
       const [{ value: startsToday }] = await tx
         .select({ value: count() })
-        .from(startEvents)
-        .where(and(eq(startEvents.userId, user.id), gte(startEvents.startAt, sql`current_date`)))
+        .from(focusSessions)
+        .where(and(eq(focusSessions.userId, user.id), isNotNull(focusSessions.quizId), gte(focusSessions.startedAt, sql`current_date`)))
       const xpForThisStart = startsToday < MAX_XP_AWARDING_STARTS_PER_DAY ? START_XP : 0
-
-      // Upsert start_event: ensure idempotent start XP awarding
-      const token = randomBytes(START_TOKEN_BYTES).toString('hex')
       const startMethod = data.startMethod ?? 'web'
 
       const insertedRows = await tx
-        .insert(startEvents)
-        .values({ assignmentId: data.assignmentId, userId: user.id, startMethod, startXp: xpForThisStart, startToken: token })
-        .onConflictDoNothing()
+        .insert(focusSessions)
+        .values({
+          userId: user.id,
+          quizId: data.quizId,
+          taskId: task?.id ?? null,
+          startedAt: new Date(),
+          startMethod,
+          startXpAwarded: xpForThisStart,
+          durationMinutes: 0, // unknown until endFocusSessionFn computes it from heartbeats
+        })
+        .onConflictDoNothing({ target: [focusSessions.quizId, focusSessions.userId] })
         .returning()
 
       if (insertedRows.length > 0) {
         const inserted = insertedRows[0]
         if (xpForThisStart > 0) {
-          await tx.insert(xpLedger).values({ userId: user.id, amount: xpForThisStart, source: 'start_assignment', metadata: { assignmentId: data.assignmentId, startEventId: inserted.id } })
+          await tx.insert(xpLedger).values({ userId: user.id, amount: xpForThisStart, source: 'start_assignment', metadata: { quizId: data.quizId, sessionId: inserted.id } })
           await tx.update(users).set({ xp: sql`${users.xp} + ${xpForThisStart}` }).where(eq(users.id, user.id))
         }
 
         return {
-          startEventId: inserted.id,
-          userId: user.id,
-          assignmentId: data.assignmentId,
-          startAt: inserted.startAt.toISOString(),
-          startXPAwarded: inserted.startXp,
-          startMethod,
-          startToken: token,
-          currentStreakDays: null,
+          sessionId: inserted.id,
+          startAt: inserted.startedAt.toISOString(),
+          startXPAwarded: xpForThisStart,
           message: xpForThisStart > 0 ? `You earned ${xpForThisStart} XP for starting!` : 'Assignment started',
         }
       }
 
-      const existing = await tx.query.startEvents.findFirst({ where: (s, { eq: eqOp, and: andOp }) => andOp(eqOp(s.assignmentId, data.assignmentId), eqOp(s.userId, user.id)) })
-      if (!existing) throw new Error('Failed to create start event')
+      // Already started (unique index conflict) — return the existing row.
+      const existing = await tx.query.focusSessions.findFirst({
+        where: (fs, { eq: eqOp, and: andOp }) => andOp(eqOp(fs.quizId, data.quizId), eqOp(fs.userId, user.id)),
+      })
+      if (!existing) throw new Error('Failed to create focus session')
 
       return {
-        startEventId: existing.id,
-        userId: user.id,
-        assignmentId: data.assignmentId,
-        startAt: existing.startAt ? existing.startAt.toISOString() : new Date().toISOString(),
+        sessionId: existing.id,
+        startAt: existing.startedAt.toISOString(),
         startXPAwarded: 0,
-        startMethod: existing.startMethod as any,
-        startToken: existing.startToken ?? '',
-        currentStreakDays: null,
         message: 'Already started',
       }
     })
   })
 
 const reportHeartbeatSchema = z.object({
-  startToken: z.string().optional(),
-  startEventId: z.string().uuid().optional(),
-  sessionId: z.string().uuid().optional(),
+  sessionId: z.string().uuid(),
   clientHeartbeatAt: z.string(),
-  clientOffsetMs: z.number().optional(),
 })
 
 export const reportFocusHeartbeatFn = createServerFn({ method: 'POST' })
@@ -104,57 +100,21 @@ export const reportFocusHeartbeatFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const user = await requireUser()
     return withRlsContext(user.id, async (tx) => {
-      // Resolve start_event either by token or id
-      let startEvent: any = null
-      if (data.startToken) {
-              // data.startToken is narrowed by the if-check; cast to string for the DB comparison
-              startEvent = await tx.query.startEvents.findFirst({ where: (s, { eq: eqOp }) => eqOp(s.startToken, data.startToken as string) })
-            } else if (data.startEventId) {
-              startEvent = await tx.query.startEvents.findFirst({ where: (s, { eq: eqOp }) => eqOp(s.id, data.startEventId as string) })
-            }
-      if (!startEvent) throw new Error('Invalid or expired start token')
-      if (startEvent.userId !== user.id) throw new Error('Start token does not belong to current user')
+      // RLS (focus_sessions_self_access) already scopes this to the current
+      // user's own rows — a sessionId the caller doesn't own simply won't
+      // resolve, no separate ownership check needed.
+      const session = await tx.query.focusSessions.findFirst({ where: (fs, { eq: eqOp }) => eqOp(fs.id, data.sessionId) })
+      if (!session) throw new Error('Focus session not found')
 
-      // Create or find focus_session for this start_event + user where completedAt IS NULL.
-      // If the client provides a known sessionId, reuse it directly when it belongs to the current user.
-      let session
-      if (data.sessionId) {
-        session = await tx.query.focusSessions.findFirst({ where: (fs, { eq: eqOp }) => eqOp(fs.id, data.sessionId as string) })
-        if (!session) throw new Error('Focus session not found')
-        if (session.userId !== user.id) throw new Error('Focus session does not belong to current user')
-      }
-
-      const task = await tx.query.tasks.findFirst({ where: (t, { eq: eqOp }) => eqOp(t.quizId, startEvent.assignmentId) })
-      if (!session) {
-        // Build the where clause conditionally to avoid passing null into eq()
-        if (task && task.id) {
-          session = await tx.query.focusSessions.findFirst({ where: (fs, { eq: eqOp, and: andOp }) => andOp(eqOp(fs.taskId, task.id), eqOp(fs.userId, user.id), sql`${fs.completedAt} IS NULL`) })
-        } else {
-          session = await tx.query.focusSessions.findFirst({ where: (fs, { eq: eqOp, and: andOp }) => andOp(eqOp(fs.userId, user.id), sql`${fs.completedAt} IS NULL`) })
-        }
-        if (!session) {
-          const [created] = await tx.insert(focusSessions).values({
-            userId: user.id,
-            startedAt: new Date(),
-            taskId: task?.id ?? null,
-            startEventId: startEvent.id,
-            assignmentId: startEvent.assignmentId,
-            verified: false,
-          }).returning()
-          session = created
-        }
-      }
-
-      // Insert heartbeat into focus_heartbeats
       const heartbeatAt = new Date(data.clientHeartbeatAt)
-      await tx.insert(focusHeartbeats).values({ focusSessionId: session.id, startEventId: startEvent.id, assignmentId: startEvent.assignmentId, userId: user.id, heartbeatAt })
+      await tx.insert(focusHeartbeats).values({ focusSessionId: session.id, userId: user.id, heartbeatAt })
 
       // Compute approximate verified minutes (simple heuristic: count heartbeats grouped by minute)
       const heartbeats = await tx.query.focusHeartbeats.findMany({ where: (h, { eq: eqOp }) => eqOp(h.focusSessionId, session.id) })
       const hbCount = heartbeats.length
       const approxMinutes = Math.floor(hbCount / 4) // assuming ~4 heartbeats per minute
 
-      return { accepted: true, focusSessionId: session.id, lastHeartbeatAt: new Date().toISOString(), totalVerifiedMinutes: approxMinutes, message: 'heartbeat accepted' }
+      return { accepted: true, focusSessionId: session.id, lastHeartbeatAt: new Date().toISOString(), totalVerifiedMinutes: approxMinutes }
     })
   })
 
@@ -165,35 +125,20 @@ export const endFocusSessionFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const user = await requireUser()
     return withRlsContext(user.id, async (tx) => {
-      const [updated] = await tx
-        .update(focusSessions)
-        .set({ completedAt: new Date(), wasSuccessful: true })
-        .where(eq(focusSessions.id, data.sessionId))
-        .returning()
-      if (!updated) throw new Error('Session not found')
-
-      // compute duration from heartbeats or timestamps
-      const heartbeats = await tx.query.focusHeartbeats.findMany({ where: (h, { eq: eqOp }) => eqOp(h.focusSessionId, updated.id) })
+      const heartbeats = await tx.query.focusHeartbeats.findMany({ where: (h, { eq: eqOp }) => eqOp(h.focusSessionId, data.sessionId) })
       const hbCount = heartbeats.length
       const approxMinutes = Math.floor(hbCount / 4)
-      const durationMinutes = approxMinutes || (updated.completedAt && updated.startedAt ? Math.max(0, Math.round(((updated.completedAt as Date).getTime() - (updated.startedAt as Date).getTime()) / 60000)) : 0)
+      const session = await tx.query.focusSessions.findFirst({ where: (fs, { eq: eqOp }) => eqOp(fs.id, data.sessionId) })
+      if (!session) throw new Error('Session not found')
+      const durationMinutes = approxMinutes || Math.max(0, Math.round((Date.now() - session.startedAt.getTime()) / 60000))
       const verified = hbCount >= 3
 
-      await tx.update(focusSessions).set({ durationMinutes, verified }).where(eq(focusSessions.id, updated.id))
-
-      // Award per-minute XP if desired: e.g., 2 XP per 10 minutes -> 0.2 XP per minute; for simplicity award floor(durationMinutes/10)*2
-      const xpAwarded = Math.floor(durationMinutes / 10) * 2
-
-      if (xpAwarded > 0) {
-        await tx.insert(xpLedger).values({ userId: user.id, amount: xpAwarded, source: 'focus_session', metadata: { sessionId: updated.id, durationMinutes } })
-        await tx.update(users).set({ xp: sql`${users.xp} + ${xpAwarded}` }).where(eq(users.id, user.id))
-      }
-
-      // Sprint 3 fix: this path previously never checked for newly-earned
-      // achievements, even though it sets wasSuccessful: true on the same
-      // focus_sessions row the achievement service reads — only the
-      // Pomodoro completion path (useFocusSession.ts) did this.
-      const unlockedAchievements = await checkAndUnlockAchievements(tx, user.id)
+      const { session: updated, xpAwarded, unlockedAchievements } = await completeFocusSession(tx, {
+        sessionId: data.sessionId,
+        userId: user.id,
+        durationMinutesOverride: durationMinutes,
+        verified,
+      })
 
       return {
         focusSessionId: updated.id,
@@ -206,7 +151,3 @@ export const endFocusSessionFn = createServerFn({ method: 'POST' })
       }
     })
   })
-
-export function useFocusMode() {
-  return { startAssignment: (input: any) => startAssignmentFn({ data: input }), reportHeartbeat: (input: any) => reportFocusHeartbeatFn({ data: input }), endSession: (id: string) => endFocusSessionFn({ data: { sessionId: id } }) }
-}

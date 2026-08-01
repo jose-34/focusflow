@@ -78,6 +78,14 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   const [pendingReflection, setPendingReflection] = useState<PendingReflection | null>(null)
 
   const sessionIdRef = useRef<string | null>(null)
+  // Mirrors completedFocusSessions so finishFocusSession always reads a
+  // fresh count without needing it in its own dependency array (which would
+  // re-create the callback every completion) or putting side effects
+  // (toast/setMode) inside a setState updater function — React may invoke an
+  // updater more than once, and a toast firing twice from that is exactly
+  // the class of bug that pattern causes, confirmed the hard way via a
+  // duplicate-toast render caught by an e2e test asserting its exact text.
+  const completedFocusSessionsRef = useRef(0)
   const { startSession, completeSession, abandonSession, logDistraction } = useFocusSession()
   const { celebrate } = useCelebration()
 
@@ -94,8 +102,10 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   // or skips the Met/Not Met check) and the sessionId-missing fallback below.
   const finishFocusSession = useCallback(
     async (sessionId: string, commitmentMet?: boolean) => {
+      let xpAwarded = 0
       try {
         const result = await completeSession({ id: sessionId, commitmentMet })
+        xpAwarded = result.xpAwarded
         for (const key of result.unlockedAchievements) {
           const definition = ACHIEVEMENT_MAP.get(key)
           if (definition) {
@@ -106,13 +116,13 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         // Best-effort: don't let a network hiccup break the timer UX.
       }
       setCommitmentState('')
-      setCompletedFocusSessions((count) => {
-        const nextCount = count + 1
-        const isLongBreak = nextCount % SESSIONS_UNTIL_LONG_BREAK === 0
-        toast.success(isLongBreak ? 'Great work! Time for a long break.' : 'Focus session complete! Take a short break.')
-        setMode(isLongBreak ? 'long_break' : 'short_break')
-        return nextCount
-      })
+      const nextCount = completedFocusSessionsRef.current + 1
+      completedFocusSessionsRef.current = nextCount
+      const isLongBreak = nextCount % SESSIONS_UNTIL_LONG_BREAK === 0
+      const xpSuffix = xpAwarded > 0 ? ` +${xpAwarded} XP` : ''
+      toast.success((isLongBreak ? 'Great work! Time for a long break.' : 'Focus session complete! Take a short break.') + xpSuffix)
+      setMode(isLongBreak ? 'long_break' : 'short_break')
+      setCompletedFocusSessions(nextCount)
     },
     [completeSession, celebrate],
   )
@@ -145,16 +155,17 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       }
       // Defensive fallback only — start() requires a commitment before a
       // session can begin, so sessionIdRef should never be empty here.
-      const nextCount = completedFocusSessions + 1
-      setCompletedFocusSessions(nextCount)
+      const nextCount = completedFocusSessionsRef.current + 1
+      completedFocusSessionsRef.current = nextCount
       const isLongBreak = nextCount % SESSIONS_UNTIL_LONG_BREAK === 0
       toast.success(isLongBreak ? 'Great work! Time for a long break.' : 'Focus session complete! Take a short break.')
       setMode(isLongBreak ? 'long_break' : 'short_break')
+      setCompletedFocusSessions(nextCount)
     } else {
       toast.info('Break over — ready to focus?')
       setMode('focus')
     }
-  }, [mode, commitment, completedFocusSessions])
+  }, [mode, commitment])
 
   useEffect(() => {
     if (!isRunning || timeLeft > 0) return

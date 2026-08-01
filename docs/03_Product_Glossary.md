@@ -258,7 +258,7 @@ Each entry is tagged **Built** (exists in the product today) or **Planned** (def
 ## Gamification
 
 ### XP
-**Status: Built** (`xp_ledger` table; today only wired to the quiz-assignment engagement path in `focusMode.ts` — **corrected**: earlier drafts of this glossary had this backwards, stating the Pomodoro path was the one that worked. Verified directly against source: `useFocusSession.ts`'s Pomodoro handlers contain zero `xpLedger` writes; `focusMode.ts` is the one that awards XP. See [Phase 3 of the redesign plan] for the planned unification).
+**Status: Built** (`xp_ledger` table; wired to both focus-tracking paths as of Sprint 4's unification — `useFocusSession.ts` (Pomodoro) and `focusMode.ts` (quiz-linked) now both award XP via one shared `completeFocusSession()` helper, same rate either way. Earlier drafts of this glossary had this backwards for a while — stated the Pomodoro path was the one that worked, when for most of this project's history it was the only one that *didn't*. That asymmetry is resolved now, not just corrected in the text).
 **Definition:** Points earned only from verified learning actions — a completed Focus Session, a correct Quiz answer, a completed Practice Task, a measurable improvement on a retry. Never earned for opening the app, starting a timer, or remaining idle — this is a binding rule from [-01_Focus_Flow_Principles.md](-01_Focus_Flow_Principles.md), not a style preference.
 **Owner:** System, awarded automatically.
 **Consumers:** Student (visible progress), Mastery Path (planned, consumes XP per subject).

@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { withRlsContext } from '@/db'
 import { distractionEvents, focusSessions, type FocusSession } from '@/db/schema'
 import { requireUser } from '@/features/auth/utils'
-import { checkAndUnlockAchievements } from '@/features/achievements/services/achievement.service'
+import { completeFocusSession } from '@/features/focus/completeFocusSession'
 import { completeFocusSessionSchema, logDistractionSchema, startFocusSessionSchema } from '@/features/auth/validators'
 
 export const startFocusSessionFn = createServerFn({ method: 'POST' })
@@ -34,17 +34,11 @@ export const startFocusSessionFn = createServerFn({ method: 'POST' })
 
 export const completeFocusSessionFn = createServerFn({ method: 'POST' })
   .validator(completeFocusSessionSchema)
-  .handler(async ({ data }): Promise<{ session: FocusSession; unlockedAchievements: Array<string> }> => {
+  .handler(async ({ data }): Promise<{ session: FocusSession; xpAwarded: number; unlockedAchievements: Array<string> }> => {
     const user = await requireUser()
-    return withRlsContext(user.id, async (tx) => {
-      const [session] = await tx
-        .update(focusSessions)
-        .set({ completedAt: new Date(), wasSuccessful: true, commitmentMet: data.commitmentMet })
-        .where(eq(focusSessions.id, data.id))
-        .returning()
-      const unlockedAchievements = await checkAndUnlockAchievements(tx, user.id)
-      return { session, unlockedAchievements }
-    })
+    return withRlsContext(user.id, (tx) =>
+      completeFocusSession(tx, { sessionId: data.id, userId: user.id, commitmentMet: data.commitmentMet }),
+    )
   })
 
 export const abandonFocusSessionFn = createServerFn({ method: 'POST' })

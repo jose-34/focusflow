@@ -322,12 +322,13 @@ export const getAssignmentInsightsFn = createServerFn({ method: 'POST' })
         with: { student: true },
       })
 
-      const startEvents = await tx.query.startEvents.findMany({
-        where: (s, { eq: eqOp }) => eqOp(s.assignmentId, data.quizId),
-      })
-
+      // Sprint 4 unification: focus_sessions is now created immediately at
+      // start (quizId set), so it's both the "started" record and the
+      // duration record in one — no separate start_events query needed
+      // anymore. The (quiz_id, user_id) unique index guarantees at most one
+      // row per student here, same guarantee start_events used to provide.
       const allFocusSessions = await tx.query.focusSessions.findMany({
-        where: (fs, { eq: eqOp }) => eqOp(fs.assignmentId, data.quizId),
+        where: (fs, { eq: eqOp }) => eqOp(fs.quizId, data.quizId),
       })
 
       const students = enrollments.map((enrollment) => ({
@@ -336,7 +337,7 @@ export const getAssignmentInsightsFn = createServerFn({ method: 'POST' })
       }))
 
       const attemptsByStudent = new Map(attempts.map((attempt) => [attempt.studentId, attempt]))
-      const startByStudent = new Map(startEvents.map((start) => [start.userId, start]))
+      const startByStudent = new Map(allFocusSessions.map((session) => [session.userId, session]))
       const focusByStudent = new Map<string, Array<typeof allFocusSessions[number]>>()
       for (const session of allFocusSessions) {
         const list = focusByStudent.get(session.userId) ?? []
@@ -350,14 +351,14 @@ export const getAssignmentInsightsFn = createServerFn({ method: 'POST' })
         const startEvent = startByStudent.get(student.id)
         const focusSessionsForStudent = focusByStudent.get(student.id) ?? []
 
-        const startedAt = startEvent?.startAt ? startEvent.startAt.toISOString() : null
+        const startedAt = startEvent?.startedAt ? startEvent.startedAt.toISOString() : null
         const attemptStartedAt = attempt?.startedAt ? attempt.startedAt.toISOString() : null
         const submittedAt = attempt?.submittedAt ? attempt.submittedAt.toISOString() : null
         const score = attempt?.score ?? null
         const maxScore = attempt?.maxScore ?? null
 
-        if (startEvent?.startAt && quiz.createdAt) {
-          const hours = (startEvent.startAt.getTime() - quiz.createdAt.getTime()) / (1000 * 60 * 60)
+        if (startEvent?.startedAt && quiz.createdAt) {
+          const hours = (startEvent.startedAt.getTime() - quiz.createdAt.getTime()) / (1000 * 60 * 60)
           if (hours >= 0) startDurations.push(hours)
         }
 

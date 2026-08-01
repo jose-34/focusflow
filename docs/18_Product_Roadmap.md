@@ -28,17 +28,16 @@ Governed by [-01_Focus_Flow_Principles.md](-01_Focus_Flow_Principles.md), and by
 - ~~Unit tests for `computeStreaks` and the `riskScore` calculation~~ — **already done in Sprint 0**, ahead of this version, not bundled here as originally planned. See [docs/sprints/00_Sprint_0_Review.md](sprints/00_Sprint_0_Review.md).
 - ~~Deferred, not part of this sprint~~ — **Commitment Setting shipped in Sprint 2** ([D3](04_Product_Requirements_Document.md#d3-commitment-setting)): required commitment before a Focus Session starts, shown back with a skippable Met/Not Met self-check at completion. See [docs/sprints/02_Sprint_2_Review.md](sprints/02_Sprint_2_Review.md).
 
-## Version 1.2 — Phase 3: Unified Focus System
+## Version 1.2 — Phase 3: Unified Focus System — **shipped**
 
-**Sprint 3 shipped the small, safe slice of this** (see [03_Sprint_3_Review.md](sprints/03_Sprint_3_Review.md)) — reality-checked against the full merge below and deliberately scoped down, not a claim that this version is complete:
-- ~~Delete `app/db/schema/focus.ts`~~ — **done**.
-- ~~**Fix**: a quiz-linked focus session currently never unlocks an achievement~~ — **done**. `endFocusSessionFn` now calls `checkAndUnlockAchievements`, matching the Pomodoro path.
+Sprint 3 shipped the small, safe slice first (see [03_Sprint_3_Review.md](sprints/03_Sprint_3_Review.md)); Sprint 4 designed and shipped the real architectural work, since [08_System_Architecture.md](08_System_Architecture.md) — cited here as the design source — turned out to contain no actual target schema for the merge (see [04_Sprint_4_Review.md](sprints/04_Sprint_4_Review.md) for the full account, designed collaboratively before any code was written):
+- ~~Delete `app/db/schema/focus.ts`~~ — **done, Sprint 3**.
+- ~~**Fix**: a quiz-linked focus session currently never unlocks an achievement~~ — **done, Sprint 3**.
+- ~~Merge `focus_sessions` and the `start_events`/`focus_heartbeats` system into one~~ — **done, Sprint 4**. `start_events` deleted, folded into `focus_sessions` (created immediately at start, not deferred to the first heartbeat); `focus_heartbeats` kept (the real anti-gaming signal quiz-taking needs, that Pomodoro's live countdown doesn't) but simplified and given its first real FK.
+- ~~Reconcile XP awarding between the two paths~~ — **done, Sprint 4**: every completed focus session, Pomodoro or quiz-linked, now earns the same duration-based XP via one shared helper. The assignment-start bonus stays quiz-only, since only quiz-linked sessions have a "started promptly" signal to reward.
+- ~~Resolve the polymorphic `assignment_id` pattern~~ — **done, Sprint 4**: retyped to a real `quiz_id` FK, confirmed non-polymorphic in practice (one call site, always a quiz id) before the change, not assumed.
 
-**Still not done — the real architectural work**, deliberately deferred to its own sprint rather than rushed alongside the above:
-- Merge `focus_sessions` and the `start_events`/`focus_heartbeats` system into one ([08_System_Architecture.md](08_System_Architecture.md), [09_Database_Design.md](09_Database_Design.md)).
-- Reconcile XP awarding between the two paths — the quiz path awards real XP via `xpLedger` (on start and completion); the Pomodoro path, even after Sprint 2's Commitment Setting, still awards none. A full merge can't cleanly avoid this.
-- Resolve the polymorphic `assignment_id` pattern (no type discriminator, no FK — see [09_Database_Design.md](09_Database_Design.md)).
-- Reflection prompts, extending the existing Wellness Check-in ([13_Anti_Procrastination_Framework.md](13_Anti_Procrastination_Framework.md) §8) — natural fit once this version already touches session-completion.
+**Still open, deliberately not part of Sprint 4**: reflection prompts extending the existing Wellness Check-in ([13_Anti_Procrastination_Framework.md](13_Anti_Procrastination_Framework.md) §8) — a natural next fit now that session-completion is one unified code path, not two.
 
 ---
 

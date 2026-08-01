@@ -445,16 +445,9 @@ const policies: Array<RlsPolicy> = [
     withCheck: `${CU} = user_id`,
   },
   {
-    // Fix, 09_Database_Design.md: start_events had RLS disabled entirely —
-    // confirmed live, one user's session could read another user's row.
-    table: 'start_events',
-    name: 'start_events_self_access',
-    for: 'all',
-    using: `${CU} = user_id`,
-    withCheck: `${CU} = user_id`,
-  },
-  {
-    // Fix, 09_Database_Design.md: same gap as start_events, same fix.
+    // Sprint 4: start_events table deleted, folded into focus_sessions —
+    // this policy no longer applies to anything and was removed alongside
+    // it (its fix is preserved in focus_sessions_self_access instead).
     table: 'focus_heartbeats',
     name: 'focus_heartbeats_self_access',
     for: 'all',

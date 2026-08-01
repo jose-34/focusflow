@@ -38,7 +38,7 @@ Class-wide aggregates computed alongside the per-student view: average and media
 
 **`atRiskStudents`** is the filtered, teacher-facing shortlist: every student with `riskScore >= 2`, each with a specific, plain-language reason ("No attempt started yet and the deadline is close" or "Started without tracked focus time within the final day") — never just a bare number.
 
-**A real integration detail worth stating precisely**: this algorithm already draws from *both* of the not-yet-unified focus-tracking systems named in [08_System_Architecture.md](08_System_Architecture.md) — `start_events` (the quiz-assignment engagement system) for `startedAt`, and `focus_sessions.assignmentId` (shared with the Pomodoro table) for focus time. This is precisely why the Phase 3 unification matters most *here*: today, a student's Pomodoro-style focus time on an assignment and their `start_events`-tracked engagement are two different tables being stitched together per-request, not one clean signal.
+~~A real integration detail worth stating precisely: this algorithm already draws from both of the not-yet-unified focus-tracking systems...~~ — **resolved, Sprint 4**: `start_events` no longer exists; `focus_sessions` (with a real `quiz_id` FK, populated immediately at start) is now the single source for both `startedAt` and focus-time data this algorithm reads. A student's assignment-start signal and their focus time are the same table's same row now, not two tables stitched together per-request.
 
 ---
 
@@ -133,7 +133,7 @@ Because this document describes real behavioral detection in the most detail any
 
 ## Open questions carried into engineering
 
-- The Phase 3 unification of `focus_sessions` and `start_events`/`focus_heartbeats` (named again in §2) should be treated as a prerequisite for trusting this signal fully, not a nice-to-have cleanup.
+- ~~The Phase 3 unification of `focus_sessions` and `start_events`/`focus_heartbeats`~~ — **done, Sprint 4** (§2).
 - What delivery channel does a teacher's private nudge actually use — still unresolved from [08_System_Architecture.md](08_System_Architecture.md) and [07_User_Journeys.md](07_User_Journeys.md).
 - Should the Reflection prompt (§8) be mandatory or optional — the same adoption-friction tradeoff already named for Commitment Setting in [D3](04_Product_Requirements_Document.md#d3-commitment-setting), not yet decided here either.
 

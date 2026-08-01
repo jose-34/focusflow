@@ -472,8 +472,6 @@ function StudentQuizView({ classId, quizId }: { classId: string; quizId: string 
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
   const [isStartingQuiz, setIsStartingQuiz] = useState(false)
-  const [startToken, setStartToken] = useState<string | null>(null)
-  const [startEventId, setStartEventId] = useState<string | null>(null)
   const [focusSessionId, setFocusSessionId] = useState<string | null>(null)
   const [verifiedMinutes, setVerifiedMinutes] = useState<number | null>(null)
   const [focusHeartbeatError, setFocusHeartbeatError] = useState<string | null>(null)
@@ -487,10 +485,8 @@ function StudentQuizView({ classId, quizId }: { classId: string; quizId: string 
   const hasSubmitted = !!quiz?.attempt?.submittedAt
 
   useEffect(() => {
-    const savedToken = typeof window !== 'undefined' ? sessionStorage.getItem(`focusflow.startToken.${quizId}`) : null
-    const savedEventId = typeof window !== 'undefined' ? sessionStorage.getItem(`focusflow.startEventId.${quizId}`) : null
-    if (savedToken) setStartToken(savedToken)
-    if (savedEventId) setStartEventId(savedEventId)
+    const savedSessionId = typeof window !== 'undefined' ? sessionStorage.getItem(`focusflow.focusSessionId.${quizId}`) : null
+    if (savedSessionId) setFocusSessionId(savedSessionId)
   }, [quizId])
 
   useEffect(() => {
@@ -512,21 +508,14 @@ function StudentQuizView({ classId, quizId }: { classId: string; quizId: string 
   }, [quiz?.timeLimitMinutes, hasSubmitted, quiz?.attempt?.id])
 
   useEffect(() => {
-    if (!startToken && !startEventId) return
+    if (!focusSessionId) return
     const interval = setInterval(() => {
       void handleFocusHeartbeat()
     }, 15000)
     void handleFocusHeartbeat()
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startToken, startEventId, focusSessionId, quizId])
-
-  useEffect(() => {
-    const savedSessionId = typeof window !== 'undefined' ? sessionStorage.getItem(`focusflow.focusSessionId.${quizId}`) : null
-    if (savedSessionId) {
-      setFocusSessionId(savedSessionId)
-    }
-  }, [quizId])
+  }, [focusSessionId, quizId])
 
   if (isLoading) {
     return (
@@ -547,15 +536,11 @@ function StudentQuizView({ classId, quizId }: { classId: string; quizId: string 
   async function handleStart() {
     setIsStartingQuiz(true)
     try {
-      const startResult = await startAssignmentFn({ data: { assignmentId: quizId, startMethod: 'web' } })
-      if (startResult.startToken) {
-        sessionStorage.setItem(`focusflow.startToken.${quizId}`, startResult.startToken)
-        sessionStorage.setItem(`focusflow.startEventId.${quizId}`, startResult.startEventId)
-        setStartToken(startResult.startToken)
-        setStartEventId(startResult.startEventId)
-      }
+      const startResult = await startAssignmentFn({ data: { quizId, startMethod: 'web' } })
+      setFocusSessionId(startResult.sessionId)
+      sessionStorage.setItem(`focusflow.focusSessionId.${quizId}`, startResult.sessionId)
       if (startResult.startXPAwarded > 0) {
-        toast.success(startResult.message ?? `You earned ${startResult.startXPAwarded} XP for starting!`)
+        toast.success(startResult.message)
       }
       await startAttempt()
     } catch (error) {
@@ -566,22 +551,11 @@ function StudentQuizView({ classId, quizId }: { classId: string; quizId: string 
   }
 
   async function handleFocusHeartbeat() {
-    if (!startToken && !startEventId) {
-      return
-    }
+    if (!focusSessionId) return
     try {
       const result = await reportFocusHeartbeatFn({
-        data: {
-          startToken: startToken ?? undefined,
-          startEventId: startEventId ?? undefined,
-          sessionId: focusSessionId ?? undefined,
-          clientHeartbeatAt: new Date().toISOString(),
-        },
+        data: { sessionId: focusSessionId, clientHeartbeatAt: new Date().toISOString() },
       })
-      if (result.focusSessionId) {
-        setFocusSessionId(result.focusSessionId)
-        sessionStorage.setItem(`focusflow.focusSessionId.${quizId}`, result.focusSessionId)
-      }
       setVerifiedMinutes(result.totalVerifiedMinutes)
       setFocusHeartbeatError(null)
     } catch (error) {
@@ -645,7 +619,7 @@ function StudentQuizView({ classId, quizId }: { classId: string; quizId: string 
             <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
               {quiz.questions.length} question{quiz.questions.length === 1 ? '' : 's'}
             </span>
-            {(focusSessionId || startToken) && (
+            {focusSessionId && (
               <span className="rounded-full border border-success/70 bg-success/10 px-3 py-1 text-success">
                 Focus mode active{verifiedMinutes !== null ? ` · ${verifiedMinutes} min verified` : ''}
               </span>

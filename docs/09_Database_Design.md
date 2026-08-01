@@ -52,6 +52,8 @@ erDiagram
 
     tasks }o--o| quizzes : "optionally linked to"
     focus_sessions }o--o| tasks : "optionally linked to"
+    focus_sessions }o--o| quizzes : "optionally linked to (Sprint 4)"
+    focus_heartbeats }o--|| focus_sessions : "verifies (Sprint 4, real FK)"
     distraction_events }o--|| focus_sessions : "occurs during"
 
     quizzes ||--o{ quiz_questions : "has"
@@ -68,7 +70,7 @@ erDiagram
     quiz_choices }o--o{ game_answers : "optionally selected"
 ```
 
-*Not shown: `start_events`, `focus_heartbeats` — see below, they have no enforced foreign keys at all, a second, lower-severity finding worth naming here rather than silently omitting.*
+*`start_events` no longer exists (Sprint 4, folded into `focus_sessions`) — this diagram no longer needs the caveat it used to carry about that table having no enforced foreign keys.*
 
 ---
 
@@ -203,27 +205,34 @@ erDiagram
 
 ## Focus & Behavior
 
-### `focus_sessions`
+### `focus_sessions` — the single, unified focus-tracking table (Sprint 4)
+
+Previously two parallel systems (this table, Pomodoro-only, plus a separate `start_events`/`focus_heartbeats` pair for quiz-assignment engagement). Merged in Sprint 4 — designed fresh, since [08_System_Architecture.md](08_System_Architecture.md) (cited by the roadmap as the design source) turned out to contain no actual target schema for the merge.
+
 | Column | Type | Constraint |
 |---|---|---|
 | id | uuid | PK |
 | user_id | uuid | FK → users, cascade |
-| duration_minutes | integer | not null, default 25 |
+| duration_minutes | integer | not null, default 25 (Pomodoro); `0` at insert for quiz-linked rows, overwritten with a real computed value at completion |
 | started_at | timestamptz | not null |
 | completed_at | timestamptz | nullable |
 | was_successful | boolean | not null, default false |
-| start_event_id | uuid | *(no FK constraint — see gap below)* |
-| assignment_id | uuid | *(no FK constraint — see gap below)* |
-| verified | boolean | not null, default false |
+| quiz_id | uuid | FK → quizzes, **cascade** on delete — see note below |
+| start_method | text | nullable — quiz-linked only (`web`/`extension`/`mobile`) |
+| start_xp_awarded | integer | nullable — quiz-linked only |
+| verified | boolean | not null, default false — quiz-linked only; true once ≥3 heartbeats logged |
 | task_id | uuid | FK → tasks, **set null** on delete |
 | commitment | text | nullable — see note below |
 | commitment_met | boolean | nullable |
 
+**`quiz_id` replaces the old `assignment_id`, and is a real FK, not a rename with the same gap.** The old column was a bare, polymorphic uuid pointing at either a Quiz or a Task with no type discriminator — a direct violation of [03_Product_Glossary.md](03_Product_Glossary.md)'s own naming rule ("never create an untyped 'Assignment' reference — say specifically which is meant"), flagged in [ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md) (I4) and left open pending this exact unification. Resolved by grep, not assumption: `startAssignmentFn` is called from exactly one place in the entire codebase, always with a quiz id — the task-existence-check branch that used to exist was dead defensive code for a case that never happens.
+
+**The old `start_events` table is gone.** Its entire reason to exist — letting a client reference an in-progress "start" before a `focus_sessions` row existed yet — collapsed once the row is created immediately at start instead of deferred to the first heartbeat. Its `start_token` column went with it (also moot once callers always have a real `sessionId` immediately, and RLS already scopes access to the owning user without needing a separate opaque secret). What remains of its purpose lives directly on this table: `start_method`, `start_xp_awarded`, and a unique index on `(quiz_id, user_id)` reproducing its old one-start-per-assignment-per-user guarantee — Postgres never considers `NULL` equal to `NULL`, so Pomodoro rows (`quiz_id IS NULL`) are unconstrained by it.
+
 **`commitment`/`commitment_met` (Sprint 2, [D3 Commitment Setting](04_Product_Requirements_Document.md#d3-commitment-setting))**: deliberately nullable in the DB even though the product decision requires a commitment for every *new* session — enforced at the Zod/UI layer (`startFocusSessionSchema`), not a DB constraint, so historical rows created before this column existed don't need a backfill. `commitment_met` stays null until the student self-reports at completion (or forever, if they skip the reflection or the session was abandoned rather than completed).
 
-**Indexes:** `user_id`, `task_id`, `start_event_id`, `assignment_id`.
-**RLS:** `focus_sessions_self_access` (owner) + `focus_sessions_teacher_select` (`task_id is not null and fn_task_is_quiz_owned_by_teacher(task_id)`).
-**Planned additions** ([Phase 3 of the redesign roadmap]): `subject_id`, a `source` enum (`pomodoro`/`assignment`) to finally unify this table with the `start_events`/`focus_heartbeats` system below.
+**Indexes:** `user_id`, `task_id`, `quiz_id`, unique on `(quiz_id, user_id)`.
+**RLS:** `focus_sessions_self_access` (owner) + `focus_sessions_teacher_select` (`task_id is not null and fn_task_is_quiz_owned_by_teacher(task_id)`) — unchanged in shape from before; only the columns it governs changed.
 
 ### `distraction_events`
 | Column | Type | Constraint |
@@ -237,18 +246,18 @@ erDiagram
 **Indexes:** `user_id`, `focus_session_id`.
 **RLS:** `distraction_events_self_access` (owner only — never teacher-visible, even aggregated at this table; aggregation happens only inside the Risk Signal query, not via a policy grant on this table).
 
-### `start_events`, `focus_heartbeats` — the quiz-assignment engagement system
-A second, parallel focus-tracking mechanism (distinct from `focus_sessions`, the Pomodoro-timer table above), backing the assignment-insight / procrastination-signal chain.
+### `focus_heartbeats` — the quiz-assignment verification signal
 
-**`start_events`**: `id`, `assignment_id` (uuid, no FK), `user_id` (uuid, no FK), `start_at`, `start_method`, `start_xp`, `start_token` (unique), `created_at`, `updated_at`. Unique on (`assignment_id`, `user_id`) and on `start_token`.
+Kept as its own table (Sprint 4) — the real anti-gaming signal for unsupervised quiz-taking, a role the Pomodoro path's live countdown UI fills differently and doesn't need. Simplified: `id`, `focus_session_id`, `user_id`, `heartbeat_at`, `created_at`. The old `start_event_id`/`assignment_id` columns are gone — they were pure denormalization, fully derivable via `focus_session_id`.
 
-**`focus_heartbeats`**: `id`, `focus_session_id` (uuid, no FK), `start_event_id` (uuid, no FK), `assignment_id` (uuid, no FK), `user_id` (uuid, no FK), `heartbeat_at`, `created_at`.
+**Now has a real foreign-key constraint** (`focus_session_id` → `focus_sessions.id`, cascade) — its first ever, closing the data-integrity gap this document previously named directly ("neither has real foreign-key constraints on any of its uuid reference columns"). Adding it surfaced one real orphaned row in local dev data (a heartbeat referencing an already-deleted session from earlier testing) — cleaned up before the constraint could be applied, not silently worked around.
 
-**Both tables now have RLS enabled** (fixed — see Critical Findings above), **but neither has real foreign-key constraints on any of its uuid reference columns** — a separate, still-open data-integrity gap, not fixed alongside the security one. The missing FK constraints mean an `assignment_id` or `start_event_id` referencing a row that no longer exists is not something the database itself would ever catch.
-
-**A second, related gap this document previously missed**: [03_Product_Glossary.md](03_Product_Glossary.md)'s own Assignment entry states plainly that no schema should ever create an untyped "Assignment" reference — say specifically whether a Task or a Quiz is meant. The `assignment_id` column on `start_events`, `focus_heartbeats`, and `focus_sessions` violates this rule directly: it's a bare uuid that polymorphically points at either a Quiz or a Task with no type discriminator and no FK. **Left open, not fixed here** — resolving it properly means deciding the polymorphic-reference pattern (a type-discriminator column? two nullable FKs, one per target? a real Assignment table, which the glossary also warns against?) as part of the Phase 3 focus-system unification, not as an isolated column rename.
+**Indexes:** `focus_session_id`, `user_id`.
+**RLS:** `focus_heartbeats_self_access` (owner) — unchanged in shape.
 
 ~~A landmine, not live code: `app/db/schema/focus.ts`...~~ — **deleted, Sprint 3**. Re-confirmed zero imports immediately before deletion (per this document's own standing caution not to trust a stale confirmation), then removed. `tsc -b` and the full test suite stayed clean without it.
+
+**A related landmine found and retired, Sprint 4**: `app/db/ensureSchema.ts`'s `ensureMinimumDatabaseSchema()` ran on every production server boot (`app/server.tsx`) and hardcoded the *old* schema shape via raw SQL — including `CREATE TABLE IF NOT EXISTS start_events`. Left in place, it would have silently recreated the deleted table on every Railway restart, undoing this migration continuously. Deleted outright rather than updated — the project now has a real, repeatedly-proven `db:push`/`db:rls` migration flow (used for every sprint's schema change since Sprint 1) that supersedes this early stopgap.
 
 ### `user_achievements`
 | Column | Type | Constraint |
@@ -345,7 +354,7 @@ A second, parallel focus-tracking mechanism (distinct from `focus_sessions`, the
 ## Open questions carried into engineering
 
 - Reconcile `users.xp` (a plain counter) against `xp_ledger` (an append-only log) — pick one source of truth, per the note under `users` above.
-- **Resolve the polymorphic `assignment_id` pattern** (violates [03_Product_Glossary.md](03_Product_Glossary.md)'s own naming rule) as part of the Phase 3 unification — decide the real reference shape (type-discriminator column, two nullable FKs, or otherwise) and add the missing foreign-key constraints at the same time.
+- ~~Resolve the polymorphic `assignment_id` pattern~~ — **done, Sprint 4**: retyped to a real `quiz_id` FK, confirmed non-polymorphic in practice by grep before the change, not assumed.
 - ~~Confirm whether `app/db/schema/focus.ts` truly has zero remaining references~~ — done, Sprint 3; file deleted.
 
 ---
