@@ -571,13 +571,18 @@ function StudentQuizView({ classId, quizId }: { classId: string; quizId: string 
         answers: quiz!.questions.map((q) => ({ questionId: q.id, selectedChoiceId: answers[q.id] ?? null })),
       })
       celebrate({ type: 'quiz', title: quiz!.title, score: result.score ?? 0, maxScore: result.maxScore })
+
+      const unlockedAchievements = [...result.unlockedAchievements]
       if (focusSessionId) {
-        const { unlockedAchievements } = await endFocusSessionFn({ data: { sessionId: focusSessionId } })
-        for (const key of unlockedAchievements) {
-          const definition = ACHIEVEMENT_MAP.get(key)
-          if (definition) {
-            celebrate({ type: 'achievement', title: definition.title, description: definition.description })
-          }
+        const focusResult = await endFocusSessionFn({ data: { sessionId: focusSessionId } })
+        for (const key of focusResult.unlockedAchievements) {
+          if (!unlockedAchievements.includes(key)) unlockedAchievements.push(key)
+        }
+      }
+      for (const key of unlockedAchievements) {
+        const definition = ACHIEVEMENT_MAP.get(key)
+        if (definition) {
+          celebrate({ type: 'achievement', title: definition.title, description: definition.description })
         }
       }
     } catch (error) {

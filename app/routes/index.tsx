@@ -5,6 +5,7 @@ import { ChartColumn, GraduationCap, Heart, ListTodo, Timer, Trophy, type Lucide
 import { Button } from '@/components/ui/button'
 import { BrowserFrame } from '@/components/marketing/BrowserFrame'
 import { DashboardPreviewMockup, type PreviewRole } from '@/components/marketing/DashboardPreviewMockup'
+import { ArcadeDemoGame } from '@/components/marketing/ArcadeDemoGame'
 import { OrganicBlob } from '@/components/decor/OrganicBlob'
 import { cn } from '@/lib/utils'
 
@@ -172,6 +173,14 @@ function Index() {
             </BrowserFrame>
           </motion.div>
         </div>
+      </section>
+
+      <section className="mx-auto max-w-3xl px-4 pb-20">
+        <div className="mb-8 text-center">
+          <h2 className="font-heading text-3xl font-bold text-foreground">Try it right now — no sign-up needed</h2>
+          <p className="mt-2 text-muted-foreground">A quick taste of how FocusFlow turns real learning into a game.</p>
+        </div>
+        <ArcadeDemoGame />
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pb-24">

@@ -3,10 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { eq } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { withRlsContext } from '@/db'
-import { quizAnswers, quizAttempts, quizChoices, quizQuestions, quizzes, tasks } from '@/db/schema'
+import { quizAnswers, quizAttempts, quizChoices, quizQuestions, quizzes, tasks, xpLedger } from '@/db/schema'
 import { requireUser } from '@/features/auth/utils'
 import { createQuestionSchema, createQuizSchema, questionIdSchema, quizIdSchema, submitQuizSchema, togglePublishSchema } from '@/features/auth/validators'
 import { classIdSchema } from '@/features/classes/schemas'
+import { checkAndUnlockAchievements } from '@/features/achievements/services/achievement.service'
 import { computeRiskScore } from '../riskScore'
 
 export interface ClassQuizSummary {
@@ -572,7 +573,27 @@ export const submitQuizFn = createServerFn({ method: 'POST' })
         .where(eq(quizAttempts.id, data.attemptId))
         .returning()
 
-      return { attempt: updated, graded, score: updated?.score ?? 0, maxScore: updated?.maxScore ?? maxScore }
+      // XP equal to points earned, 1:1 with the quiz's own point scale
+      // (docs/12_Gamification_Framework.md §2) — the attempt's submittedAt
+      // guard above already makes this whole handler run-once per attempt,
+      // so there's no separate idempotency check needed here.
+      if (score > 0) {
+        await tx.insert(xpLedger).values({
+          userId: user.id,
+          amount: score,
+          source: 'quiz_attempt',
+          metadata: { quizId: attempt.quizId, attemptId: attempt.id },
+        })
+      }
+      const unlockedAchievements = await checkAndUnlockAchievements(tx, user.id)
+
+      return {
+        attempt: updated,
+        graded,
+        score: updated?.score ?? 0,
+        maxScore: updated?.maxScore ?? maxScore,
+        unlockedAchievements,
+      }
     })
   })
 

@@ -27,6 +27,7 @@ interface UseRoadmapResult {
   isLoading: boolean
   totalXp: number
   currentStreak: number
+  longestStreak: number
   roadmap: RoadmapState | null
 }
 
@@ -44,13 +45,14 @@ export function useRoadmap(): UseRoadmapResult {
   const isLoading = xpQuery.isLoading || progressQuery.isLoading || achievementsQuery.isLoading
   const totalXp = xpQuery.data ?? 0
   const currentStreak = progressQuery.data?.currentStreak ?? 0
+  const longestStreak = progressQuery.data?.longestStreak ?? 0
 
   if (isLoading || !achievementsQuery.data) {
-    return { isLoading, totalXp, currentStreak, roadmap: null }
+    return { isLoading, totalXp, currentStreak, longestStreak, roadmap: null }
   }
 
   const unlockedAchievementKeys = new Set(achievementsQuery.data.filter((a) => a.unlockedAt).map((a) => a.key))
   const roadmap = computeRoadmapState({ totalXp, unlockedAchievementKeys })
 
-  return { isLoading, totalXp, currentStreak, roadmap }
+  return { isLoading, totalXp, currentStreak, longestStreak, roadmap }
 }

@@ -1,29 +1,7 @@
 import type { Tx } from '@/db'
 import { userAchievements } from '@/db/schema'
+import { computeStreaks, toDateKey } from '@/features/progress/streaks'
 import { ACHIEVEMENT_DEFINITIONS } from '../definitions'
-
-function toDateKey(date: Date) {
-  return date.toISOString().slice(0, 10)
-}
-
-function computeCurrentStreak(successDates: Set<string>): number {
-  if (successDates.size === 0) return 0
-
-  const today = toDateKey(new Date())
-  const yesterday = toDateKey(new Date(Date.now() - 86_400_000))
-  let anchor: string | null = null
-  if (successDates.has(today)) anchor = today
-  else if (successDates.has(yesterday)) anchor = yesterday
-  if (!anchor) return 0
-
-  let current = 0
-  let cursor = new Date(anchor)
-  while (successDates.has(toDateKey(cursor))) {
-    current += 1
-    cursor = new Date(cursor.getTime() - 86_400_000)
-  }
-  return current
-}
 
 /**
  * Evaluates every achievement rule for `userId` inside the caller's
@@ -34,12 +12,15 @@ function computeCurrentStreak(successDates: Set<string>): number {
  * or set the RLS context itself.
  */
 export async function checkAndUnlockAchievements(tx: Tx, userId: string): Promise<Array<string>> {
-  const [sessions, completedTasks, existing] = await Promise.all([
+  const [sessions, completedTasks, quizAttemptRows, existing] = await Promise.all([
     tx.query.focusSessions.findMany({
       where: (fs, { eq, and }) => and(eq(fs.userId, userId), eq(fs.wasSuccessful, true)),
     }),
     tx.query.tasks.findMany({
       where: (t, { eq, and }) => and(eq(t.userId, userId), eq(t.completed, true)),
+    }),
+    tx.query.quizAttempts.findMany({
+      where: (a, { eq, and, isNotNull }) => and(eq(a.studentId, userId), isNotNull(a.submittedAt)),
     }),
     tx.query.userAchievements.findMany({
       where: (ua, { eq }) => eq(ua.userId, userId),
@@ -52,9 +33,12 @@ export async function checkAndUnlockAchievements(tx: Tx, userId: string): Promis
   if (sessions.length >= 1) toUnlock.add('first_focus')
   if (sessions.length >= 100) toUnlock.add('century_club')
   if (completedTasks.length >= 50) toUnlock.add('task_master')
+  if (completedTasks.filter((t) => t.taskType === 'practice').length >= 10) toUnlock.add('practice_progress')
+  if (quizAttemptRows.length >= 10) toUnlock.add('quiz_scholar')
+  if (quizAttemptRows.some((a) => a.score !== null && a.maxScore > 0 && a.score === a.maxScore)) toUnlock.add('quiz_ace')
 
   const successDates = new Set(sessions.map((s) => toDateKey(s.startedAt)))
-  const streak = computeCurrentStreak(successDates)
+  const { current: streak } = computeStreaks(successDates)
   if (streak >= 3) toUnlock.add('streak_starter')
   if (streak >= 7) toUnlock.add('week_warrior')
 

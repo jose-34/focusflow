@@ -382,7 +382,7 @@ This document does not cover screens, layouts, or visual design — see [11_UI_U
 ## E. Gamification
 
 ### E1. XP Engine
-**Status: Built, partially unified** (wired to the quiz-assignment engagement path in `focusMode.ts` today — **not** the Pomodoro path, which currently awards zero XP; corrected from an earlier, reversed statement here. The two paths unify in a planned phase — see [02_Product_Definition.md](02_Product_Definition.md)).
+**Status: Built.** Focus Sessions (both the Pomodoro and quiz-linked paths — unified in Sprint 4/5) and, as of 2026-08-01, Quiz Attempt submissions (XP = points earned, 1:1 with the quiz's own point scale, awarded once per attempt) all award verified XP. Practice Task XP and the measurably-improved-retry case remain unbuilt.
 **Purpose:** The single currency behind every gamification mechanic, earned only from genuine, verified learning actions.
 
 **Actors:** System (awards automatically).
@@ -448,10 +448,10 @@ This document does not cover screens, layouts, or visual design — see [11_UI_U
 ---
 
 ### E5. Missions
-**Status: Planned.**
+**Status: Built (system-generated only — teacher-manual mission creation not yet built).** Generated lazily on read (`getMissionsFn`) rather than a scheduled job — cheap at real per-student data volumes, and means a Mission only exists once it's actually about to be shown. Completion is computed live from the referenced Task/Quiz's own state, never a separate stored flag that could drift.
 **Purpose:** A short-term goal scoped to a student's *actual current coursework*, not a generic daily-login quest.
 
-**Actors:** System (generates from real upcoming work) or Teacher (sets manually); Student (completes).
+**Actors:** System (generates from real upcoming work) or Teacher (sets manually, not yet built); Student (completes).
 
 **Inputs:** A student's currently-assigned Practice Tasks and Quizzes with near-term due dates.
 **Outputs:** A Mission ("complete 3 practice sessions on linear equations before Friday's quiz") with a completion state.

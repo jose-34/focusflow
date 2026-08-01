@@ -22,6 +22,15 @@ export const ACHIEVEMENT_DEFINITIONS: Array<AchievementDefinition> = [
   { key: 'early_bird', title: 'Early Bird', description: 'Complete a focus session before 8 AM' },
   { key: 'night_owl', title: 'Night Owl', description: 'Complete a focus session after 8 PM' },
   { key: 'marathon', title: 'Marathon', description: 'Complete 5 focus sessions in a single day' },
+  // Added 2026-08-01 alongside quiz XP (docs/12_Gamification_Framework.md
+  // §2) so real learning outcomes — not just focus time — drive unlocks.
+  // quiz_scholar/quiz_ace aren't in that doc's "planned" badge list; they're
+  // new, deliberately modeled on the existing task_master/century_club
+  // pattern (a plain count or a clean threshold on server-verified data,
+  // nothing invented that isn't already computable from quizAttempts).
+  { key: 'practice_progress', title: 'Practice Makes Progress', description: 'Complete 10 Practice Tasks' },
+  { key: 'quiz_scholar', title: 'Quiz Scholar', description: 'Submit 10 quiz attempts' },
+  { key: 'quiz_ace', title: 'Quiz Ace', description: 'Score a perfect result on a quiz' },
 ]
 
 export const ACHIEVEMENT_MAP = new Map(ACHIEVEMENT_DEFINITIONS.map((def) => [def.key, def]))

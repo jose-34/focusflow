@@ -33,7 +33,7 @@ XP is the one unit every other mechanic (Mastery Path, most Achievements) is bui
 |---|---|---|
 | Focus Session completed (`wasSuccessful: true`) | 1 XP per 5 minutes of the session's actual duration | Abandoned sessions earn 0 — already true today per [D1](04_Product_Requirements_Document.md#d1-focus-session) |
 | Commitment met (self-reported) | +2 XP bonus | Only on top of an already-completed session — never awarded standalone, so a Commitment can't become its own XP farm |
-| Quiz Attempt submitted | XP equal to points earned (1:1 with the quiz's own point scale) | Matches the certifying weight a Quiz already carries — no separate, arbitrary XP number invented on top of it |
+| Quiz Attempt submitted | XP equal to points earned (1:1 with the quiz's own point scale) | **Built (2026-08-01)**. Matches the certifying weight a Quiz already carries — no separate, arbitrary XP number invented on top of it. Guarded by the same submit-once check `submitQuizFn` already enforces (`attempt.submittedAt`), so there's no separate idempotency mechanism to maintain |
 | Practice Task completed **with a linked, genuinely-completed Focus Session** | 5 XP flat | Deliberately smaller and flatter than a Quiz — practice is lower-stakes by design (see [C2](04_Product_Requirements_Document.md#c2-practice-task-assignment)) — **and deliberately not earned from the completion toggle alone.** [Design Review Board](DESIGN_REVIEW_BOARD.md) blocker #1: a bare toggle has no server-verified engagement behind it (per [06_User_Roles_And_Permissions.md](06_User_Roles_And_Permissions.md), a student's only interaction is "toggle complete only, not content"), so nothing stopped a student from marking one done with zero real work and collecting XP anyway. The fix reuses an already-built verification mechanism rather than inventing a new one: XP is awarded only when the toggle is *also* backed by at least one Focus Session already linked to that Practice Task via `taskId` — the same server-timed proof every other XP source in this table already requires |
 | Live Game Session — each question answered correctly | 5 XP flat, **not** speed-weighted | Kept deliberately separate from the game's own `score` field, which stays speed-weighted purely for the fun of live play — conflating the two would mean a fast guesser earns more *learning* credit than a slower, more careful one, which is backwards |
 
@@ -85,12 +85,14 @@ The curve accelerates gradually (each level costs more than the last) — delibe
 | | Comeback | A meaningfully improved score on a retry or Challenge | Planned |
 | **Assignment Discipline** | Early Starter | Began assigned work well before its deadline, repeated | Planned |
 | | Task Master | 50 completed tasks | Built |
-| | Practice Makes Progress | 10 completed Practice Tasks | Planned |
+| | Practice Makes Progress | 10 completed Practice Tasks | Built (2026-08-01) |
 | **Social** | Study Partner | Constructive participation in a Live Game or Challenge | Planned |
 | | Good Sport | Completed a Challenge through to the end, win or lose | Planned |
 | **Milestone** | First Focus | Completed your first focus session | Built |
 | **Time-of-day** | Early Bird | A session completed before 8am | Built |
 | | Night Owl | A session completed after 8pm | Built (reinstated) |
+| **Learning Outcomes** | Quiz Scholar | 10 submitted quiz attempts | Built (2026-08-01) — not in this table's original catalog; added alongside Quiz Attempt XP so the map reflects real learning volume, modeled on the existing Task Master pattern |
+| | Quiz Ace | A perfect score on any quiz | Built (2026-08-01) — same reasoning as Quiz Scholar; the simplest genuine "quiz performance" signal computable from `quizAttempts` without the Mastery Path or Challenge systems this catalog's other Mastery/Social badges depend on |
 
 > **Resolved, then reinstated (2026-08-01)**. Two badges — **Marathon** (5+ sessions in one day) and **Night Owl** (after 8pm) — rewarded exactly the kind of overwork and late-night study pattern Foundation 2 / Principle 6 (Student Wellbeing: "encourages healthy, balanced study habits rather than constant engagement") argues against. Per the [Design Review Board](DESIGN_REVIEW_BOARD.md)'s Educational Soundness finding, both were retired for a period — removed from `ACHIEVEMENT_DEFINITIONS`, unlock logic deleted from `achievement.service.ts` — rather than reframed with a counter-signal. They were subsequently reinstated by founder decision, with both triggers restored unchanged, as part of building the Journey Mode gamified map. The counter-signal option below remains the documented way to address the original wellbeing finding without retiring the badges again, if that's picked up later.
 
@@ -100,12 +102,13 @@ The curve accelerates gradually (each level costs more than the last) — delibe
 
 ## 5. Missions
 
-A Mission is a short-term goal scoped to a student's **real, currently-assigned coursework** — never a generic daily-login quest. Lifecycle, specified here for the first time (not yet built):
+**Built, 2026-08-01** (`app/features/missions/hooks/useMissions.ts`). A Mission is a short-term goal scoped to a student's **real, currently-assigned coursework** — never a generic daily-login quest. Actual lifecycle as built, which deviates from this section's original "generated weekly" framing in one deliberate way — noted here rather than silently reworded to match:
 
-- Generated weekly (a natural cadence matching how schoolwork is actually assigned), scoped to a student's currently-active Practice Tasks and Quizzes with near-term due dates.
+- **Generated lazily on read, not on a weekly batch job.** Every time `getMissionsFn` runs (dashboard load), it tops up the student's Mission slots from their currently-assigned, not-yet-completed Practice Tasks and Quizzes with a future due date — nearest-due-date first. There is no cron/scheduled job in this codebase to hang a true weekly cadence off, and a continuously-topped-up slot achieves the same "always real, always current" property the weekly framing was protecting, at lower implementation cost. If a genuinely weekly *cadence* (as opposed to weekly *feel*) matters later, this needs a real scheduler, not a rename.
 - A student has at most 3 active Missions at once — enough to feel like real, chosen goals, not a wallpaper of demands.
-- A Mission expires the moment its underlying due date passes, whether or not it was completed — an expired Mission is not a failure to be shown punitively, it simply disappears.
-- A Mission is never generated with no real underlying Task or Quiz to reference — see [E5](04_Product_Requirements_Document.md#e5-missions)'s acceptance criteria.
+- A Mission expires the moment its underlying due date passes, whether or not it was completed — an expired Mission is not a failure to be shown punitively, it simply disappears (filtered out of `getMissionsFn`'s query, not deleted).
+- A Mission is never generated with no real underlying Task or Quiz to reference — enforced both by the generation query (only pulls from real, currently-assigned, incomplete work) and a DB check constraint (`missions_exactly_one_reference`) requiring exactly one of `taskId`/`quizId`.
+- Completion is computed live from the referenced Task's `completed` flag or a submitted `quizAttempt` — never a separate stored flag on the Mission row itself, so it can't drift out of sync with the real work it points at.
 
 ---
 

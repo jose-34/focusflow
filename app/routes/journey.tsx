@@ -1,5 +1,20 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { Flame, Gift, ListChecks, Lock, Sparkles, Sunrise, Trophy, Crown, PartyPopper, Flag, type LucideIcon } from 'lucide-react'
+import {
+  Flame,
+  Gift,
+  ListChecks,
+  Lock,
+  Sparkles,
+  Sunrise,
+  Trophy,
+  Crown,
+  PartyPopper,
+  Flag,
+  BookOpen,
+  GraduationCap,
+  Award,
+  type LucideIcon,
+} from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { useRoadmap } from '@/features/roadmap/hooks/useRoadmap'
 import { JourneyMap } from '@/components/roadmap/JourneyMap'
@@ -26,6 +41,9 @@ const NODE_ICONS: Record<string, LucideIcon> = {
   task_master: ListChecks,
   century_club: Crown,
   goal: PartyPopper,
+  practice_progress: BookOpen,
+  quiz_scholar: GraduationCap,
+  quiz_ace: Award,
 }
 
 function iconFor(nodeId: string, kind: string) {
@@ -35,7 +53,7 @@ function iconFor(nodeId: string, kind: string) {
 }
 
 function JourneyPage() {
-  const { isLoading, totalXp, currentStreak, roadmap } = useRoadmap()
+  const { isLoading, totalXp, currentStreak, longestStreak, roadmap } = useRoadmap()
 
   if (isLoading || !roadmap) {
     return (
@@ -50,7 +68,7 @@ function JourneyPage() {
   return (
     <DashboardShell
       title="Your Journey"
-      subtitle={`${totalXp} XP · ${currentStreak}-day streak · ${unlockedCount} of ${roadmap.nodes.length} checkpoints reached`}
+      subtitle={`${totalXp} XP · ${currentStreak}-day streak (best ${longestStreak}) · ${unlockedCount} of ${roadmap.nodes.length} checkpoints reached`}
     >
       <Card className="mx-auto max-w-3xl overflow-hidden p-0">
         <div className="aspect-707/498 w-full">

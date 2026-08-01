@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { motion } from 'framer-motion'
-import { Award, Flame, ListChecks, Lock, Moon, Sparkles, Sunrise, Trophy, Zap, type LucideIcon } from 'lucide-react'
+import { Award, BookOpen, Flame, GraduationCap, ListChecks, Lock, Moon, Sparkles, Sunrise, Trophy, Zap, type LucideIcon } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { useAchievements } from '@/features/achievements/hooks/useAchievements'
 import { Card, CardContent } from '@/components/ui/card'
@@ -26,6 +26,9 @@ const ICONS: Record<string, LucideIcon> = {
   early_bird: Sunrise,
   night_owl: Moon,
   marathon: Zap,
+  practice_progress: BookOpen,
+  quiz_scholar: GraduationCap,
+  quiz_ace: Award,
 }
 
 function AchievementsPage() {

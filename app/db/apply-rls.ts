@@ -427,6 +427,13 @@ const policies: Array<RlsPolicy> = [
     withCheck: `${CU} = user_id`,
   },
   {
+    table: 'missions',
+    name: 'missions_self_access',
+    for: 'all',
+    using: `${CU} = student_id`,
+    withCheck: `${CU} = student_id`,
+  },
+  {
     table: 'user_achievements',
     name: 'user_achievements_self_access',
     for: 'all',

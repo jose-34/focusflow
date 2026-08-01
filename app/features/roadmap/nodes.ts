@@ -1,9 +1,11 @@
 // Pure, dependency-free by design (mirrors app/features/progress/streaks.ts)
 // — the roadmap only ever visualizes real unlock state (XP ledger total,
-// achievement unlocks); it never invents its own progress source. All 8
+// achievement unlocks); it never invents its own progress source. All 11
 // achievement keys are represented (see app/features/achievements/definitions.ts
 // and docs/DESIGN_REVIEW_BOARD.md's 2026-08-01 reversal note for why
-// night_owl/marathon are back after being retired).
+// night_owl/marathon are back after being retired). practice_progress,
+// quiz_scholar, and quiz_ace were added alongside quiz XP so the map
+// reflects real learning outcomes, not just focus time.
 export type RoadmapNodeKind = 'start' | 'badge' | 'chest' | 'boss' | 'goal'
 
 export interface RoadmapNode {
@@ -21,14 +23,17 @@ export const ROADMAP_NODES: Array<RoadmapNode> = [
   { id: 'first_focus', kind: 'badge', label: 'First Focus', achievementKey: 'first_focus', zone: 1 },
   { id: 'xp_50', kind: 'chest', label: '50 XP', xpThreshold: 50, zone: 1 },
   { id: 'early_bird', kind: 'badge', label: 'Early Bird', achievementKey: 'early_bird', zone: 1 },
+  { id: 'quiz_ace', kind: 'badge', label: 'Quiz Ace', achievementKey: 'quiz_ace', zone: 1 },
   // streak_starter is the last node of zone 1 by design — it's the gate
   // condition for zone 2, so it can't itself live inside the zone it opens.
   { id: 'streak_starter', kind: 'badge', label: 'Streak Starter', achievementKey: 'streak_starter', zone: 1 },
   { id: 'xp_150', kind: 'chest', label: '150 XP', xpThreshold: 150, zone: 2 },
   { id: 'night_owl', kind: 'badge', label: 'Night Owl', achievementKey: 'night_owl', zone: 2 },
+  { id: 'quiz_scholar', kind: 'badge', label: 'Quiz Scholar', achievementKey: 'quiz_scholar', zone: 2 },
   // Same reasoning: week_warrior gates zone 3, so it lives at the end of zone 2.
   { id: 'week_warrior', kind: 'badge', label: 'Week Warrior', achievementKey: 'week_warrior', zone: 2 },
   { id: 'task_master', kind: 'badge', label: 'Task Master', achievementKey: 'task_master', zone: 3 },
+  { id: 'practice_progress', kind: 'badge', label: 'Practice Makes Progress', achievementKey: 'practice_progress', zone: 3 },
   { id: 'marathon', kind: 'badge', label: 'Marathon', achievementKey: 'marathon', zone: 3 },
   { id: 'xp_400', kind: 'chest', label: '400 XP', xpThreshold: 400, zone: 3 },
   { id: 'century_club', kind: 'boss', label: 'Century Club', achievementKey: 'century_club', zone: 3 },

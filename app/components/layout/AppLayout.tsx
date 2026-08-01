@@ -81,6 +81,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       {progress ? (
                         <>
                           <span className="font-semibold text-foreground">{progress.currentStreak}-day</span> streak
+                          {progress.longestStreak > 0 && (
+                            <span className="ml-1 text-[10px] text-muted-foreground/70">· best {progress.longestStreak}d</span>
+                          )}
                         </>
                       ) : (
                         'Loading streak…'

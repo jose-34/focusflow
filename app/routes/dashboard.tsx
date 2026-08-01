@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { DashboardShell, StatGrid } from '@/components/dashboard/DashboardShell'
 import { StatCard } from '@/components/dashboard/StatCard'
 import { ConsistencyStreakCard, StartDelayTrendCard } from '@/components/dashboard/ProcrastinationWidgets'
+import { MissionsWidget } from '@/components/dashboard/MissionsWidget'
 
 interface ClassRef {
   id: string
@@ -278,6 +279,8 @@ function StudentDashboard({ data }: { data: StudentDashboardData }) {
         <StatCard label="Enrolled Classes" value={data.enrolledClasses.length} icon={GraduationCap} delay={0.05} />
         <StatCard label="Achievements" value={data.achievementCount} icon={Trophy} delay={0.1} />
       </StatGrid>
+
+      <MissionsWidget />
 
       <Card>
         <CardHeader>
