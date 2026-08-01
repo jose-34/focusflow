@@ -3,7 +3,15 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { Billboard, Html, Sparkles } from '@react-three/drei'
 import * as THREE from 'three'
 import type { RoadmapNodeState } from '@/features/roadmap/nodes'
-import { AVATAR_TEXTURE_PATH, BACKGROUND_TEXTURE_PATH, textureForNode } from './roadmapAssets'
+import {
+  AVATAR_TEXTURE_PATH,
+  BACKGROUND_TEXTURE_PATH,
+  CELEBRATION_YOU_DID_IT_PATH,
+  CONFETTI_BURST_PATH,
+  DECORATION_TEXTURES,
+  textureForNode,
+  ZONE_BANNER_TEXTURE,
+} from './roadmapAssets'
 
 const PALETTE = {
   gold: '#c9a84c',
@@ -91,7 +99,7 @@ function BackgroundPlane() {
   if (!texture) return null
   return (
     <mesh position={[0.5, -0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[24, 14]} />
+      <planeGeometry args={[42, 32]} />
       <meshBasicMaterial map={texture} toneMapped={false} />
     </mesh>
   )
@@ -116,7 +124,7 @@ function NodeMarker({
   justUnlocked: boolean
 }) {
   const meshRef = useRef<THREE.Mesh>(null)
-  const texture = useOptionalTexture(textureForNode(node.kind, node.achievementKey))
+  const texture = useOptionalTexture(textureForNode(node.kind, node.achievementKey, node.id))
   const fogged = !node.zoneUnlocked
   const color = fogged ? PALETTE.fogged : node.unlocked ? (node.kind === 'boss' || node.kind === 'goal' ? PALETTE.gold : PALETTE.teacherGreen) : PALETTE.locked
 
@@ -186,6 +194,92 @@ function NodeMarker({
   )
 }
 
+/** Entrance signage at the start of each zone — purely decorative, never gates anything itself. */
+function ZoneBanner({ zone, position }: { zone: number; position: THREE.Vector3 }) {
+  const texturePath = ZONE_BANNER_TEXTURE[zone]
+  const texture = useOptionalTexture(texturePath)
+  if (!texture) return null
+  return (
+    <Billboard position={[position.x, position.y + 1.6, position.z]}>
+      <mesh>
+        <planeGeometry args={[1.1, 1.1]} />
+        <meshBasicMaterial map={texture} transparent alphaTest={0.1} toneMapped={false} />
+      </mesh>
+    </Billboard>
+  )
+}
+
+/** A single decorative prop (tree/bush/rock/etc) — no gameplay meaning, just atmosphere. */
+function DecorationProp({ texturePath, position }: { texturePath: string; position: THREE.Vector3 }) {
+  const texture = useOptionalTexture(texturePath)
+  if (!texture) return null
+  return (
+    <Billboard position={position}>
+      <mesh>
+        <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial map={texture} transparent alphaTest={0.1} toneMapped={false} />
+      </mesh>
+    </Billboard>
+  )
+}
+
+/**
+ * Scatters DECORATION_TEXTURES at fixed points offset perpendicular to the
+ * path, alternating sides. Fixed t-values and a fixed side-alternation
+ * (not random) so the scene doesn't reshuffle between renders/reloads.
+ */
+function Decorations({ curve }: { curve: THREE.CatmullRomCurve3 }) {
+  const spots = useMemo(() => {
+    const tValues = [0.06, 0.18, 0.3, 0.42, 0.55, 0.68, 0.8, 0.92]
+    return tValues.map((t, i) => {
+      const point = curve.getPointAt(t)
+      const tangent = curve.getTangentAt(t)
+      const side = i % 2 === 0 ? 1 : -1
+      const perpendicular = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize().multiplyScalar(1.6 * side)
+      const position = point.clone().add(perpendicular)
+      position.y = 0.4
+      const texturePath = DECORATION_TEXTURES[i % DECORATION_TEXTURES.length]
+      return { key: `deco-${i}`, texturePath, position }
+    })
+  }, [curve])
+
+  return (
+    <>
+      {spots.map((spot) => (
+        <DecorationProp key={spot.key} texturePath={spot.texturePath} position={spot.position} />
+      ))}
+    </>
+  )
+}
+
+/** A one-shot "You Did It!" banner + confetti when the goal node is freshly reached. */
+function GoalCelebration({ position }: { position: THREE.Vector3 }) {
+  const bannerTexture = useOptionalTexture(CELEBRATION_YOU_DID_IT_PATH)
+  const confettiTexture = useOptionalTexture(CONFETTI_BURST_PATH)
+
+  return (
+    <group position={[position.x, position.y, position.z]}>
+      {bannerTexture && (
+        <Billboard position={[0, 2.2, 0]}>
+          <mesh>
+            <planeGeometry args={[2.2, 0.52]} />
+            <meshBasicMaterial map={bannerTexture} transparent alphaTest={0.1} toneMapped={false} />
+          </mesh>
+        </Billboard>
+      )}
+      {confettiTexture && (
+        <Billboard position={[0, 1.4, 0]}>
+          <mesh>
+            <planeGeometry args={[1.6, 1]} />
+            <meshBasicMaterial map={confettiTexture} transparent alphaTest={0.1} toneMapped={false} />
+          </mesh>
+        </Billboard>
+      )}
+      {!prefersReducedMotion && <Sparkles count={50} scale={[2.5, 2.5, 2.5]} size={4} speed={0.6} color={PALETTE.gold} position={[0, 1.5, 0]} />}
+    </group>
+  )
+}
+
 function Avatar({ curve, avatarT }: { curve: THREE.CatmullRomCurve3; avatarT: number }) {
   const groupRef = useRef<THREE.Group>(null)
   const animatedT = useRef(prefersReducedMotion ? avatarT : 0)
@@ -235,11 +329,22 @@ export function JourneyMap({ nodes, avatarT }: JourneyMapProps) {
   const nodePositions = useMemo(() => nodes.map((node) => curve.getPointAt(node.t)), [curve, nodes])
   const justUnlocked = useJustUnlocked(nodes)
 
+  const zoneEntrances = useMemo(() => {
+    const firstIndexByZone = new Map<number, number>()
+    nodes.forEach((node, index) => {
+      if (!firstIndexByZone.has(node.zone)) firstIndexByZone.set(node.zone, index)
+    })
+    return [...firstIndexByZone.entries()].map(([zone, index]) => ({ zone, position: nodePositions[index] }))
+  }, [nodes, nodePositions])
+
+  const goalIndex = nodes.findIndex((n) => n.kind === 'goal')
+  const showGoalCelebration = goalIndex >= 0 && justUnlocked.has(nodes[goalIndex].id)
+
   return (
     <Canvas
       orthographic
       dpr={[1, 1.5]}
-      camera={{ position: [10, 9, 8], zoom: 55, near: 0.1, far: 100 }}
+      camera={{ position: [0, 16, 9], zoom: 46, near: 0.1, far: 100 }}
       gl={{ antialias: true, powerPreference: 'low-power' }}
     >
       <color attach="background" args={[PALETTE.sceneBackground]} />
@@ -248,11 +353,16 @@ export function JourneyMap({ nodes, avatarT }: JourneyMapProps) {
       <pointLight position={[-4, 3, -3]} intensity={0.3} color={PALETTE.teacherGreen} />
 
       <BackgroundPlane />
+      <Decorations curve={curve} />
       <RoadPath curve={curve} />
       {nodes.map((node, index) => (
         <NodeMarker key={node.id} node={node} position={nodePositions[index]} justUnlocked={justUnlocked.has(node.id)} />
       ))}
+      {zoneEntrances.map(({ zone, position }) => (
+        <ZoneBanner key={zone} zone={zone} position={position} />
+      ))}
       <Avatar curve={curve} avatarT={avatarT} />
+      {showGoalCelebration && <GoalCelebration position={nodePositions[goalIndex]} />}
     </Canvas>
   )
 }
