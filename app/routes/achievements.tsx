@@ -4,6 +4,7 @@ import { Award, Flame, ListChecks, Lock, Moon, Sparkles, Sunrise, Trophy, Zap, t
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { useAchievements } from '@/features/achievements/hooks/useAchievements'
 import { Card, CardContent } from '@/components/ui/card'
+import { OrganicBlob } from '@/components/decor/OrganicBlob'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/achievements')({
@@ -41,9 +42,10 @@ function AchievementsPage() {
   const unlockedCount = achievements.filter((a) => a.unlockedAt).length
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10">
-      <h1 className="mb-1 font-heading text-2xl font-semibold text-foreground">Achievements</h1>
-      <p className="mb-6 text-sm text-muted-foreground">
+    <div className="relative mx-auto max-w-4xl overflow-hidden px-4 py-10">
+      <OrganicBlob colorClassName="bg-primary/25" className="-top-16 -left-32" />
+      <h1 className="relative mb-1 font-heading text-2xl font-semibold text-foreground">Achievements</h1>
+      <p className="relative mb-6 text-sm text-muted-foreground">
         {unlockedCount} of {achievements.length} unlocked
       </p>
 

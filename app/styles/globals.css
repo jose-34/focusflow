@@ -40,6 +40,15 @@
   --chart-4: #a8763e;
   --chart-5: #065f46;
 
+  /* Deliberately separate from --primary: primary and --accent converge on
+     the same gold in dark mode (a real, sensible choice for button contrast
+     against a dark background), which is exactly wrong for anything that
+     needs to visibly distinguish two states by color alone — e.g. the
+     landing page's Student/Teacher toggle. --role-teacher stays a real
+     green, distinct from gold, in both themes. */
+  --role-teacher: #059669;
+  --role-teacher-foreground: #f5f0e0;
+
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-heading: "Sora", ui-sans-serif, system-ui, sans-serif;
 }
@@ -70,6 +79,9 @@
   --chart-3: #6ee7b7;
   --chart-4: #d8b978;
   --chart-5: #a7f3d0;
+
+  --role-teacher: #34d399;
+  --role-teacher-foreground: #022c22;
 }
 
 @theme inline {
@@ -97,6 +109,8 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-role-teacher: var(--role-teacher);
+  --color-role-teacher-foreground: var(--role-teacher-foreground);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -119,5 +133,32 @@
   h5,
   h6 {
     @apply font-heading;
+  }
+}
+
+@keyframes blob-morph {
+  0%,
+  100% {
+    border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+    transform: rotate(0deg) scale(1);
+  }
+  33% {
+    border-radius: 40% 60% 70% 30% / 40% 70% 30% 60%;
+    transform: rotate(8deg) scale(1.05);
+  }
+  66% {
+    border-radius: 70% 30% 50% 50% / 30% 60% 40% 70%;
+    transform: rotate(-6deg) scale(0.97);
+  }
+}
+
+.animate-blob-morph {
+  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+  animation: blob-morph 18s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-blob-morph {
+    animation: none;
   }
 }
