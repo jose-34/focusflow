@@ -10,14 +10,14 @@ Governed by [-01_Focus_Flow_Principles.md](-01_Focus_Flow_Principles.md), and by
 
 **Already built and real**, as of this document set: curriculum-aware classes, role-guided signup, role-based dashboards (Phase 1 of the original redesign plan — complete), Tasks, Focus Timer, Quizzes (author/take/grade), Live Game Sessions, Achievements, Wellness, Progress — plus, from this session specifically, two real RLS vulnerabilities found and fixed ([09_Database_Design.md](09_Database_Design.md)).
 
-**What must happen before wider rollout — not a new feature, a trust prerequisite**: today, Focus Flow has never actually been deployed anywhere ([17_Deployment_Architecture.md](17_Deployment_Architecture.md)). Version 1.0 is the release that makes it real and safe to run for an actual school, not the release that adds the next feature:
+**What must happen before wider rollout — not a new feature, a trust prerequisite**: Version 1.0 is the release that makes Focus Flow real and safe to run for an actual school, not the release that adds the next feature:
 
-- Legal review of the parental-consent question ([15_Security_Privacy.md](15_Security_Privacy.md) §7) — the highest-priority item on this entire roadmap, since it's the one thing that could block legitimate operation entirely if resolved wrong.
-- First real deployment, satisfying the persistent-process constraint for Live Game Sessions ([17_Deployment_Architecture.md](17_Deployment_Architecture.md) §2).
-- Automated backups + a tested restore procedure ([17_Deployment_Architecture.md](17_Deployment_Architecture.md) §10).
-- Basic error monitoring, evaluated against Principle 6 before adoption ([17_Deployment_Architecture.md](17_Deployment_Architecture.md) §6).
-- The RLS cross-user-isolation security test suite, formalized from the pattern that already caught two real bugs ([16_Testing_Strategy.md](16_Testing_Strategy.md) §6).
-- Reconcile `users.xp` vs. `xp_ledger` as one source of truth ([09_Database_Design.md](09_Database_Design.md), [12_Gamification_Framework.md](12_Gamification_Framework.md)) — a prerequisite for every gamification version below, cheaper to fix now than after more code depends on the ambiguity.
+- Legal review of the parental-consent question ([15_Security_Privacy.md](15_Security_Privacy.md) §7) — the highest-priority item on this entire roadmap, since it's the one thing that could block legitimate operation entirely if resolved wrong. **Not engineering work — needs a founder/legal decision, not code.**
+- ~~First real deployment, satisfying the persistent-process constraint for Live Game Sessions~~ — **done**: live on Railway, WebSocket game server on the same process/port as the main app ([17_Deployment_Architecture.md](17_Deployment_Architecture.md) §2, §4).
+- Automated backups + a tested restore procedure ([17_Deployment_Architecture.md](17_Deployment_Architecture.md) §10) — **not yet done**.
+- Basic error monitoring, evaluated against Principle 6 before adoption ([17_Deployment_Architecture.md](17_Deployment_Architecture.md) §6) — **not yet done**.
+- The RLS cross-user-isolation security test suite, formalized from the pattern that already caught real bugs every sprint since ([16_Testing_Strategy.md](16_Testing_Strategy.md) §6) — **still ad hoc** (a throwaway verification script per sprint, not a permanent, repeatable suite).
+- Reconcile `users.xp` vs. `xp_ledger` as one source of truth ([09_Database_Design.md](09_Database_Design.md), [12_Gamification_Framework.md](12_Gamification_Framework.md)) — **not yet done**; both are still written to on every XP award, not reconciled to one source.
 
 ---
 
