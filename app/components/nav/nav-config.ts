@@ -1,4 +1,4 @@
-import { ChartColumn, Gamepad2, GraduationCap, Heart, LayoutDashboard, ListTodo, Settings, Timer, Trophy } from 'lucide-react'
+import { ChartColumn, Gamepad2, GraduationCap, Heart, LayoutDashboard, ListTodo, Map, Settings, Timer, Trophy } from 'lucide-react'
 
 export interface NavLink {
   to: string
@@ -13,6 +13,7 @@ const sharedLinks: Array<NavLink> = [
   { to: '/progress', label: 'Progress', icon: ChartColumn },
   { to: '/wellness', label: 'Wellness', icon: Heart },
   { to: '/achievements', label: 'Achievements', icon: Trophy },
+  { to: '/journey', label: 'Journey', icon: Map },
   { to: '/classes', label: 'My Classes', icon: GraduationCap },
 ]
 

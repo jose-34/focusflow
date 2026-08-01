@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AchievementsRouteImport } from './routes/achievements'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as FocusRouteImport } from './routes/focus'
+import { Route as JourneyRouteImport } from './routes/journey'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ProgressRouteImport } from './routes/progress'
 import { Route as RegisterRouteImport } from './routes/register'
@@ -46,6 +47,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const FocusRoute = FocusRouteImport.update({
   id: '/focus',
   path: '/focus',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JourneyRoute = JourneyRouteImport.update({
+  id: '/journey',
+  path: '/journey',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/achievements': typeof AchievementsRoute
   '/dashboard': typeof DashboardRoute
   '/focus': typeof FocusRoute
+  '/journey': typeof JourneyRoute
   '/login': typeof LoginRoute
   '/progress': typeof ProgressRoute
   '/register': typeof RegisterRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/achievements': typeof AchievementsRoute
   '/dashboard': typeof DashboardRoute
   '/focus': typeof FocusRoute
+  '/journey': typeof JourneyRoute
   '/login': typeof LoginRoute
   '/progress': typeof ProgressRoute
   '/register': typeof RegisterRoute
@@ -166,6 +174,7 @@ export interface FileRoutesById {
   '/achievements': typeof AchievementsRoute
   '/dashboard': typeof DashboardRoute
   '/focus': typeof FocusRoute
+  '/journey': typeof JourneyRoute
   '/login': typeof LoginRoute
   '/progress': typeof ProgressRoute
   '/register': typeof RegisterRoute
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/achievements'
     | '/dashboard'
     | '/focus'
+    | '/journey'
     | '/login'
     | '/progress'
     | '/register'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/achievements'
     | '/dashboard'
     | '/focus'
+    | '/journey'
     | '/login'
     | '/progress'
     | '/register'
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/achievements'
     | '/dashboard'
     | '/focus'
+    | '/journey'
     | '/login'
     | '/progress'
     | '/register'
@@ -248,6 +260,7 @@ export interface RootRouteChildren {
   AchievementsRoute: typeof AchievementsRoute
   DashboardRoute: typeof DashboardRoute
   FocusRoute: typeof FocusRoute
+  JourneyRoute: typeof JourneyRoute
   LoginRoute: typeof LoginRoute
   ProgressRoute: typeof ProgressRoute
   RegisterRoute: typeof RegisterRoute
@@ -289,6 +302,13 @@ declare module '@tanstack/react-router' {
       path: '/focus'
       fullPath: '/focus'
       preLoaderRoute: typeof FocusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/journey': {
+      id: '/journey'
+      path: '/journey'
+      fullPath: '/journey'
+      preLoaderRoute: typeof JourneyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -413,6 +433,7 @@ const rootRouteChildren: RootRouteChildren = {
   AchievementsRoute: AchievementsRoute,
   DashboardRoute: DashboardRoute,
   FocusRoute: FocusRoute,
+  JourneyRoute: JourneyRoute,
   LoginRoute: LoginRoute,
   ProgressRoute: ProgressRoute,
   RegisterRoute: RegisterRoute,
