@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Billboard, Html, Sparkles } from '@react-three/drei'
 import * as THREE from 'three'
 import type { RoadmapNodeState } from '@/features/roadmap/nodes'
@@ -22,17 +22,53 @@ const PALETTE = {
   sceneBackground: '#f5f0e0',
 } as const
 
-// Shape control points for a gentle winding path — independent of node
-// count, so nodes.ts can grow/shrink its checkpoint list without this curve
-// needing to change. Node markers are placed via curve.getPointAt(node.t).
-const PATH_CONTROL_POINTS: Array<[number, number, number]> = [
-  [-6, 0, 2.5],
-  [-3, 0, -2],
-  [0, 0, 2],
-  [3, 0, -2],
-  [5, 0, 1.5],
-  [7, 0, -1],
+// Traces the actual stone path painted in background.png (707x498 source
+// pixels — see the grid-overlay reference used to read these off by eye).
+// Start sits at the path's near/bottom end in the image, goal at its
+// far/upper end. If background.png is ever swapped for different art,
+// these need retracing to match, or the road will visibly diverge from the
+// painted trail again.
+const BG_IMAGE_SIZE = { width: 707, height: 498 }
+// Kept proportional to BG_IMAGE_SIZE so the plane never stretches the
+// texture — the aspect-707/498 container in journey.tsx is what actually
+// keeps the rendered canvas matching this ratio too.
+const BG_PLANE_SIZE = { width: 64, height: (64 * BG_IMAGE_SIZE.height) / BG_IMAGE_SIZE.width }
+const PATH_PIXEL_WAYPOINTS: Array<[number, number]> = [
+  [395, 490],
+  [350, 380],
+  [310, 320],
+  [350, 245],
+  [400, 210],
+  [520, 140],
+  [660, 95],
 ]
+
+/** Maps a background.png pixel to this plane's local (unrotated) X/Z, before any recentering. */
+function pixelToPlaneLocal([px, py]: [number, number]): [number, number] {
+  const u = px / BG_IMAGE_SIZE.width
+  const v = py / BG_IMAGE_SIZE.height
+  const x = -BG_PLANE_SIZE.width / 2 + u * BG_PLANE_SIZE.width
+  const z = v * BG_PLANE_SIZE.height - BG_PLANE_SIZE.height / 2
+  return [x, z]
+}
+
+// R3F's default camera (position-only, no explicit lookAt) targets world
+// origin — so the path is recentered around its own centroid here, and
+// BackgroundPlane is offset by the same amount below, rather than trying to
+// aim the camera at an arbitrary point.
+const rawPathPoints = PATH_PIXEL_WAYPOINTS.map(pixelToPlaneLocal)
+const pathCentroid = rawPathPoints.reduce<[number, number]>(
+  (acc, [x, z]) => [acc[0] + x / rawPathPoints.length, acc[1] + z / rawPathPoints.length],
+  [0, 0],
+)
+const PATH_CONTROL_POINTS: Array<[number, number, number]> = rawPathPoints.map(([x, z]) => [
+  x - pathCentroid[0],
+  0,
+  z - pathCentroid[1],
+])
+// BackgroundPlane's [x, z] position — keeps the painted path under the
+// (now recentered) road curve.
+const BACKGROUND_PLANE_XZ: [number, number] = [0.5 - pathCentroid[0], -pathCentroid[1]]
 
 const BURST_DURATION_MS = 1800
 
@@ -98,8 +134,8 @@ function BackgroundPlane() {
   const texture = useOptionalTexture(BACKGROUND_TEXTURE_PATH)
   if (!texture) return null
   return (
-    <mesh position={[0.5, -0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[42, 32]} />
+    <mesh position={[BACKGROUND_PLANE_XZ[0], -0.05, BACKGROUND_PLANE_XZ[1]]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[BG_PLANE_SIZE.width, BG_PLANE_SIZE.height]} />
       <meshBasicMaterial map={texture} toneMapped={false} />
     </mesh>
   )
@@ -280,6 +316,23 @@ function GoalCelebration({ position }: { position: THREE.Vector3 }) {
   )
 }
 
+/**
+ * R3F's `camera={{ position }}` prop sets position only — it does not
+ * reliably aim the camera at the origin on its own, which was silently
+ * skewing the framing toward whichever side happened to fall in the
+ * default forward direction. This forces the orthographic camera to look
+ * at world origin explicitly, matching where PATH_CONTROL_POINTS is
+ * recentered to.
+ */
+function CameraLookAtOrigin() {
+  const { camera } = useThree()
+  useEffect(() => {
+    camera.lookAt(0, 0, 0)
+    camera.updateProjectionMatrix()
+  }, [camera])
+  return null
+}
+
 function Avatar({ curve, avatarT }: { curve: THREE.CatmullRomCurve3; avatarT: number }) {
   const groupRef = useRef<THREE.Group>(null)
   const animatedT = useRef(prefersReducedMotion ? avatarT : 0)
@@ -344,10 +397,11 @@ export function JourneyMap({ nodes, avatarT }: JourneyMapProps) {
     <Canvas
       orthographic
       dpr={[1, 1.5]}
-      camera={{ position: [0, 16, 9], zoom: 46, near: 0.1, far: 100 }}
+      camera={{ position: [0, 30, 17], zoom: 12, near: 0.1, far: 150 }}
       gl={{ antialias: true, powerPreference: 'low-power' }}
     >
       <color attach="background" args={[PALETTE.sceneBackground]} />
+      <CameraLookAtOrigin />
       <ambientLight intensity={0.7} />
       <directionalLight position={[4, 8, 5]} intensity={1} />
       <pointLight position={[-4, 3, -3]} intensity={0.3} color={PALETTE.teacherGreen} />

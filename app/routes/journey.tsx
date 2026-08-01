@@ -52,8 +52,8 @@ function JourneyPage() {
       title="Your Journey"
       subtitle={`${totalXp} XP · ${currentStreak}-day streak · ${unlockedCount} of ${roadmap.nodes.length} checkpoints reached`}
     >
-      <Card className="overflow-hidden p-0">
-        <div className="h-105 w-full">
+      <Card className="mx-auto max-w-3xl overflow-hidden p-0">
+        <div className="aspect-707/498 w-full">
           <JourneyMap nodes={roadmap.nodes} avatarT={roadmap.avatarT} />
         </div>
       </Card>
