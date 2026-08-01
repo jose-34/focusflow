@@ -5,6 +5,7 @@ import { and, count, eq, gte, sql } from 'drizzle-orm'
 import { withRlsContext } from '@/db'
 import { startEvents, focusSessions, focusHeartbeats, xpLedger, users } from '@/db/schema'
 import { requireUser } from '@/features/auth/utils'
+import { checkAndUnlockAchievements } from '@/features/achievements/services/achievement.service'
 
 const START_XP = 10
 const START_TOKEN_BYTES = 24
@@ -188,7 +189,21 @@ export const endFocusSessionFn = createServerFn({ method: 'POST' })
         await tx.update(users).set({ xp: sql`${users.xp} + ${xpAwarded}` }).where(eq(users.id, user.id))
       }
 
-      return { focusSessionId: updated.id, startAt: updated.startedAt, endAt: updated.completedAt ?? new Date().toISOString(), durationMinutes, verified, xpAwarded }
+      // Sprint 3 fix: this path previously never checked for newly-earned
+      // achievements, even though it sets wasSuccessful: true on the same
+      // focus_sessions row the achievement service reads — only the
+      // Pomodoro completion path (useFocusSession.ts) did this.
+      const unlockedAchievements = await checkAndUnlockAchievements(tx, user.id)
+
+      return {
+        focusSessionId: updated.id,
+        startAt: updated.startedAt,
+        endAt: updated.completedAt ?? new Date().toISOString(),
+        durationMinutes,
+        verified,
+        xpAwarded,
+        unlockedAchievements,
+      }
     })
   })
 

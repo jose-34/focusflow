@@ -30,10 +30,15 @@ Governed by [-01_Focus_Flow_Principles.md](-01_Focus_Flow_Principles.md), and by
 
 ## Version 1.2 — Phase 3: Unified Focus System
 
+**Sprint 3 shipped the small, safe slice of this** (see [03_Sprint_3_Review.md](sprints/03_Sprint_3_Review.md)) — reality-checked against the full merge below and deliberately scoped down, not a claim that this version is complete:
+- ~~Delete `app/db/schema/focus.ts`~~ — **done**.
+- ~~**Fix**: a quiz-linked focus session currently never unlocks an achievement~~ — **done**. `endFocusSessionFn` now calls `checkAndUnlockAchievements`, matching the Pomodoro path.
+
+**Still not done — the real architectural work**, deliberately deferred to its own sprint rather than rushed alongside the above:
 - Merge `focus_sessions` and the `start_events`/`focus_heartbeats` system into one ([08_System_Architecture.md](08_System_Architecture.md), [09_Database_Design.md](09_Database_Design.md)).
-- Delete `app/db/schema/focus.ts` (confirmed dead, re-verify zero imports at deletion time — [09_Database_Design.md](09_Database_Design.md)).
-- **Fix**: a quiz-linked focus session currently never unlocks an achievement — only the Pomodoro path does ([10_API_Architecture.md](10_API_Architecture.md)). This unification is what finally fixes it.
-- Reflection prompts, extending the existing Wellness Check-in ([13_Anti_Procrastination_Framework.md](13_Anti_Procrastination_Framework.md) §8) — natural fit here since this version already touches session-completion.
+- Reconcile XP awarding between the two paths — the quiz path awards real XP via `xpLedger` (on start and completion); the Pomodoro path, even after Sprint 2's Commitment Setting, still awards none. A full merge can't cleanly avoid this.
+- Resolve the polymorphic `assignment_id` pattern (no type discriminator, no FK — see [09_Database_Design.md](09_Database_Design.md)).
+- Reflection prompts, extending the existing Wellness Check-in ([13_Anti_Procrastination_Framework.md](13_Anti_Procrastination_Framework.md) §8) — natural fit once this version already touches session-completion.
 
 ---
 

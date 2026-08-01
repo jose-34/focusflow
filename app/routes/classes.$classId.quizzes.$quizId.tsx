@@ -6,6 +6,7 @@ import { getCurrentUserFn, useAuth } from '@/features/auth/hooks/useAuth'
 import { useAssignmentInsights, useQuizAuthoring, useQuizTaking } from '@/features/quizzes/hooks/useQuizzes'
 import { endFocusSessionFn, reportFocusHeartbeatFn, startAssignmentFn } from '@/features/focusMode'
 import { questionTypeValues } from '@/features/quizzes/schemas'
+import { ACHIEVEMENT_MAP } from '@/features/achievements/definitions'
 import { useCelebration } from '@/features/celebration/CelebrationContext'
 import { useCreateGameSession } from '@/features/games/hooks/useGames'
 import { Button } from '@/components/ui/button'
@@ -597,7 +598,13 @@ function StudentQuizView({ classId, quizId }: { classId: string; quizId: string 
       })
       celebrate({ type: 'quiz', title: quiz!.title, score: result.score ?? 0, maxScore: result.maxScore })
       if (focusSessionId) {
-        await endFocusSessionFn({ data: { sessionId: focusSessionId } })
+        const { unlockedAchievements } = await endFocusSessionFn({ data: { sessionId: focusSessionId } })
+        for (const key of unlockedAchievements) {
+          const definition = ACHIEVEMENT_MAP.get(key)
+          if (definition) {
+            celebrate({ type: 'achievement', title: definition.title, description: definition.description })
+          }
+        }
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to submit quiz')

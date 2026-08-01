@@ -248,7 +248,7 @@ A second, parallel focus-tracking mechanism (distinct from `focus_sessions`, the
 
 **A second, related gap this document previously missed**: [03_Product_Glossary.md](03_Product_Glossary.md)'s own Assignment entry states plainly that no schema should ever create an untyped "Assignment" reference — say specifically whether a Task or a Quiz is meant. The `assignment_id` column on `start_events`, `focus_heartbeats`, and `focus_sessions` violates this rule directly: it's a bare uuid that polymorphically points at either a Quiz or a Task with no type discriminator and no FK. **Left open, not fixed here** — resolving it properly means deciding the polymorphic-reference pattern (a type-discriminator column? two nullable FKs, one per target? a real Assignment table, which the glossary also warns against?) as part of the Phase 3 focus-system unification, not as an isolated column rename.
 
-**A landmine, not live code:** `app/db/schema/focus.ts` re-declares `startEvents`, `focusSessions`, and `focusHeartbeats` a second time, with an incompatible shape (no RLS, no real foreign keys, different columns) and is never imported from `app/db/schema/index.ts`. It is dead code, confirmed by its absence from the index barrel file — but its mere presence, under the same names, is a real risk that a future edit imports the wrong one by mistake. **Recommended for deletion**, per the already-approved Phase 3 of the redesign roadmap, not a new recommendation invented here.
+~~A landmine, not live code: `app/db/schema/focus.ts`...~~ — **deleted, Sprint 3**. Re-confirmed zero imports immediately before deletion (per this document's own standing caution not to trust a stale confirmation), then removed. `tsc -b` and the full test suite stayed clean without it.
 
 ### `user_achievements`
 | Column | Type | Constraint |
@@ -346,7 +346,7 @@ A second, parallel focus-tracking mechanism (distinct from `focus_sessions`, the
 
 - Reconcile `users.xp` (a plain counter) against `xp_ledger` (an append-only log) — pick one source of truth, per the note under `users` above.
 - **Resolve the polymorphic `assignment_id` pattern** (violates [03_Product_Glossary.md](03_Product_Glossary.md)'s own naming rule) as part of the Phase 3 unification — decide the real reference shape (type-discriminator column, two nullable FKs, or otherwise) and add the missing foreign-key constraints at the same time.
-- Confirm whether `app/db/schema/focus.ts` truly has zero remaining references anywhere before deleting it (re-verify at deletion time, don't assume this document's confirmation is still current).
+- ~~Confirm whether `app/db/schema/focus.ts` truly has zero remaining references~~ — done, Sprint 3; file deleted.
 
 ---
 
