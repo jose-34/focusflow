@@ -12,6 +12,7 @@ import {
   textureForNode,
   ZONE_BANNER_TEXTURE,
 } from './roadmapAssets'
+import { playAchievementSound, playJourneyCompleteSound } from '@/lib/sound'
 
 const PALETTE = {
   gold: '#c9a84c',
@@ -107,15 +108,28 @@ function useOptionalTexture(path: string): THREE.Texture | null {
 
 /** Tracks which node ids just transitioned locked -> unlocked, for a burst animation that fades after BURST_DURATION_MS. */
 function useJustUnlocked(nodes: Array<RoadmapNodeState>): Set<string> {
-  const previouslyUnlocked = useRef<Set<string>>(new Set())
+  // null until the first pass records a baseline — otherwise every node
+  // that's already unlocked on mount (which is always at least "start")
+  // gets mistaken for one just unlocked this instant, bursting/sounding on
+  // every single page load instead of only on a real, live transition.
+  const previouslyUnlocked = useRef<Set<string> | null>(null)
   const [justUnlocked, setJustUnlocked] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const currentlyUnlocked = new Set(nodes.filter((n) => n.unlocked).map((n) => n.id))
-    const newlyUnlocked = [...currentlyUnlocked].filter((id) => !previouslyUnlocked.current.has(id))
+    if (previouslyUnlocked.current === null) {
+      previouslyUnlocked.current = currentlyUnlocked
+      return
+    }
+    const newlyUnlocked = [...currentlyUnlocked].filter((id) => !previouslyUnlocked.current!.has(id))
     previouslyUnlocked.current = currentlyUnlocked
 
-    if (newlyUnlocked.length === 0 || prefersReducedMotion) return
+    if (newlyUnlocked.length === 0) return
+    if (!prefersReducedMotion) {
+      const goalNode = nodes.find((n) => n.kind === 'goal')
+      if (goalNode && newlyUnlocked.includes(goalNode.id)) playJourneyCompleteSound()
+      else playAchievementSound()
+    }
     setJustUnlocked((prev) => new Set([...prev, ...newlyUnlocked]))
     const timer = setTimeout(() => {
       setJustUnlocked((prev) => {

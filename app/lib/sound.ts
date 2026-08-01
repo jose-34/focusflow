@@ -112,3 +112,50 @@ export function playCalmCompleteSound() {
     { frequency: 523, startOffset: 0.3, duration: 0.7, type: 'sine', peakGain: 0.09 },
   ])
 }
+
+// The real (logged-in) app's celebration/reaction sounds — same synthesis
+// approach as the landing-page demo, wired into CelebrationOverlay and
+// JourneyMap so the actual product feels at least as satisfying as the
+// free teaser, not less.
+
+/** A badge/checkpoint unlocking — CelebrationOverlay's 'achievement' payload and JourneyMap's just-unlocked nodes. */
+export function playAchievementSound() {
+  playTones([
+    { frequency: 587, startOffset: 0, duration: 0.13, type: 'square', peakGain: 0.11 },
+    { frequency: 740, startOffset: 0.09, duration: 0.13, type: 'square', peakGain: 0.12 },
+    { frequency: 880, startOffset: 0.18, duration: 0.13, type: 'square', peakGain: 0.13 },
+    { frequency: 1175, startOffset: 0.27, duration: 0.3, type: 'square', peakGain: 0.15 },
+  ])
+}
+
+/** Quiz submitted — bigger flourish for a perfect score, a warm plain completion tone otherwise. */
+export function playQuizResultSound(isPerfect: boolean) {
+  if (isPerfect) {
+    playAchievementSound()
+    return
+  }
+  playTones([
+    { frequency: 440, startOffset: 0, duration: 0.16, type: 'triangle', peakGain: 0.1 },
+    { frequency: 554, startOffset: 0.1, duration: 0.24, type: 'triangle', peakGain: 0.11 },
+  ])
+}
+
+/** Satisfying low-to-high "pop open" for a treasure-chest/task-complete celebration. */
+export function playChestSound() {
+  playTones([
+    { frequency: 260, startOffset: 0, duration: 0.08, type: 'sawtooth', peakGain: 0.08 },
+    { frequency: 520, startOffset: 0.06, duration: 0.1, type: 'sawtooth', peakGain: 0.1 },
+    { frequency: 780, startOffset: 0.14, duration: 0.2, type: 'square', peakGain: 0.13 },
+  ])
+}
+
+/** The biggest flourish — reaching the Journey Mode goal castle. */
+export function playJourneyCompleteSound() {
+  playTones([
+    { frequency: 523, startOffset: 0, duration: 0.14, type: 'square', peakGain: 0.12 },
+    { frequency: 659, startOffset: 0.1, duration: 0.14, type: 'square', peakGain: 0.13 },
+    { frequency: 784, startOffset: 0.2, duration: 0.14, type: 'square', peakGain: 0.14 },
+    { frequency: 988, startOffset: 0.3, duration: 0.14, type: 'square', peakGain: 0.15 },
+    { frequency: 1319, startOffset: 0.4, duration: 0.4, type: 'square', peakGain: 0.17 },
+  ])
+}

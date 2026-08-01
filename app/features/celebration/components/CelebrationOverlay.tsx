@@ -1,8 +1,16 @@
+import { useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CelebrationScene } from './CelebrationScene'
+import { playAchievementSound, playChestSound, playQuizResultSound } from '@/lib/sound'
 import type { CelebrationPayload } from '../CelebrationContext'
 
 const GOLD = '#C9A84C'
+
+function playSoundFor(payload: CelebrationPayload) {
+  if (payload.type === 'achievement') playAchievementSound()
+  else if (payload.type === 'chest') playChestSound()
+  else playQuizResultSound(payload.score === payload.maxScore)
+}
 
 export function CelebrationOverlay({
   payload,
@@ -11,6 +19,13 @@ export function CelebrationOverlay({
   payload: CelebrationPayload | null
   onDismiss: () => void
 }) {
+  useEffect(() => {
+    if (payload) playSoundFor(payload)
+    // Only the arrival of a new payload should play a sound, not every
+    // re-render while one is already showing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payload])
+
   return (
     <AnimatePresence>
       {payload && (
