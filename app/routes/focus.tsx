@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { ListTodo, Pause, Play, RotateCcw, SkipForward } from 'lucide-react'
+import { ListTodo, Pause, Play, RotateCcw, SkipForward, Target } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { FOCUS_DURATION_OPTIONS, usePomodoro } from '@/features/timer/TimerContext'
 import { useTasks } from '@/features/tasks/hooks/useTasks'
@@ -10,6 +10,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/focus')({
@@ -43,6 +46,10 @@ function FocusPage() {
     setFocusMinutes,
     selectedTaskId,
     setTaskId,
+    commitment,
+    setCommitment,
+    pendingReflection,
+    resolveReflection,
     currentSessionNumber,
     sessionsUntilLongBreak,
     totalDurationSeconds,
@@ -110,7 +117,12 @@ function FocusPage() {
             Pause
           </Button>
         ) : (
-          <Button size="lg" onClick={start} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+          <Button
+            size="lg"
+            onClick={start}
+            disabled={!isBreak && commitment.trim().length === 0}
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+          >
             <Play className="size-4" />
             Start
           </Button>
@@ -127,7 +139,34 @@ function FocusPage() {
         )}
       </div>
 
-      <Card className="mt-10 w-full">
+      {!isBreak && (
+        <Card className="mt-10 w-full">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-heading text-base text-foreground">
+              <Target className="size-4" />
+              Commitment
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Label htmlFor="commitment" className="sr-only">
+              What will you accomplish this session?
+            </Label>
+            <Input
+              id="commitment"
+              value={commitment}
+              onChange={(e) => setCommitment(e.target.value)}
+              disabled={isRunning}
+              maxLength={280}
+              placeholder="e.g. Finish the first five algebra problems"
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Say exactly what you'll get done — required before starting. You'll see this again when the session ends.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="mt-4 w-full">
         <CardHeader>
           <CardTitle className="font-heading text-base text-foreground">Focus Duration</CardTitle>
         </CardHeader>
@@ -193,6 +232,30 @@ function FocusPage() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={pendingReflection !== null}>
+        <DialogContent showCloseButton={false} className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Session complete</DialogTitle>
+            <DialogDescription>Your commitment for this session:</DialogDescription>
+          </DialogHeader>
+          <p className="rounded-md border border-border bg-secondary/50 px-4 py-3 text-sm font-medium text-foreground">
+            "{pendingReflection?.commitment}"
+          </p>
+          <p className="text-sm text-muted-foreground">Did you get it done?</p>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="ghost" onClick={() => resolveReflection(undefined)}>
+              Skip
+            </Button>
+            <Button variant="outline" onClick={() => resolveReflection(false)}>
+              Not met
+            </Button>
+            <Button onClick={() => resolveReflection(true)} className="bg-primary text-primary-foreground hover:bg-primary/90">
+              Met
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

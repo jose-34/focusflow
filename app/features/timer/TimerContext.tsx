@@ -12,6 +12,11 @@ const SHORT_BREAK_MINUTES = 5
 const LONG_BREAK_MINUTES = 15
 const SESSIONS_UNTIL_LONG_BREAK = 4
 
+interface PendingReflection {
+  sessionId: string
+  commitment: string
+}
+
 interface TimerContextValue {
   mode: TimerMode
   timeLeft: number
@@ -20,6 +25,10 @@ interface TimerContextValue {
   setFocusMinutes: (minutes: number) => void
   selectedTaskId: string | null
   setTaskId: (taskId: string | null) => void
+  commitment: string
+  setCommitment: (commitment: string) => void
+  pendingReflection: PendingReflection | null
+  resolveReflection: (commitmentMet?: boolean) => Promise<void>
   completedFocusSessions: number
   currentSessionNumber: number
   sessionsUntilLongBreak: number
@@ -65,6 +74,8 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   const [isRunning, setIsRunning] = useState(false)
   const [completedFocusSessions, setCompletedFocusSessions] = useState(0)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [commitment, setCommitmentState] = useState('')
+  const [pendingReflection, setPendingReflection] = useState<PendingReflection | null>(null)
 
   const sessionIdRef = useRef<string | null>(null)
   const { startSession, completeSession, abandonSession, logDistraction } = useFocusSession()
@@ -77,26 +88,63 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, focusMinutes])
 
+  // Advances past the focus session that just ended: awards achievements,
+  // fires the completion toast, and switches to the appropriate break.
+  // Shared by resolveReflection() (the normal path, once the student answers
+  // or skips the Met/Not Met check) and the sessionId-missing fallback below.
+  const finishFocusSession = useCallback(
+    async (sessionId: string, commitmentMet?: boolean) => {
+      try {
+        const result = await completeSession({ id: sessionId, commitmentMet })
+        for (const key of result.unlockedAchievements) {
+          const definition = ACHIEVEMENT_MAP.get(key)
+          if (definition) {
+            celebrate({ type: 'achievement', title: definition.title, description: definition.description })
+          }
+        }
+      } catch {
+        // Best-effort: don't let a network hiccup break the timer UX.
+      }
+      setCommitmentState('')
+      setCompletedFocusSessions((count) => {
+        const nextCount = count + 1
+        const isLongBreak = nextCount % SESSIONS_UNTIL_LONG_BREAK === 0
+        toast.success(isLongBreak ? 'Great work! Time for a long break.' : 'Focus session complete! Take a short break.')
+        setMode(isLongBreak ? 'long_break' : 'short_break')
+        return nextCount
+      })
+    },
+    [completeSession, celebrate],
+  )
+
+  const resolveReflection = useCallback(
+    async (commitmentMet?: boolean) => {
+      if (!pendingReflection) return
+      const { sessionId } = pendingReflection
+      setPendingReflection(null)
+      await finishFocusSession(sessionId, commitmentMet)
+    },
+    [pendingReflection, finishFocusSession],
+  )
+
   const handleModeComplete = useCallback(async () => {
     setIsRunning(false)
     playCompletionSound()
 
     if (mode === 'focus') {
       const sessionId = sessionIdRef.current
+      const committedTo = commitment
       sessionIdRef.current = null
       if (sessionId) {
-        try {
-          const result = await completeSession(sessionId)
-          for (const key of result.unlockedAchievements) {
-            const definition = ACHIEVEMENT_MAP.get(key)
-            if (definition) {
-              celebrate({ type: 'achievement', title: definition.title, description: definition.description })
-            }
-          }
-        } catch {
-          // Best-effort: don't let a network hiccup break the timer UX.
-        }
+        // Pause here — the student sees their commitment shown back and
+        // self-reports Met/Not Met before the session is actually marked
+        // complete. finishFocusSession() (achievements, toast, mode switch)
+        // runs once they answer, via resolveReflection().
+        setPendingReflection({ sessionId, commitment: committedTo })
+        return
       }
+      // Defensive fallback only — start() requires a commitment before a
+      // session can begin, so sessionIdRef should never be empty here.
       const nextCount = completedFocusSessions + 1
       setCompletedFocusSessions(nextCount)
       const isLongBreak = nextCount % SESSIONS_UNTIL_LONG_BREAK === 0
@@ -106,7 +154,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       toast.info('Break over — ready to focus?')
       setMode('focus')
     }
-  }, [mode, completedFocusSessions, completeSession, celebrate])
+  }, [mode, commitment, completedFocusSessions])
 
   useEffect(() => {
     if (!isRunning || timeLeft > 0) return
@@ -123,8 +171,13 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback(async () => {
     if (mode === 'focus' && !sessionIdRef.current) {
+      const trimmedCommitment = commitment.trim()
+      if (!trimmedCommitment) {
+        toast.error('Set a commitment for this session before starting.')
+        return
+      }
       try {
-        const session = await startSession({ durationMinutes: focusMinutes, taskId: selectedTaskId })
+        const session = await startSession({ durationMinutes: focusMinutes, taskId: selectedTaskId, commitment: trimmedCommitment })
         sessionIdRef.current = session.id
       } catch {
         toast.error('Could not start your session — check your connection and try again.')
@@ -132,7 +185,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       }
     }
     setIsRunning(true)
-  }, [mode, focusMinutes, selectedTaskId, startSession])
+  }, [mode, focusMinutes, selectedTaskId, commitment, startSession])
 
   const pause = useCallback(() => {
     setIsRunning(false)
@@ -140,6 +193,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
   const reset = useCallback(async () => {
     setIsRunning(false)
+    setPendingReflection(null)
     const sessionId = sessionIdRef.current
     if (mode === 'focus' && sessionId) {
       sessionIdRef.current = null
@@ -148,6 +202,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       } catch {
         // Best-effort.
       }
+      setCommitmentState('')
     }
     setTimeLeft(durationSecondsForMode(mode, focusMinutes))
   }, [mode, focusMinutes, abandonSession])
@@ -174,6 +229,14 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     [isRunning],
   )
 
+  const setCommitment = useCallback(
+    (value: string) => {
+      if (isRunning) return
+      setCommitmentState(value)
+    },
+    [isRunning],
+  )
+
   const recordDistraction = useCallback(
     (durationSeconds: number) => {
       const sessionId = sessionIdRef.current
@@ -194,6 +257,10 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     setFocusMinutes,
     selectedTaskId,
     setTaskId,
+    commitment,
+    setCommitment,
+    pendingReflection,
+    resolveReflection,
     completedFocusSessions,
     currentSessionNumber,
     sessionsUntilLongBreak: SESSIONS_UNTIL_LONG_BREAK,
@@ -235,6 +302,10 @@ export function usePomodoro() {
     setFocusMinutes: timer.setFocusMinutes,
     selectedTaskId: timer.selectedTaskId,
     setTaskId: timer.setTaskId,
+    commitment: timer.commitment,
+    setCommitment: timer.setCommitment,
+    pendingReflection: timer.pendingReflection,
+    resolveReflection: timer.resolveReflection,
     completedFocusSessions: timer.completedFocusSessions,
     currentSessionNumber: timer.currentSessionNumber,
     sessionsUntilLongBreak: timer.sessionsUntilLongBreak,

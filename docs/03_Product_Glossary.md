@@ -32,7 +32,7 @@ Each entry is tagged **Built** (exists in the product today) or **Planned** (def
 | [Focus Session](#focus-session) | Built | A timed block of committed work, optionally linked to a Task or Quiz. |
 | [Focus Mode](#focus-mode) | Built | Tab-visibility monitoring active during a Focus Session. |
 | [Distraction Event](#distraction-event) | Built | A logged instance of leaving the tab during Focus Mode. |
-| [Commitment](#commitment) | Planned | A specific, named intention set before a Focus Session begins. |
+| [Commitment](#commitment) | Built | A specific, named intention set before a Focus Session begins. |
 | [Risk Signal](#risk-signal) | Built (teacher-facing) | A private, aggregated procrastination indicator for a teacher. |
 | [Wellness Check-in](#wellness-check-in) | Built | A student's self-reported mood and optional note. |
 | [XP](#xp) | Built | Points earned only from verified learning actions. |
@@ -212,7 +212,7 @@ Each entry is tagged **Built** (exists in the product today) or **Planned** (def
 **Owner:** Student.
 **Consumers:** Self (streaks, XP), Teacher (aggregated risk signal only, never raw session detail).
 **May include:** duration, started/completed timestamps, success flag, linked task (optional).
-**Related objects:** Task, Distraction Event, XP, Streak, Commitment (planned).
+**Related objects:** Task, Distraction Event, XP, Streak, Commitment.
 **Not to be confused with:** Live Game Session (a synchronous multiplayer quiz round — an entirely different object that happens to share the word "session"; see the Session ambiguity notice below).
 
 ### Focus Mode
@@ -231,7 +231,7 @@ Each entry is tagged **Built** (exists in the product today) or **Planned** (def
 **Related objects:** Focus Session, Focus Mode.
 
 ### Commitment
-**Status: Planned** (see [02_Product_Definition.md](02_Product_Definition.md), Anti-Procrastination Framework — "Commitment Setting").
+**Status: Built** (Sprint 2, required — see [02_Product_Definition.md](02_Product_Definition.md), Anti-Procrastination Framework — "Commitment Setting").
 **Definition:** A specific, named intention a student sets immediately before a Focus Session begins — e.g. "finish the first five algebra problems," not "study math." An implementation-intention technique, not a cosmetic prompt.
 **Owner:** Student, set per Focus Session.
 **Consumers:** Self (during and after the session, to check whether it was met).

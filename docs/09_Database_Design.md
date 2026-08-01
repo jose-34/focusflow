@@ -216,6 +216,10 @@ erDiagram
 | assignment_id | uuid | *(no FK constraint — see gap below)* |
 | verified | boolean | not null, default false |
 | task_id | uuid | FK → tasks, **set null** on delete |
+| commitment | text | nullable — see note below |
+| commitment_met | boolean | nullable |
+
+**`commitment`/`commitment_met` (Sprint 2, [D3 Commitment Setting](04_Product_Requirements_Document.md#d3-commitment-setting))**: deliberately nullable in the DB even though the product decision requires a commitment for every *new* session — enforced at the Zod/UI layer (`startFocusSessionSchema`), not a DB constraint, so historical rows created before this column existed don't need a backfill. `commitment_met` stays null until the student self-reports at completion (or forever, if they skip the reflection or the session was abandoned rather than completed).
 
 **Indexes:** `user_id`, `task_id`, `start_event_id`, `assignment_id`.
 **RLS:** `focus_sessions_self_access` (owner) + `focus_sessions_teacher_select` (`task_id is not null and fn_task_is_quiz_owned_by_teacher(task_id)`).

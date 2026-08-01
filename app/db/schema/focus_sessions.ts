@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { boolean, index, integer, pgPolicy, pgTable, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { boolean, index, integer, pgPolicy, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import { tasks } from './tasks'
 import { users } from './users'
 
@@ -20,6 +20,14 @@ export const focusSessions = pgTable(
     // Optional link to the task this session was spent on — lets a session
     // count as focus time logged against a specific (possibly assigned) task.
     taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+    // D3 Commitment Setting. Nullable in the DB even though the product
+    // decision made "required" for new sessions — enforced at the Zod/UI
+    // layer, not a DB constraint, so historical rows created before this
+    // column existed don't need a backfill. commitmentMet stays null until
+    // the student self-reports at session completion; an abandoned session
+    // never gets a reflection prompt, so it stays null forever for those.
+    commitment: text('commitment'),
+    commitmentMet: boolean('commitment_met'),
   },
   (table) => [
     index('focus_sessions_user_id_idx').on(table.userId),

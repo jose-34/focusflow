@@ -3,10 +3,12 @@ import { z } from 'zod'
 export const startFocusSessionSchema = z.object({
   durationMinutes: z.coerce.number().int().min(1, 'Must be at least 1 minute'),
   taskId: z.string().uuid().optional().nullable(),
+  commitment: z.string().trim().min(1, 'A commitment is required to start a focus session').max(280, 'Keep it short — 280 characters max'),
 })
 
 export const completeFocusSessionSchema = z.object({
   id: z.string().uuid(),
+  commitmentMet: z.boolean().optional(),
 })
 
 export const logDistractionSchema = z.object({

@@ -26,7 +26,7 @@ Governed by [-01_Focus_Flow_Principles.md](-01_Focus_Flow_Principles.md), and by
 - ~~Practice Task assignment system~~ — **done**: `task_templates`, `tasks.taskType` enum, teacher-assign-to-class flow ([C2](04_Product_Requirements_Document.md#c2-practice-task-assignment)). Found and fixed a real RLS gap along the way (`tasks_teacher_insert_practice`) — see [09_Database_Design.md](09_Database_Design.md).
 - **Also folded in, reality-checked before the sprint started**: roster removal (soft-delete an enrollment) — the one real gap in an otherwise-already-built "Teacher Foundation."
 - ~~Unit tests for `computeStreaks` and the `riskScore` calculation~~ — **already done in Sprint 0**, ahead of this version, not bundled here as originally planned. See [docs/sprints/00_Sprint_0_Review.md](sprints/00_Sprint_0_Review.md).
-- **Deferred, not part of this sprint**: Commitment Setting ([D3](04_Product_Requirements_Document.md#d3-commitment-setting)) — originally proposed to ship alongside Practice Tasks, but kept out to hold this sprint's scope to exactly two features. Still next in line, not abandoned.
+- ~~Deferred, not part of this sprint~~ — **Commitment Setting shipped in Sprint 2** ([D3](04_Product_Requirements_Document.md#d3-commitment-setting)): required commitment before a Focus Session starts, shown back with a skippable Met/Not Met self-check at completion. See [docs/sprints/02_Sprint_2_Review.md](sprints/02_Sprint_2_Review.md).
 
 ## Version 1.2 — Phase 3: Unified Focus System
 

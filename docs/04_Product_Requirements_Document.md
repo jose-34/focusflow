@@ -339,23 +339,23 @@ This document does not cover screens, layouts, or visual design — see [11_UI_U
 ---
 
 ### D3. Commitment Setting
-**Status: Planned** (see [02_Product_Definition.md](02_Product_Definition.md), Anti-Procrastination Framework).
+**Status: Built** (Sprint 2). Resolved the glossary's mandatory-vs-optional open question: **required**. A student must enter a non-empty commitment before a Focus Session can start — chosen over the lower-friction alternative on the reasoning that implementation-intention techniques work better when not skippable.
 **Purpose:** Increase follow-through on a Focus Session using a specific, named intention set immediately before starting — an implementation-intention technique, not a cosmetic prompt.
 
 **Actors:** Student.
 
-**Inputs:** A short free-text commitment (e.g. "finish the first five algebra problems"), required or optional per the open question below.
+**Inputs:** A short free-text commitment (e.g. "finish the first five algebra problems"), required.
 **Outputs:** A Commitment attached to the Focus Session; shown back to the student at session end alongside a simple met/not-met self-check.
 
 **Rules**
 - A Commitment is specific to one session — it is never a standing goal (that's a Mission) or a permanent to-do (that's a Task).
-- Whether met/not-met is self-reported, never system-judged — the point is reflection, not a compliance score.
+- Whether met/not-met is self-reported, never system-judged — the point is reflection, not a compliance score. Answering the self-check is itself optional (a "Skip" option exists) — only the commitment text is required, not the reflection on it.
+- An abandoned (not completed) session never prompts for the met/not-met reflection — there's nothing to reflect on.
 
 **Acceptance Criteria**
 - ✓ A Commitment set at session start is shown back verbatim at session end.
-- ✓ Skipping the Commitment (if optional) never blocks starting a session.
-
-**Open question carried from the glossary:** should Commitment Setting be mandatory or optional? Not decided here — resolve deliberately before implementation, since this is a real adoption-friction tradeoff.
+- ✓ A student cannot start a Focus Session without entering a commitment.
+- ✓ Met/Not-Met is self-reported only, and answering it is itself skippable.
 
 ---
 

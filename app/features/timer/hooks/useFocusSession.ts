@@ -26,7 +26,7 @@ export const startFocusSessionFn = createServerFn({ method: 'POST' })
 
       const [session] = await tx
         .insert(focusSessions)
-        .values({ userId: user.id, durationMinutes: data.durationMinutes, taskId })
+        .values({ userId: user.id, durationMinutes: data.durationMinutes, taskId, commitment: data.commitment })
         .returning()
       return session
     })
@@ -39,7 +39,7 @@ export const completeFocusSessionFn = createServerFn({ method: 'POST' })
     return withRlsContext(user.id, async (tx) => {
       const [session] = await tx
         .update(focusSessions)
-        .set({ completedAt: new Date(), wasSuccessful: true })
+        .set({ completedAt: new Date(), wasSuccessful: true, commitmentMet: data.commitmentMet })
         .where(eq(focusSessions.id, data.id))
         .returning()
       const unlockedAchievements = await checkAndUnlockAchievements(tx, user.id)
@@ -79,11 +79,11 @@ export function useFocusSession() {
   const queryClient = useQueryClient()
 
   const startMutation = useMutation({
-    mutationFn: (input: { durationMinutes: number; taskId?: string | null }) => startFocusSessionFn({ data: input }),
+    mutationFn: (input: { durationMinutes: number; taskId?: string | null; commitment: string }) => startFocusSessionFn({ data: input }),
   })
 
   const completeMutation = useMutation({
-    mutationFn: (id: string) => completeFocusSessionFn({ data: { id } }),
+    mutationFn: (input: { id: string; commitmentMet?: boolean }) => completeFocusSessionFn({ data: input }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['progress'] })
