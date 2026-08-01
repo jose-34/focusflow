@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { Sparkles } from '@react-three/drei'
 import type { Mesh } from 'three'
 
-function RotatingBadge({ color, sparkleCount }: { color: string; sparkleCount: number }) {
+function RotatingBadge({ color, sparkleCount, shape }: { color: string; sparkleCount: number; shape: 'badge' | 'chest' }) {
   const meshRef = useRef<Mesh>(null)
 
   useFrame((_, delta) => {
@@ -15,7 +15,7 @@ function RotatingBadge({ color, sparkleCount }: { color: string; sparkleCount: n
   return (
     <>
       <mesh ref={meshRef}>
-        <octahedronGeometry args={[1.2, 0]} />
+        {shape === 'chest' ? <boxGeometry args={[1.6, 1.1, 1]} /> : <octahedronGeometry args={[1.2, 0]} />}
         <meshStandardMaterial color={color} metalness={0.75} roughness={0.2} emissive={color} emissiveIntensity={0.18} />
       </mesh>
       <Sparkles count={sparkleCount} scale={[4, 4, 2]} size={3} speed={0.4} color={color} />
@@ -23,7 +23,15 @@ function RotatingBadge({ color, sparkleCount }: { color: string; sparkleCount: n
   )
 }
 
-export function CelebrationScene({ accentColor = '#C9A84C', sparkleCount = 40 }: { accentColor?: string; sparkleCount?: number }) {
+export function CelebrationScene({
+  accentColor = '#C9A84C',
+  sparkleCount = 40,
+  shape = 'badge',
+}: {
+  accentColor?: string
+  sparkleCount?: number
+  shape?: 'badge' | 'chest'
+}) {
   return (
     <Canvas
       dpr={[1, 1.5]}
@@ -33,7 +41,7 @@ export function CelebrationScene({ accentColor = '#C9A84C', sparkleCount = 40 }:
       <ambientLight intensity={0.6} />
       <directionalLight position={[3, 4, 5]} intensity={1.2} />
       <pointLight position={[-3, -2, -2]} intensity={0.4} color="#064E3B" />
-      <RotatingBadge color={accentColor} sparkleCount={sparkleCount} />
+      <RotatingBadge color={accentColor} sparkleCount={sparkleCount} shape={shape} />
     </Canvas>
   )
 }

@@ -67,8 +67,12 @@ function TasksPage() {
   }
 
   async function handleToggle(task: Task) {
+    const completing = !task.completed
     try {
-      const result = await toggleTask({ id: task.id, completed: !task.completed })
+      const result = await toggleTask({ id: task.id, completed: completing })
+      if (completing) {
+        celebrate({ type: 'chest', taskTitle: task.title })
+      }
       for (const key of result.unlockedAchievements) {
         const definition = ACHIEVEMENT_MAP.get(key)
         if (definition) {

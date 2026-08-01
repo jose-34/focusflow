@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import bcrypt from 'bcryptjs'
 import { eq } from 'drizzle-orm'
 import { adminDb } from '@/db/admin'
-import { sessions, users, type Session, type User } from '@/db/schema'
+import { loginEvents, sessions, users, type Session, type User } from '@/db/schema'
 
 const SALT_ROUNDS = 12
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000
@@ -94,6 +94,8 @@ class AuthService {
       .set({ lastLoginAt: new Date(), updatedAt: new Date() })
       .where(eq(users.id, user.id))
       .returning()
+
+    await adminDb.insert(loginEvents).values({ userId: updated.id })
 
     const session = await this.createSession(updated.id)
     return { user: this.sanitizeUser(updated), session }

@@ -79,6 +79,7 @@ The curve accelerates gradually (each level costs more than the last) — delibe
 | | Month of Focus | 30-day focus streak | Planned |
 | **Deep Work** | Deep Work | One session with zero logged distraction events | Planned |
 | | Century Club | 100 completed focus sessions | Built |
+| | Marathon | 5+ completed focus sessions in a single day | Built (reinstated) |
 | **Mastery** | First Mastery | Reached Mastery Path level 5 in any subject | Planned |
 | | Multi-Subject | Reached level 3 in three or more subjects | Planned |
 | | Comeback | A meaningfully improved score on a retry or Challenge | Planned |
@@ -89,8 +90,9 @@ The curve accelerates gradually (each level costs more than the last) — delibe
 | | Good Sport | Completed a Challenge through to the end, win or lose | Planned |
 | **Milestone** | First Focus | Completed your first focus session | Built |
 | **Time-of-day** | Early Bird | A session completed before 8am | Built |
+| | Night Owl | A session completed after 8pm | Built (reinstated) |
 
-> **Resolved** (was: "a real tension worth naming"). Two previously-built badges — **Marathon** (5+ sessions in one day) and **Night Owl** (after 8pm) — rewarded exactly the kind of overwork and late-night study pattern Foundation 2 / Principle 6 (Student Wellbeing: "encourages healthy, balanced study habits rather than constant engagement") argues against. Per the [Design Review Board](DESIGN_REVIEW_BOARD.md)'s Educational Soundness finding, **both have been retired** — removed from `ACHIEVEMENT_DEFINITIONS` (and their now-dead unlock logic deleted from `achievement.service.ts`), rather than reframed with a counter-signal. A student who had already unlocked either historically simply no longer sees it on their achievements page; no data migration was needed.
+> **Resolved, then reinstated (2026-08-01)**. Two badges — **Marathon** (5+ sessions in one day) and **Night Owl** (after 8pm) — rewarded exactly the kind of overwork and late-night study pattern Foundation 2 / Principle 6 (Student Wellbeing: "encourages healthy, balanced study habits rather than constant engagement") argues against. Per the [Design Review Board](DESIGN_REVIEW_BOARD.md)'s Educational Soundness finding, both were retired for a period — removed from `ACHIEVEMENT_DEFINITIONS`, unlock logic deleted from `achievement.service.ts` — rather than reframed with a counter-signal. They were subsequently reinstated by founder decision, with both triggers restored unchanged, as part of building the Journey Mode gamified map. The counter-signal option below remains the documented way to address the original wellbeing finding without retiring the badges again, if that's picked up later.
 
 **Every badge is unlocked idempotently** (per [09_Database_Design.md](09_Database_Design.md)'s unique constraint on `(user_id, achievement_key)`) — re-evaluating already-unlocked criteria never re-fires or re-awards.
 
@@ -165,7 +167,7 @@ Restated concretely, now that every mechanic above has been specified, so this l
 ## Open questions carried into engineering
 
 - ~~Resolve the `users.xp` vs. `xp_ledger` source-of-truth question~~ — **done, Sprint 5**.
-- ~~Decide the fate of the Marathon and Night Owl badges~~ — **resolved**: both retired (§4).
+- ~~Decide the fate of the Marathon and Night Owl badges~~ — **resolved**: retired, then reinstated 2026-08-01 (§4).
 - Decide whether Mastery Path and Learning Path are ultimately one system or two, once Competency/strand data exists.
 - Build the remaining anti-grinding measures: the daily-diminishing-XP rule and the rapid-fire-completion anomaly check (§9) are still proposed, not yet implemented. The `startAssignmentFn` per-day XP cap and the Practice-Task-requires-a-linked-Focus-Session rule (§2) **have** been implemented, per the Design Review Board's blocker #1.
 - Confirm the exact Mastery Path level curve and titles above with the founder before treating them as final — they are a concrete proposal, not a decision made unilaterally.

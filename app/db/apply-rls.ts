@@ -420,6 +420,13 @@ const policies: Array<RlsPolicy> = [
     withCheck: `${CU} = user_id`,
   },
   {
+    table: 'login_events',
+    name: 'login_events_self_access',
+    for: 'all',
+    using: `${CU} = user_id`,
+    withCheck: `${CU} = user_id`,
+  },
+  {
     table: 'user_achievements',
     name: 'user_achievements_self_access',
     for: 'all',

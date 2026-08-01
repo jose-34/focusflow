@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Flame, Gift, ListChecks, Lock, Sparkles, Sunrise, Trophy, Crown, PartyPopper, Flag, type LucideIcon } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { useRoadmap } from '@/features/roadmap/hooks/useRoadmap'
-import { RoadmapScene } from '@/components/roadmap/RoadmapScene'
+import { JourneyMap } from '@/components/roadmap/JourneyMap'
 import { DashboardShell } from '@/components/dashboard/DashboardShell'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -53,8 +53,8 @@ function JourneyPage() {
       subtitle={`${totalXp} XP · ${currentStreak}-day streak · ${unlockedCount} of ${roadmap.nodes.length} checkpoints reached`}
     >
       <Card className="overflow-hidden p-0">
-        <div className="h-[420px] w-full">
-          <RoadmapScene nodes={roadmap.nodes} avatarT={roadmap.avatarT} />
+        <div className="h-105 w-full">
+          <JourneyMap nodes={roadmap.nodes} avatarT={roadmap.avatarT} />
         </div>
       </Card>
 

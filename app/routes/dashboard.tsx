@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { DashboardShell, StatGrid } from '@/components/dashboard/DashboardShell'
 import { StatCard } from '@/components/dashboard/StatCard'
+import { ConsistencyStreakCard, StartDelayTrendCard } from '@/components/dashboard/ProcrastinationWidgets'
 
 interface ClassRef {
   id: string
@@ -307,6 +308,11 @@ function StudentDashboard({ data }: { data: StudentDashboardData }) {
           )}
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <StartDelayTrendCard />
+        <ConsistencyStreakCard />
+      </div>
     </>
   )
 }

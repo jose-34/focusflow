@@ -59,6 +59,14 @@ export async function checkAndUnlockAchievements(tx: Tx, userId: string): Promis
   if (streak >= 7) toUnlock.add('week_warrior')
 
   if (sessions.some((s) => s.startedAt.getHours() < 8)) toUnlock.add('early_bird')
+  if (sessions.some((s) => s.startedAt.getHours() >= 20)) toUnlock.add('night_owl')
+
+  const sessionsPerDay = new Map<string, number>()
+  for (const s of sessions) {
+    const key = toDateKey(s.startedAt)
+    sessionsPerDay.set(key, (sessionsPerDay.get(key) ?? 0) + 1)
+  }
+  if ([...sessionsPerDay.values()].some((count) => count >= 5)) toUnlock.add('marathon')
 
   const newlyUnlocked = [...toUnlock].filter(
     (key) => !existingKeys.has(key) && ACHIEVEMENT_DEFINITIONS.some((def) => def.key === key),

@@ -4,6 +4,7 @@ import { CelebrationOverlay } from './components/CelebrationOverlay'
 export type CelebrationPayload =
   | { type: 'achievement'; title: string; description: string }
   | { type: 'quiz'; title: string; score: number; maxScore: number }
+  | { type: 'chest'; taskTitle: string }
 
 interface CelebrationContextValue {
   celebrate: (payload: CelebrationPayload) => void

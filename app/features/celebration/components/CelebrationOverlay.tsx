@@ -15,8 +15,8 @@ export function CelebrationOverlay({
     <AnimatePresence>
       {payload && (
         <motion.div
-          key={`${payload.type}-${payload.title}`}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          key={`${payload.type}-${payload.type === 'chest' ? payload.taskTitle : payload.title}`}
+          className="fixed inset-0 z-100 flex items-center justify-center bg-black/70 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -34,6 +34,7 @@ export function CelebrationOverlay({
               <CelebrationScene
                 accentColor={GOLD}
                 sparkleCount={payload.type === 'quiz' && payload.score === payload.maxScore ? 80 : 40}
+                shape={payload.type === 'chest' ? 'chest' : 'badge'}
               />
             </div>
             <div className="-mt-6 flex flex-col items-center gap-1 px-4 text-center">
@@ -42,6 +43,11 @@ export function CelebrationOverlay({
                   <span className="text-xs font-semibold tracking-wide text-accent uppercase">Achievement Unlocked</span>
                   <h2 className="font-heading text-2xl font-bold text-white">{payload.title}</h2>
                   <p className="max-w-xs text-sm text-white/70">{payload.description}</p>
+                </>
+              ) : payload.type === 'chest' ? (
+                <>
+                  <span className="text-xs font-semibold tracking-wide text-accent uppercase">Task Complete</span>
+                  <h2 className="font-heading text-2xl font-bold text-white">{payload.taskTitle}</h2>
                 </>
               ) : (
                 <>
