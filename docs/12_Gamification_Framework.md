@@ -39,7 +39,7 @@ XP is the one unit every other mechanic (Mastery Path, most Achievements) is bui
 
 **Anti-grinding rule (recommended, not yet implemented):** the first three Focus Sessions in a calendar day earn full XP; any beyond that earn half, until the next day resets the count. This exists specifically to prevent gaming the system with a rapid sequence of minimum-length sessions — a real risk once XP has any visible value at all, and cheaper to design for now than to patch after the fact.
 
-**A genuine, unresolved reconciliation, not new but binding on this document too**: [09_Database_Design.md](09_Database_Design.md) already flagged that `users.xp` (a plain counter) and `xp_ledger` (an append-only log) are two separate sources of truth today. This framework assumes the ledger is authoritative — every table above describes a ledger entry, not a direct increment to the counter — and treats reconciling `users.xp` away (or making it a cached, derived sum) as a prerequisite for shipping any of this cleanly, not a detail to resolve during implementation.
+~~A genuine, unresolved reconciliation...~~ — **resolved, Sprint 5**: `users.xp` deleted outright (confirmed zero readers anywhere in the app before removing it — it was never actually consulted, not even by this framework's own future consumers, since none of them exist yet either). `xp_ledger` is the sole source of truth this framework was already written to assume — every table above already describes a ledger entry, not a counter increment, so nothing here needs to change to match.
 
 ---
 
@@ -164,7 +164,7 @@ Restated concretely, now that every mechanic above has been specified, so this l
 
 ## Open questions carried into engineering
 
-- Resolve the `users.xp` vs. `xp_ledger` source-of-truth question (from [09_Database_Design.md](09_Database_Design.md)) before implementing any part of the XP economy above.
+- ~~Resolve the `users.xp` vs. `xp_ledger` source-of-truth question~~ — **done, Sprint 5**.
 - ~~Decide the fate of the Marathon and Night Owl badges~~ — **resolved**: both retired (§4).
 - Decide whether Mastery Path and Learning Path are ultimately one system or two, once Competency/strand data exists.
 - Build the remaining anti-grinding measures: the daily-diminishing-XP rule and the rapid-fire-completion anomaly check (§9) are still proposed, not yet implemented. The `startAssignmentFn` per-day XP cap and the Practice-Task-requires-a-linked-Focus-Session rule (§2) **have** been implemented, per the Design Review Board's blocker #1.

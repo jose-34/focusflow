@@ -1,6 +1,6 @@
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import type { Tx } from '@/db'
-import { focusSessions, users, xpLedger, type FocusSession } from '@/db/schema'
+import { focusSessions, xpLedger, type FocusSession } from '@/db/schema'
 import { checkAndUnlockAchievements } from '@/features/achievements/services/achievement.service'
 
 const XP_PER_10_MINUTES = 2
@@ -42,7 +42,6 @@ export async function completeFocusSession(
       source: 'focus_session',
       metadata: { sessionId: session.id, durationMinutes: session.durationMinutes },
     })
-    await tx.update(users).set({ xp: sql`${users.xp} + ${xpAwarded}` }).where(eq(users.id, params.userId))
   }
 
   const unlockedAchievements = await checkAndUnlockAchievements(tx, params.userId)

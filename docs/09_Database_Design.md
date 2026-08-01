@@ -85,14 +85,13 @@ erDiagram
 | first_name, last_name | text | not null |
 | role | enum(`student`,`teacher`) | not null, default `student` |
 | grade_level | integer | nullable; check: null or 4–12 |
-| xp | integer | not null, default 0 |
 | status | enum(`active`,`inactive`,`suspended`) | not null, default `active` |
 | last_login_at | timestamptz | nullable |
 | created_at, updated_at | timestamptz | not null |
 
 **RLS:** `users_self_access` (full access to own row) + `users_class_relation_select` (SELECT-only, via `fn_related_via_class` — lets a teacher and their enrolled students see each other's name, without which nested queries like roster/quiz-result views would crash on a null related user).
 
-**Note:** `users.xp` is a plain integer column, separate from the `xp_ledger` table. The dashboard/progress code path and the ledger are two different sources of XP truth today — reconciling this (should `users.xp` be a cached, derived total, or should it be removed in favor of summing the ledger?) is an open question for [19_Product_Roadmap.md], not resolved here.
+**~~`users.xp`~~ — deleted, Sprint 5.** Confirmed by grep before removing it: zero reads anywhere in the app, ever — a write-only running counter with no consumer. `xp_ledger` is now the sole source of truth for a user's XP total; nothing today needs the total displayed, so no read helper was added speculatively either (`SELECT SUM(amount) FROM xp_ledger WHERE user_id = ?`, already indexed, is one query away whenever Version 2.0's gamification expansion actually needs it).
 
 ### `sessions`
 | Column | Type | Constraint |
@@ -353,7 +352,7 @@ Kept as its own table (Sprint 4) — the real anti-gaming signal for unsupervise
 
 ## Open questions carried into engineering
 
-- Reconcile `users.xp` (a plain counter) against `xp_ledger` (an append-only log) — pick one source of truth, per the note under `users` above.
+- ~~Reconcile `users.xp` against `xp_ledger`~~ — **done, Sprint 5**: `users.xp` deleted, `xp_ledger` is the sole source of truth.
 - ~~Resolve the polymorphic `assignment_id` pattern~~ — **done, Sprint 4**: retyped to a real `quiz_id` FK, confirmed non-polymorphic in practice by grep before the change, not assumed.
 - ~~Confirm whether `app/db/schema/focus.ts` truly has zero remaining references~~ — done, Sprint 3; file deleted.
 

@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, count, eq, gte, isNotNull, sql } from 'drizzle-orm'
 import { withRlsContext } from '@/db'
-import { focusSessions, focusHeartbeats, xpLedger, users } from '@/db/schema'
+import { focusSessions, focusHeartbeats, xpLedger } from '@/db/schema'
 import { requireUser } from '@/features/auth/utils'
 import { completeFocusSession } from '@/features/focus/completeFocusSession'
 
@@ -64,7 +64,6 @@ export const startAssignmentFn = createServerFn({ method: 'POST' })
         const inserted = insertedRows[0]
         if (xpForThisStart > 0) {
           await tx.insert(xpLedger).values({ userId: user.id, amount: xpForThisStart, source: 'start_assignment', metadata: { quizId: data.quizId, sessionId: inserted.id } })
-          await tx.update(users).set({ xp: sql`${users.xp} + ${xpForThisStart}` }).where(eq(users.id, user.id))
         }
 
         return {

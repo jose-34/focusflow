@@ -14,7 +14,12 @@ export const users = pgTable(
     lastName: text('last_name').notNull(),
     role: userRoleEnum('role').notNull().default('student'),
     gradeLevel: integer('grade_level'),
-    xp: integer('xp').notNull().default(0),
+    // Sprint 5: xp column deleted — xp_ledger is the sole source of truth
+    // for a user's XP total. This was a write-only running counter with
+    // zero readers anywhere in the app (confirmed by grep before removing
+    // it, not assumed); a real consumer, once one exists, computes the
+    // total with SUM(amount) FROM xp_ledger WHERE user_id = ?, already
+    // indexed by user_id.
     status: userStatusEnum('status').notNull().default('active'),
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

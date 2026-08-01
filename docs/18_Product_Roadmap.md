@@ -17,7 +17,7 @@ Governed by [-01_Focus_Flow_Principles.md](-01_Focus_Flow_Principles.md), and by
 - Automated backups + a tested restore procedure ([17_Deployment_Architecture.md](17_Deployment_Architecture.md) §10) — **not yet done**.
 - Basic error monitoring, evaluated against Principle 6 before adoption ([17_Deployment_Architecture.md](17_Deployment_Architecture.md) §6) — **not yet done**.
 - The RLS cross-user-isolation security test suite, formalized from the pattern that already caught real bugs every sprint since ([16_Testing_Strategy.md](16_Testing_Strategy.md) §6) — **still ad hoc** (a throwaway verification script per sprint, not a permanent, repeatable suite).
-- Reconcile `users.xp` vs. `xp_ledger` as one source of truth ([09_Database_Design.md](09_Database_Design.md), [12_Gamification_Framework.md](12_Gamification_Framework.md)) — **not yet done**; both are still written to on every XP award, not reconciled to one source.
+- ~~Reconcile `users.xp` vs. `xp_ledger` as one source of truth~~ — **done, Sprint 5** ([09_Database_Design.md](09_Database_Design.md), [12_Gamification_Framework.md](12_Gamification_Framework.md)): `users.xp` deleted (confirmed zero readers anywhere before removing it), `xp_ledger` is sole source of truth. See [05_Sprint_5_Review.md](sprints/05_Sprint_5_Review.md).
 
 ---
 
