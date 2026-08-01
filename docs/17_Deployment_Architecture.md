@@ -1,6 +1,6 @@
 # Focus Flow: Deployment Architecture
 
-*Originally written when there was no deployment configuration anywhere in this repository. A production entry now exists (`server/prod.ts`) and is locally verified — see §4 for what changed and a real bug it surfaced. What's still not verified: an actual live deploy on the chosen host, since that requires the founder's own Railway account.*
+*Originally written when there was no deployment configuration anywhere in this repository. A production entry now exists (`server/prod.ts`) and is confirmed live on Railway — see §4 for what changed and a real bug it surfaced along the way. Still genuinely untested: real classroom-scale usage, and everything named as a launch prerequisite in Version 1.0 of [18_Product_Roadmap.md](18_Product_Roadmap.md) (legal review, backups, monitoring) — a working deploy is not the same claim as "ready for a real school."*
 
 Governed by [-01_Focus_Flow_Principles.md](-01_Focus_Flow_Principles.md). Resolves the dependencies deliberately deferred here by [08_System_Architecture.md](08_System_Architecture.md) (the WebSocket production gap) and [15_Security_Privacy.md](15_Security_Privacy.md) (backups, recovery, encryption in transit/at rest).
 
@@ -30,7 +30,7 @@ Per [16_Testing_Strategy.md](16_Testing_Strategy.md), a real CI pipeline doesn't
 
 ## 4. Production
 
-**Built and locally verified** (not yet confirmed live on Railway itself — that step needs the founder's own account). One Node process (`server/prod.ts`) running the TanStack Start SSR handler, static asset serving for `dist/client`, and the game WebSocket server, all on one `http.Server` and one port (`process.env.PORT`) — no second exposed port needed, unlike the original standalone-port-3001 dev setup. `attachGameWebSocketServer()` ([08_System_Architecture.md](08_System_Architecture.md)) mounts the socket on the same server via a path-filtered `'upgrade'` handler (`/ws/game`) rather than binding its own port, specifically so this works behind Railway's single-domain HTTPS proxy with no extra TCP-proxy configuration.
+**Built and confirmed live on Railway.** The Postgres role's password was rotated away from `bootstrap-role.ts`'s hardcoded dev-only default (`'password'`) before this database was ever treated as real — that script is correct for a disposable local dev instance, wrong for one holding anything real, and this is the first time it's been run against the latter. One Node process (`server/prod.ts`) running the TanStack Start SSR handler, static asset serving for `dist/client`, and the game WebSocket server, all on one `http.Server` and one port (`process.env.PORT`) — no second exposed port needed, unlike the original standalone-port-3001 dev setup. `attachGameWebSocketServer()` ([08_System_Architecture.md](08_System_Architecture.md)) mounts the socket on the same server via a path-filtered `'upgrade'` handler (`/ws/game`) rather than binding its own port, specifically so this works behind Railway's single-domain HTTPS proxy with no extra TCP-proxy configuration.
 
 **A real, separate bug found while building this, unrelated to hosting**: the production build was silently broken regardless of host. `vite.config.ts` merged `.env`'s `NODE_ENV=development` (kept there for local dev convenience) into `process.env` even during `vite build`, and separately, an ambient empty-string shell `NODE_ENV` survived Vite's own "set if absent" default — either way, `@vitejs/plugin-react` picked the dev JSX transform (`jsxDEV`) even in a production build. The built `server.js` then threw `TypeError: jsxDEV is not a function` on its first real render, since `react-dom`'s production SSR entry has no such export. Fixed by having `vite.config.ts` force `process.env.NODE_ENV` to match Vite's own build/dev mode explicitly, before anything else reads it. This means **every prior build of this app, had one ever been produced, would have crashed identically** — not something this deployment attempt introduced, just the first time anyone tried to actually run a production build and found out.
 
@@ -89,7 +89,7 @@ flowchart LR
 
 ## Open questions carried into engineering
 
-- ~~Final hosting platform decision (§2)~~ — **resolved: Railway** (§2). Still open: confirming a real, live deploy actually succeeds — that requires the founder's own Railway account and hasn't happened yet.
+- ~~Final hosting platform decision (§2)~~ — **resolved: Railway**, confirmed live (§4).
 - Whether CI (§3, §5) gates merges or runs informationally at first.
 - Which error-tracking/monitoring tool (§6), evaluated against the same privacy-review requirement already named for analytics tools in [08_System_Architecture.md](08_System_Architecture.md).
 - When (not if) Redis-backed pub/sub (§8) becomes necessary — tied to real usage growth, not a fixed date.
