@@ -5,6 +5,7 @@ import { GraduationCap, LoaderCircle, Plus, Users } from 'lucide-react'
 import { getCurrentUserFn, useAuth } from '@/features/auth/hooks/useAuth'
 import { useClasses } from '@/features/classes/hooks/useClasses'
 import { useCurricula } from '@/features/curricula/hooks/useCurricula'
+import { getGradeOptions } from '@/features/curricula/gradeOptions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -41,10 +42,9 @@ function ClassesPage() {
   const [gradeLabel, setGradeLabel] = useState('')
   const [code, setCode] = useState('')
 
-  const subjectsForCurriculum = useMemo(
-    () => curricula?.find((c) => c.id === curriculumId)?.subjects ?? [],
-    [curricula, curriculumId],
-  )
+  const selectedCurriculum = useMemo(() => curricula?.find((c) => c.id === curriculumId), [curricula, curriculumId])
+  const subjectsForCurriculum = selectedCurriculum?.subjects ?? []
+  const gradeOptions = useMemo(() => getGradeOptions(selectedCurriculum?.code), [selectedCurriculum])
 
   function resetCreateForm() {
     setName('')
@@ -112,6 +112,7 @@ function ClassesPage() {
                   onValueChange={(value) => {
                     setCurriculumId(value)
                     setSubjectId('')
+                    setGradeLabel('')
                   }}
                 >
                   <SelectTrigger className="w-full">
@@ -139,11 +140,18 @@ function ClassesPage() {
                   </SelectContent>
                 </Select>
 
-                <Input
-                  placeholder="Grade label (optional) — e.g. Grade 9, Year 10"
-                  value={gradeLabel}
-                  onChange={(e) => setGradeLabel(e.target.value)}
-                />
+                <Select value={gradeLabel} onValueChange={setGradeLabel} disabled={!curriculumId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Grade (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {gradeOptions.map((grade) => (
+                      <SelectItem key={grade} value={grade}>
+                        {grade}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             ) : (
               <Input

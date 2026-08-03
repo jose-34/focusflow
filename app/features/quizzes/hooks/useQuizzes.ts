@@ -153,6 +153,7 @@ export interface AdminContentSummary {
   id: string
   title: string
   isPublished: boolean
+  curriculumCode: string
   curriculumName: string
   subjectName: string
   gradeLabel: string | null
@@ -176,6 +177,7 @@ export const getAdminContentListFn = createServerFn({ method: 'GET' }).handler(a
       id: q.id,
       title: q.title,
       isPublished: q.isPublished,
+      curriculumCode: q.curriculum?.code ?? '',
       curriculumName: q.curriculum?.name ?? 'Unknown',
       subjectName: q.subject?.name ?? 'Unknown',
       gradeLabel: q.gradeLabel,

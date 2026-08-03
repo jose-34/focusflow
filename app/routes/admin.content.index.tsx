@@ -1,10 +1,13 @@
+import { useMemo, useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { BookOpen, Plus } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
-import { useAdminContent } from '@/features/quizzes/hooks/useQuizzes'
+import { useAdminContent, type AdminContentSummary } from '@/features/quizzes/hooks/useQuizzes'
+import { gradeSortIndex } from '@/features/curricula/gradeOptions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
 export const Route = createFileRoute('/admin/content/')({
   beforeLoad: async () => {
@@ -19,8 +22,92 @@ export const Route = createFileRoute('/admin/content/')({
   component: AdminContentPage,
 })
 
+interface CurriculumGroup {
+  curriculumCode: string
+  curriculumName: string
+  quizzes: Array<AdminContentSummary>
+}
+
+function groupByCurriculum(quizzes: Array<AdminContentSummary>): Array<CurriculumGroup> {
+  const groups = new Map<string, CurriculumGroup>()
+  for (const quiz of quizzes) {
+    const key = quiz.curriculumCode || quiz.curriculumName
+    const existing = groups.get(key)
+    if (existing) {
+      existing.quizzes.push(quiz)
+    } else {
+      groups.set(key, { curriculumCode: quiz.curriculumCode, curriculumName: quiz.curriculumName, quizzes: [quiz] })
+    }
+  }
+  return Array.from(groups.values()).sort((a, b) => a.curriculumName.localeCompare(b.curriculumName))
+}
+
+interface GradeGroup {
+  gradeLabel: string | null
+  quizzes: Array<AdminContentSummary>
+}
+
+function groupByGrade(curriculumCode: string, quizzes: Array<AdminContentSummary>): Array<GradeGroup> {
+  const groups = new Map<string | null, Array<AdminContentSummary>>()
+  for (const quiz of quizzes) {
+    const list = groups.get(quiz.gradeLabel) ?? []
+    list.push(quiz)
+    groups.set(quiz.gradeLabel, list)
+  }
+  return Array.from(groups.entries())
+    .map(([gradeLabel, list]) => ({ gradeLabel, quizzes: list }))
+    .sort((a, b) => gradeSortIndex(curriculumCode, a.gradeLabel) - gradeSortIndex(curriculumCode, b.gradeLabel))
+}
+
+function QuizCard({ quiz }: { quiz: AdminContentSummary }) {
+  return (
+    <Link to="/admin/content/$quizId" params={{ quizId: quiz.id }}>
+      <Card className="h-full transition-colors hover:bg-secondary/50">
+        <CardHeader>
+          <CardTitle className="font-heading text-foreground">{quiz.title}</CardTitle>
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            <Badge variant="secondary" className="text-[10px]">
+              {quiz.subjectName}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between">
+          <Badge variant={quiz.isPublished ? 'default' : 'outline'}>{quiz.isPublished ? 'Live' : 'Draft'}</Badge>
+          <span className="text-xs text-muted-foreground">
+            {quiz.questionCount} question{quiz.questionCount === 1 ? '' : 's'}
+          </span>
+        </CardContent>
+      </Card>
+    </Link>
+  )
+}
+
+function CurriculumContent({ group }: { group: CurriculumGroup }) {
+  const gradeGroups = useMemo(() => groupByGrade(group.curriculumCode, group.quizzes), [group])
+
+  return (
+    <div className="space-y-8">
+      {gradeGroups.map((gradeGroup) => (
+        <div key={gradeGroup.gradeLabel ?? 'ungraded'}>
+          <h3 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+            {gradeGroup.gradeLabel ?? 'No grade set'}
+          </h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {gradeGroup.quizzes.map((quiz) => (
+              <QuizCard key={quiz.id} quiz={quiz} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function AdminContentPage() {
   const { data: quizzes, isLoading } = useAdminContent()
+  const curriculumGroups = useMemo(() => groupByCurriculum(quizzes ?? []), [quizzes])
+  const [activeTab, setActiveTab] = useState<string | undefined>(undefined)
+  const currentTab = activeTab ?? curriculumGroups[0]?.curriculumCode
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
@@ -36,7 +123,7 @@ function AdminContentPage() {
 
       {isLoading ? (
         <div className="h-24 animate-pulse rounded-lg bg-secondary" />
-      ) : !quizzes || quizzes.length === 0 ? (
+      ) : curriculumGroups.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
             <BookOpen className="size-8 text-muted-foreground" />
@@ -46,36 +133,23 @@ function AdminContentPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {quizzes.map((quiz) => (
-            <Link key={quiz.id} to="/admin/content/$quizId" params={{ quizId: quiz.id }}>
-              <Card className="h-full transition-colors hover:bg-secondary/50">
-                <CardHeader>
-                  <CardTitle className="font-heading text-foreground">{quiz.title}</CardTitle>
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    <Badge variant="secondary" className="text-[10px]">
-                      {quiz.curriculumName}
-                    </Badge>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {quiz.subjectName}
-                    </Badge>
-                    {quiz.gradeLabel && (
-                      <Badge variant="outline" className="text-[10px]">
-                        {quiz.gradeLabel}
-                      </Badge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="flex items-center justify-between">
-                  <Badge variant={quiz.isPublished ? 'default' : 'outline'}>{quiz.isPublished ? 'Live' : 'Draft'}</Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {quiz.questionCount} question{quiz.questionCount === 1 ? '' : 's'}
-                  </span>
-                </CardContent>
-              </Card>
-            </Link>
+        <Tabs value={currentTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-6 h-auto flex-wrap">
+            {curriculumGroups.map((group) => (
+              <TabsTrigger key={group.curriculumCode} value={group.curriculumCode} className="gap-1.5 px-3 py-1.5">
+                {group.curriculumName}
+                <Badge variant="secondary" className="ml-1 text-[10px]">
+                  {group.quizzes.length}
+                </Badge>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {curriculumGroups.map((group) => (
+            <TabsContent key={group.curriculumCode} value={group.curriculumCode}>
+              <CurriculumContent group={group} />
+            </TabsContent>
           ))}
-        </div>
+        </Tabs>
       )}
     </div>
   )

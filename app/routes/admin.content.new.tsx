@@ -6,6 +6,7 @@ import { ArrowLeft, LoaderCircle } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { createAdminQuizFn } from '@/features/quizzes/hooks/useQuizzes'
 import { useCurricula } from '@/features/curricula/hooks/useCurricula'
+import { getGradeOptions } from '@/features/curricula/gradeOptions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -36,10 +37,9 @@ function NewAdminQuizPage() {
   const [gradeLabel, setGradeLabel] = useState('')
   const [timeLimitMinutes, setTimeLimitMinutes] = useState('')
 
-  const subjectsForCurriculum = useMemo(
-    () => curricula?.find((c) => c.id === curriculumId)?.subjects ?? [],
-    [curricula, curriculumId],
-  )
+  const selectedCurriculum = useMemo(() => curricula?.find((c) => c.id === curriculumId), [curricula, curriculumId])
+  const subjectsForCurriculum = selectedCurriculum?.subjects ?? []
+  const gradeOptions = useMemo(() => getGradeOptions(selectedCurriculum?.code), [selectedCurriculum])
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -110,6 +110,7 @@ function NewAdminQuizPage() {
                 onValueChange={(value) => {
                   setCurriculumId(value)
                   setSubjectId('')
+                  setGradeLabel('')
                 }}
               >
                 <SelectTrigger className="w-full">
@@ -142,13 +143,19 @@ function NewAdminQuizPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="gradeLabel">Grade label (optional)</Label>
-              <Input
-                id="gradeLabel"
-                placeholder="e.g. PP1, Grade 7"
-                value={gradeLabel}
-                onChange={(e) => setGradeLabel(e.target.value)}
-              />
+              <Label>Grade (optional)</Label>
+              <Select value={gradeLabel} onValueChange={setGradeLabel} disabled={!curriculumId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Grade" />
+                </SelectTrigger>
+                <SelectContent>
+                  {gradeOptions.map((grade) => (
+                    <SelectItem key={grade} value={grade}>
+                      {grade}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
