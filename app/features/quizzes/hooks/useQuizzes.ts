@@ -6,9 +6,11 @@ import { withRlsContext } from '@/db'
 import { quizAnswers, quizAttempts, quizChoices, quizQuestions, quizzes, tasks, xpLedger } from '@/db/schema'
 import { requireUser } from '@/features/auth/utils'
 import { createQuestionSchema, createQuizSchema, questionIdSchema, quizIdSchema, submitQuizSchema, togglePublishSchema } from '@/features/auth/validators'
-import { createAdminQuizSchema, toggleVisibilitySchema } from '@/features/quizzes/schemas'
+import { ACCEPTED_DOCUMENT_MIME_TYPES, createAdminQuizSchema, generateQuestionsSchema, toggleVisibilitySchema } from '@/features/quizzes/schemas'
 import { classIdSchema } from '@/features/classes/schemas'
 import { checkAndUnlockAchievements } from '@/features/achievements/services/achievement.service'
+import { generateQuestionsFromDocument, MAX_DOCUMENT_BYTES } from '@/lib/ai'
+import { rateLimit } from '@/lib/rateLimit'
 import { computeRiskScore } from '../riskScore'
 
 export interface ClassQuizSummary {
@@ -220,6 +222,76 @@ export const addQuestionFn = createServerFn({ method: 'POST' })
       )
 
       return question
+    })
+  })
+
+export const generateQuestionsFromDocumentFn = createServerFn({ method: 'POST' })
+  .validator(generateQuestionsSchema)
+  .handler(async ({ data }) => {
+    const user = await requireUser()
+    if (user.role !== 'teacher' && user.role !== 'admin') {
+      throw new Error('Only teachers and admins can generate questions')
+    }
+    // AI calls are the most expensive endpoint in the app by far (real
+    // per-token billing) — a tighter cap than the other rate limits here.
+    rateLimit('generate-questions', { max: 10, windowMs: 10 * 60_000 })
+
+    // Base64 inflates raw bytes by ~4/3 — check against the real file size,
+    // not the encoded string length.
+    const approxRawBytes = (data.fileBase64.length * 3) / 4
+    if (approxRawBytes > MAX_DOCUMENT_BYTES) {
+      throw new Error('File is too large — please upload a document under 8MB.')
+    }
+
+    return withRlsContext(user.id, async (tx) => {
+      // Confirm ownership before spending API tokens on a document for a
+      // quiz this user doesn't actually control.
+      const quiz = await tx.query.quizzes.findFirst({
+        where: (q, { eq: eqOp }) => eqOp(q.id, data.quizId),
+      })
+      if (!quiz) throw new Error('Quiz not found')
+
+      const generated = await generateQuestionsFromDocument({
+        mimeType: data.mimeType,
+        base64: data.fileBase64,
+        questionCount: data.questionCount,
+      })
+      if (generated.length === 0) {
+        throw new Error('Could not extract any valid questions from this document — try a clearer or more detailed file.')
+      }
+
+      const existing = await tx.query.quizQuestions.findMany({
+        where: (q, { eq: eqOp }) => eqOp(q.quizId, data.quizId),
+      })
+      let nextPosition = existing.length
+
+      const createdQuestions = []
+      for (const generatedQuestion of generated) {
+        const [question] = await tx
+          .insert(quizQuestions)
+          .values({
+            quizId: data.quizId,
+            questionText: generatedQuestion.questionText.trim(),
+            questionType: 'multiple_choice',
+            points: generatedQuestion.points,
+            position: nextPosition,
+          })
+          .returning()
+        nextPosition += 1
+
+        await tx.insert(quizChoices).values(
+          generatedQuestion.choices.map((choice, index) => ({
+            questionId: question.id,
+            choiceText: choice.choiceText.trim(),
+            isCorrect: choice.isCorrect,
+            position: index,
+          })),
+        )
+
+        createdQuestions.push(question)
+      }
+
+      return { createdCount: createdQuestions.length }
     })
   })
 
@@ -789,6 +861,19 @@ export function useQuizAuthoring(quizId: string) {
     toggleVisibility: toggleVisibilityMutation.mutateAsync,
     isTogglingVisibility: toggleVisibilityMutation.isPending,
   }
+}
+
+export function useGenerateQuestionsFromDocument(quizId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: { mimeType: (typeof ACCEPTED_DOCUMENT_MIME_TYPES)[number]; fileBase64: string; questionCount: number }) =>
+      generateQuestionsFromDocumentFn({ data: { quizId, ...input } }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['quizzes', 'authoring', quizId] })
+      await queryClient.invalidateQueries({ queryKey: ['quizzes', quizId] })
+    },
+  })
 }
 
 export function useQuizTaking(quizId: string) {

@@ -48,6 +48,27 @@ export const toggleVisibilitySchema = z.object({
 
 export type ToggleVisibilityInput = z.infer<typeof toggleVisibilitySchema>
 
+export const ACCEPTED_DOCUMENT_MIME_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+] as const
+
+export const generateQuestionsSchema = z.object({
+  quizId: z.string().uuid(),
+  mimeType: z.enum(ACCEPTED_DOCUMENT_MIME_TYPES),
+  // Base64-encoded file content, no `data:` URL prefix. ~8MB raw file cap
+  // is enforced client-side and re-checked server-side (base64 inflates
+  // size ~33%, so this ceiling is generous relative to that check).
+  fileBase64: z.string().min(1).max(12_000_000),
+  questionCount: z.coerce.number().int().min(1).max(20).default(5),
+})
+
+export type GenerateQuestionsInput = z.infer<typeof generateQuestionsSchema>
+
 export const questionTypeValues = ['multiple_choice', 'true_false'] as const
 
 export const createQuestionSchema = z

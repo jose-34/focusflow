@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, Gamepad2, LoaderCircle, 
 import { getCurrentUserFn, useAuth } from '@/features/auth/hooks/useAuth'
 import { useAssignmentInsights, useQuizAuthoring } from '@/features/quizzes/hooks/useQuizzes'
 import { QuestionForm } from '@/features/quizzes/components/QuestionForm'
+import { AIQuestionGenerator } from '@/features/quizzes/components/AIQuestionGenerator'
 import { QuizTakingView } from '@/features/quizzes/components/QuizTakingView'
 import { useCreateGameSession } from '@/features/games/hooks/useGames'
 import { Button } from '@/components/ui/button'
@@ -184,6 +185,8 @@ function TeacherQuizView({ classId, quizId }: { classId: string; quizId: string 
           </Button>
         </CardHeader>
         <CardContent className="space-y-3">
+          <AIQuestionGenerator quizId={quizId} />
+
           {showForm && (
             <QuestionForm
               onSubmit={async (input) => {

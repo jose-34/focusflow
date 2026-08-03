@@ -5,6 +5,7 @@ import { ArrowLeft, CheckCircle2, LoaderCircle, Plus, Trash2 } from 'lucide-reac
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { useQuizAuthoring } from '@/features/quizzes/hooks/useQuizzes'
 import { QuestionForm } from '@/features/quizzes/components/QuestionForm'
+import { AIQuestionGenerator } from '@/features/quizzes/components/AIQuestionGenerator'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -111,6 +112,8 @@ function AdminQuizDetailPage() {
           </Button>
         </CardHeader>
         <CardContent className="space-y-3">
+          <AIQuestionGenerator quizId={quizId} />
+
           {showForm && (
             <QuestionForm
               onSubmit={async (input) => {
