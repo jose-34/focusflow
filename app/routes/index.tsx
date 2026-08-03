@@ -85,17 +85,13 @@ function Index() {
 
   return (
     <div>
-      <section className="relative mx-auto max-w-6xl overflow-hidden px-4 py-20 md:py-28">
+      <section className="relative mx-auto max-w-6xl overflow-hidden px-4 py-24 md:py-32">
         <OrganicBlob
-          colorClassName={isStudent ? 'bg-accent/15' : 'bg-role-teacher/15'}
+          colorClassName={isStudent ? 'bg-accent/10' : 'bg-role-teacher/10'}
           className="-top-24 -left-32 transition-colors duration-500"
         />
-        <OrganicBlob
-          colorClassName={isStudent ? 'bg-role-teacher/15' : 'bg-accent/15'}
-          className="-right-40 top-1/3 size-96 opacity-60"
-        />
 
-        <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr]">
+        <div className="grid items-center gap-16 lg:grid-cols-[1.05fr_1fr]">
           <div>
             <div className="inline-flex items-center gap-1 rounded-full border border-border bg-card p-1">
               {(['student', 'teacher'] as const).map((r) => (
@@ -125,13 +121,13 @@ function Index() {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.3, ease: 'easeOut' }}
               >
-                <h1 className="mt-6 text-wrap-balance font-heading text-4xl font-bold text-foreground md:text-5xl">
+                <h1 className="mt-6 text-wrap-balance font-heading text-5xl font-bold tracking-tight text-foreground md:text-6xl">
                   {copy.headline.split('. ')[0]}.{' '}
                   <span className={isStudent ? 'text-accent' : 'text-role-teacher'}>
                     {copy.headline.split('. ')[1]}
                   </span>
                 </h1>
-                <p className="mt-5 max-w-xl text-lg text-muted-foreground">{copy.sub}</p>
+                <p className="mt-6 max-w-lg text-lg text-muted-foreground">{copy.sub}</p>
               </motion.div>
             </AnimatePresence>
 
@@ -156,14 +152,14 @@ function Index() {
 
           <motion.div
             initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: [16, 0, -6, 0] }}
-            transition={{ opacity: { duration: 0.5 }, y: { duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 } }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
             className="relative"
           >
             <div
               className={cn(
                 'absolute inset-0 -z-10 rounded-3xl blur-2xl transition-colors duration-500',
-                isStudent ? 'bg-accent/20' : 'bg-role-teacher/20',
+                isStudent ? 'bg-accent/10' : 'bg-role-teacher/10',
               )}
             />
             <BrowserFrame address="focusflow.app/dashboard">
@@ -175,18 +171,18 @@ function Index() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 pb-20">
-        <div className="mb-8 text-center">
-          <h2 className="font-heading text-3xl font-bold text-foreground">Try it right now — no sign-up needed</h2>
-          <p className="mt-2 text-muted-foreground">A quick taste of how FocusFlow turns real learning into a game.</p>
+      <section className="mx-auto max-w-6xl px-4 pb-24">
+        <div className="mb-10 text-center">
+          <h2 className="font-heading text-3xl font-bold tracking-tight text-foreground">Try it right now — no sign-up needed</h2>
+          <p className="mt-3 text-muted-foreground">A quick taste of how FocusFlow turns real learning into a game.</p>
         </div>
         <ArcadeDemoGame />
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 pb-24">
-        <div className="mb-10 text-center">
-          <h2 className="font-heading text-3xl font-bold text-foreground">Everything in one place</h2>
-          <p className="mt-2 text-muted-foreground">Pick a feature to see what it actually does.</p>
+      <section className="mx-auto max-w-6xl px-4 pb-28">
+        <div className="mb-12 text-center">
+          <h2 className="font-heading text-3xl font-bold tracking-tight text-foreground">Everything in one place</h2>
+          <p className="mt-3 text-muted-foreground">Pick a feature to see what it actually does.</p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-[minmax(0,280px)_1fr]">
@@ -224,7 +220,6 @@ function Index() {
           </div>
 
           <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-8 md:p-10">
-            <OrganicBlob colorClassName="bg-accent/15" className="-top-20 -right-20 size-72 opacity-40" />
             <AnimatePresence mode="wait">
               <motion.div
                 key={feature.title}
