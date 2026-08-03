@@ -2,7 +2,9 @@ import { sql } from 'drizzle-orm'
 import { check, index, integer, pgEnum, pgPolicy, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 
 export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'suspended'])
-export const userRoleEnum = pgEnum('user_role', ['student', 'teacher'])
+// 'admin' is deliberately never selectable on public /register — see
+// app/db/seed-admin.ts for the only way an admin account is created.
+export const userRoleEnum = pgEnum('user_role', ['student', 'teacher', 'admin'])
 
 export const users = pgTable(
   'users',

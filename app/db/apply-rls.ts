@@ -71,6 +71,10 @@ const functions = [
     `,
   },
   {
+    // Despite the name (kept stable — used by ~10 downstream policies),
+    // this now also covers an admin's own classless public content: "owned
+    // by whoever is allowed to manage this quiz's questions," not literally
+    // limited to a class-teacher relationship anymore.
     name: 'fn_quiz_owned_by_teacher',
     sql: `
       create or replace function fn_quiz_owned_by_teacher(p_quiz_id uuid)
@@ -82,12 +86,21 @@ const functions = [
       as $$
         select exists (
           select 1 from quizzes q
-          where q.id = p_quiz_id and fn_is_class_teacher(q.class_id)
+          where q.id = p_quiz_id and (
+            fn_is_class_teacher(q.class_id)
+            or (q.class_id is null and q.author_id = ${CU} and fn_has_role('admin'))
+          )
         )
       $$;
     `,
   },
   {
+    // Extended for the admin content system: a published quiz with
+    // visibility = 'public' is visible to any authenticated student, not
+    // just one enrolled in its (possibly nonexistent, for admin content)
+    // class. Anonymous/landing-page access is a separate adminDb-backed
+    // read path (getPublicQuizzesFn) — this function only ever runs inside
+    // an authenticated RLS context.
     name: 'fn_quiz_visible_to_student',
     sql: `
       create or replace function fn_quiz_visible_to_student(p_quiz_id uuid)
@@ -99,7 +112,8 @@ const functions = [
       as $$
         select exists (
           select 1 from quizzes q
-          where q.id = p_quiz_id and q.is_published and fn_is_class_student(q.class_id)
+          where q.id = p_quiz_id and q.is_published
+            and (fn_is_class_student(q.class_id) or q.visibility = 'public')
         )
       $$;
     `,
@@ -528,22 +542,36 @@ const policies: Array<RlsPolicy> = [
     withCheck: `student_id = ${CU} OR fn_is_class_teacher(class_id)`,
   },
 
-  // --- Quizzes: teacher owns via class; students see only published quizzes for classes they're in ---
+  // --- Quizzes: teacher owns via class; students see only published quizzes
+  // for classes they're in; PLUS any authenticated user can see any
+  // published, visibility='public' quiz (admin content, or a teacher's
+  // quiz they've explicitly published beyond their own class); PLUS an
+  // author can always see their own quiz regardless of publish state. ---
   {
     table: 'quizzes',
     name: 'quizzes_select',
     for: 'select',
-    using: `fn_is_class_teacher(class_id) OR (is_published AND fn_is_class_student(class_id))`,
+    using: `fn_is_class_teacher(class_id) OR (is_published AND fn_is_class_student(class_id)) OR (is_published AND visibility = 'public') OR (author_id = ${CU})`,
   },
-  { table: 'quizzes', name: 'quizzes_insert', for: 'insert', withCheck: `fn_is_class_teacher(class_id)` },
+  {
+    table: 'quizzes',
+    name: 'quizzes_insert',
+    for: 'insert',
+    withCheck: `(class_id is not null AND fn_is_class_teacher(class_id) AND author_id = ${CU}) OR (class_id is null AND fn_has_role('admin') AND author_id = ${CU})`,
+  },
   {
     table: 'quizzes',
     name: 'quizzes_update',
     for: 'update',
-    using: `fn_is_class_teacher(class_id)`,
-    withCheck: `fn_is_class_teacher(class_id)`,
+    using: `fn_is_class_teacher(class_id) OR (class_id is null AND author_id = ${CU} AND fn_has_role('admin'))`,
+    withCheck: `fn_is_class_teacher(class_id) OR (class_id is null AND author_id = ${CU} AND fn_has_role('admin'))`,
   },
-  { table: 'quizzes', name: 'quizzes_delete', for: 'delete', using: `fn_is_class_teacher(class_id)` },
+  {
+    table: 'quizzes',
+    name: 'quizzes_delete',
+    for: 'delete',
+    using: `fn_is_class_teacher(class_id) OR (class_id is null AND author_id = ${CU} AND fn_has_role('admin'))`,
+  },
 
   // --- Quiz questions: same visibility as parent quiz ---
   {

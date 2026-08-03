@@ -3,11 +3,12 @@ import { createServerFn } from '@tanstack/react-start'
 import { getCookie } from '@tanstack/react-start/server'
 import { useQuery } from '@tanstack/react-query'
 import { and, count, countDistinct, desc, eq, gte, inArray, sql } from 'drizzle-orm'
-import { GraduationCap, ListChecks, Timer, Trophy, Users } from 'lucide-react'
+import { Compass, GraduationCap, ListChecks, Timer, Trophy, Users } from 'lucide-react'
 import { withRlsContext } from '@/db'
 import { enrollments, focusSessions, quizAttempts, quizzes, userAchievements, users } from '@/db/schema'
 import { authService } from '@/features/auth/services/auth.service'
 import { getCurrentUserFn, useAuth } from '@/features/auth/hooks/useAuth'
+import { usePublicQuizzes } from '@/features/quizzes/hooks/usePublicQuizzes'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { DashboardShell, StatGrid } from '@/components/dashboard/DashboardShell'
@@ -154,6 +155,9 @@ export const Route = createFileRoute('/dashboard')({
     if (!user) {
       throw redirect({ to: '/login' })
     }
+    if (user.role === 'admin') {
+      throw redirect({ to: '/admin' })
+    }
   },
   component: DashboardPage,
 })
@@ -271,6 +275,56 @@ function TeacherDashboard({ data }: { data: TeacherDashboardData }) {
   )
 }
 
+// Public content — admin-authored, or a teacher's quiz explicitly
+// published to public — reaches any logged-in student regardless of
+// class enrollment, so this deliberately isn't scoped to the student's
+// own classes the way "My Classes" below is.
+function DiscoverSection() {
+  const { data: publicQuizzes, isLoading } = usePublicQuizzes()
+
+  if (isLoading || !publicQuizzes || publicQuizzes.length === 0) return null
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 font-heading text-foreground">
+          <Compass className="size-4 text-accent" />
+          Discover
+        </CardTitle>
+        <CardDescription>Public quizzes from FocusFlow and teachers, open to everyone.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {publicQuizzes.slice(0, 6).map((quiz) => (
+          <Link
+            key={quiz.id}
+            to="/quizzes/$quizId"
+            params={{ quizId: quiz.id }}
+            className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 transition-colors hover:bg-secondary/50"
+          >
+            <div>
+              <p className="text-sm font-medium text-foreground">{quiz.title}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                <Badge variant="secondary" className="text-[10px]">
+                  {quiz.subjectName}
+                </Badge>
+                {quiz.gradeLabel && (
+                  <Badge variant="outline" className="text-[10px]">
+                    {quiz.gradeLabel}
+                  </Badge>
+                )}
+                <span className="text-[11px] text-muted-foreground">by {quiz.authorName}</span>
+              </div>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {quiz.questions.length} question{quiz.questions.length === 1 ? '' : 's'}
+            </span>
+          </Link>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
 function StudentDashboard({ data }: { data: StudentDashboardData }) {
   return (
     <>
@@ -281,6 +335,8 @@ function StudentDashboard({ data }: { data: StudentDashboardData }) {
       </StatGrid>
 
       <MissionsWidget />
+
+      <DiscoverSection />
 
       <Card>
         <CardHeader>

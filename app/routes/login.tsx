@@ -25,8 +25,8 @@ function LoginPage() {
 
   async function onSubmit(values: LoginInput) {
     try {
-      await login(values)
-      await navigate({ to: '/dashboard' })
+      const { user } = await login(values)
+      await navigate({ to: user.role === 'admin' ? '/admin' : '/dashboard' })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to log in')
     }

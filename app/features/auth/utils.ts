@@ -9,3 +9,11 @@ export async function requireUser() {
   }
   return validated.user
 }
+
+export async function requireAdmin() {
+  const user = await requireUser()
+  if (user.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+  return user
+}

@@ -98,6 +98,7 @@ export function useAuth() {
     isAuthenticated: !!user,
     isTeacher: user?.role === 'teacher',
     isStudent: user?.role === 'student',
+    isAdmin: user?.role === 'admin',
     login: loginMutation.mutateAsync,
     register: registerMutation.mutateAsync,
     logout: logoutMutation.mutateAsync,

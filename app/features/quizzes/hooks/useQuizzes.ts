@@ -6,6 +6,7 @@ import { withRlsContext } from '@/db'
 import { quizAnswers, quizAttempts, quizChoices, quizQuestions, quizzes, tasks, xpLedger } from '@/db/schema'
 import { requireUser } from '@/features/auth/utils'
 import { createQuestionSchema, createQuizSchema, questionIdSchema, quizIdSchema, submitQuizSchema, togglePublishSchema } from '@/features/auth/validators'
+import { createAdminQuizSchema, toggleVisibilitySchema } from '@/features/quizzes/schemas'
 import { classIdSchema } from '@/features/classes/schemas'
 import { checkAndUnlockAchievements } from '@/features/achievements/services/achievement.service'
 import { computeRiskScore } from '../riskScore'
@@ -105,6 +106,7 @@ export const createQuizFn = createServerFn({ method: 'POST' })
         .insert(quizzes)
         .values({
           classId: data.classId,
+          authorId: user.id,
           title: data.title.trim(),
           description: data.description?.trim() || null,
           timeLimitMinutes: data.timeLimitMinutes ?? null,
@@ -115,12 +117,80 @@ export const createQuizFn = createServerFn({ method: 'POST' })
     })
   })
 
+// Admin's classless public content — always visibility='public' (that's
+// the entire point of admin content) and always isPublished=false at
+// creation, matching the teacher path's draft-first convention: an admin
+// still has to explicitly publish once questions are added, rather than
+// exposing a half-built quiz to real anonymous visitors immediately.
+export const createAdminQuizFn = createServerFn({ method: 'POST' })
+  .validator(createAdminQuizSchema)
+  .handler(async ({ data }) => {
+    const user = await requireUser()
+    if (user.role !== 'admin') {
+      throw new Error('Only admins can create public content this way')
+    }
+
+    return withRlsContext(user.id, async (tx) => {
+      const [quiz] = await tx
+        .insert(quizzes)
+        .values({
+          classId: null,
+          authorId: user.id,
+          visibility: 'public',
+          curriculumId: data.curriculumId,
+          subjectId: data.subjectId,
+          gradeLabel: data.gradeLabel?.trim() || null,
+          title: data.title.trim(),
+          description: data.description?.trim() || null,
+          timeLimitMinutes: data.timeLimitMinutes ?? null,
+        })
+        .returning()
+      return quiz
+    })
+  })
+
+export interface AdminContentSummary {
+  id: string
+  title: string
+  isPublished: boolean
+  curriculumName: string
+  subjectName: string
+  gradeLabel: string | null
+  questionCount: number
+  createdAt: string
+}
+
+export const getAdminContentListFn = createServerFn({ method: 'GET' }).handler(async (): Promise<Array<AdminContentSummary>> => {
+  const user = await requireUser()
+  if (user.role !== 'admin') {
+    throw new Error('Only admins can view this content library')
+  }
+
+  return withRlsContext(user.id, async (tx) => {
+    const rows = await tx.query.quizzes.findMany({
+      where: (q, { eq: eqOp }) => eqOp(q.authorId, user.id),
+      with: { questions: true, curriculum: true, subject: true },
+      orderBy: (q, { desc }) => desc(q.createdAt),
+    })
+    return rows.map((q) => ({
+      id: q.id,
+      title: q.title,
+      isPublished: q.isPublished,
+      curriculumName: q.curriculum?.name ?? 'Unknown',
+      subjectName: q.subject?.name ?? 'Unknown',
+      gradeLabel: q.gradeLabel,
+      questionCount: q.questions.length,
+      createdAt: q.createdAt.toISOString(),
+    }))
+  })
+})
+
 export const addQuestionFn = createServerFn({ method: 'POST' })
   .validator(createQuestionSchema)
   .handler(async ({ data }) => {
     const user = await requireUser()
-    if (user.role !== 'teacher') {
-      throw new Error('Only teachers can add questions')
+    if (user.role !== 'teacher' && user.role !== 'admin') {
+      throw new Error('Only teachers and admins can add questions')
     }
 
     return withRlsContext(user.id, async (tx) => {
@@ -155,8 +225,8 @@ export const deleteQuestionFn = createServerFn({ method: 'POST' })
   .validator(questionIdSchema)
   .handler(async ({ data }) => {
     const user = await requireUser()
-    if (user.role !== 'teacher') {
-      throw new Error('Only teachers can delete questions')
+    if (user.role !== 'teacher' && user.role !== 'admin') {
+      throw new Error('Only teachers and admins can delete questions')
     }
 
     return withRlsContext(user.id, async (tx) => {
@@ -169,14 +239,33 @@ export const togglePublishFn = createServerFn({ method: 'POST' })
   .validator(togglePublishSchema)
   .handler(async ({ data }) => {
     const user = await requireUser()
-    if (user.role !== 'teacher') {
-      throw new Error('Only teachers can publish quizzes')
+    if (user.role !== 'teacher' && user.role !== 'admin') {
+      throw new Error('Only teachers and admins can publish quizzes')
     }
 
     return withRlsContext(user.id, async (tx) => {
       const [quiz] = await tx
         .update(quizzes)
         .set({ isPublished: data.isPublished, updatedAt: new Date() })
+        .where(eq(quizzes.id, data.quizId))
+        .returning()
+      if (!quiz) throw new Error('Quiz not found')
+      return quiz
+    })
+  })
+
+export const toggleVisibilityFn = createServerFn({ method: 'POST' })
+  .validator(toggleVisibilitySchema)
+  .handler(async ({ data }) => {
+    const user = await requireUser()
+    if (user.role !== 'teacher' && user.role !== 'admin') {
+      throw new Error('Only teachers and admins can change quiz visibility')
+    }
+
+    return withRlsContext(user.id, async (tx) => {
+      const [quiz] = await tx
+        .update(quizzes)
+        .set({ visibility: data.visibility, updatedAt: new Date() })
         .where(eq(quizzes.id, data.quizId))
         .returning()
       if (!quiz) throw new Error('Quiz not found')
@@ -200,10 +289,11 @@ export interface QuizAuthoringQuestion {
 
 export interface QuizAuthoringDetail {
   id: string
-  classId: string
+  classId: string | null
   title: string
   description: string | null
   isPublished: boolean
+  visibility: 'private' | 'public'
   timeLimitMinutes: number | null
   dueDate: string | null
   questions: Array<QuizAuthoringQuestion>
@@ -220,8 +310,8 @@ export const getQuizAuthoringFn = createServerFn({ method: 'POST' })
   .validator(quizIdSchema)
   .handler(async ({ data }): Promise<QuizAuthoringDetail> => {
     const user = await requireUser()
-    if (user.role !== 'teacher') {
-      throw new Error('Only teachers can manage quizzes')
+    if (user.role !== 'teacher' && user.role !== 'admin') {
+      throw new Error('Only teachers and admins can manage quizzes')
     }
 
     return withRlsContext(user.id, async (tx) => {
@@ -247,6 +337,7 @@ export const getQuizAuthoringFn = createServerFn({ method: 'POST' })
         title: quiz.title,
         description: quiz.description,
         isPublished: quiz.isPublished,
+        visibility: quiz.visibility,
         timeLimitMinutes: quiz.timeLimitMinutes,
         dueDate: quiz.dueDate ? quiz.dueDate.toISOString() : null,
         questions: questions.map((q) => ({
@@ -312,9 +403,17 @@ export const getAssignmentInsightsFn = createServerFn({ method: 'POST' })
         where: (q, { eq: eqOp }) => eqOp(q.id, data.quizId),
       })
       if (!quiz) throw new Error('Quiz not found')
+      // Assignment insights are inherently class-scoped (enrollments, a
+      // roster to measure against) — never meaningful for admin's
+      // classless public content, which this teacher-only function can't
+      // reach anyway, but the schema-level type is `string | null` now.
+      if (!quiz.classId) throw new Error('Assignment insights are only available for class-linked quizzes')
+      // Narrowing on `quiz.classId` doesn't survive capture in the closure
+      // below — pull it into its own const first.
+      const classId = quiz.classId
 
       const enrollments = await tx.query.enrollments.findMany({
-        where: (e, { eq: eqOp }) => eqOp(e.classId, quiz.classId),
+        where: (e, { eq: eqOp }) => eqOp(e.classId, classId),
         with: { student: true },
       })
 
@@ -629,6 +728,13 @@ export function useClassQuizzes(classId: string) {
   })
 }
 
+export function useAdminContent() {
+  return useQuery<AdminContentSummary[]>({
+    queryKey: ['quizzes', 'admin-content'],
+    queryFn: () => getAdminContentListFn(),
+  })
+}
+
 export function useQuizAuthoring(quizId: string) {
   const queryClient = useQueryClient()
 
@@ -662,6 +768,14 @@ export function useQuizAuthoring(quizId: string) {
     },
   })
 
+  const toggleVisibilityMutation = useMutation({
+    mutationFn: (visibility: 'private' | 'public') => toggleVisibilityFn({ data: { quizId, visibility } }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['quizzes', 'authoring', quizId] })
+      await queryClient.invalidateQueries({ queryKey: ['quizzes', quizId] })
+    },
+  })
+
   return {
     quiz: query.data,
     isLoading: query.isLoading,
@@ -670,6 +784,8 @@ export function useQuizAuthoring(quizId: string) {
     deleteQuestion: deleteQuestionMutation.mutateAsync,
     togglePublish: togglePublishMutation.mutateAsync,
     isTogglingPublish: togglePublishMutation.isPending,
+    toggleVisibility: toggleVisibilityMutation.mutateAsync,
+    isTogglingVisibility: toggleVisibilityMutation.isPending,
   }
 }
 

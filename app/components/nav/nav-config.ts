@@ -1,4 +1,4 @@
-import { ChartColumn, Gamepad2, GraduationCap, Heart, LayoutDashboard, ListTodo, Map, Settings, Timer, Trophy } from 'lucide-react'
+import { BookOpen, ChartColumn, Gamepad2, GraduationCap, Heart, LayoutDashboard, ListTodo, Map, Settings, Timer, Trophy } from 'lucide-react'
 
 export interface NavLink {
   to: string
@@ -25,6 +25,14 @@ export const studentNavLinks: Array<NavLink> = [
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
-export function getNavLinks(isTeacher: boolean): Array<NavLink> {
-  return isTeacher ? teacherNavLinks : studentNavLinks
+// Deliberately its own short list, not `sharedLinks` — an admin doesn't
+// have tasks/focus sessions/wellness of their own to manage here.
+export const adminNavLinks: Array<NavLink> = [
+  { to: '/admin', label: 'Overview', icon: LayoutDashboard },
+  { to: '/admin/content', label: 'Content Library', icon: BookOpen },
+]
+
+export function getNavLinks(role: 'student' | 'teacher' | 'admin'): Array<NavLink> {
+  if (role === 'admin') return adminNavLinks
+  return role === 'teacher' ? teacherNavLinks : studentNavLinks
 }

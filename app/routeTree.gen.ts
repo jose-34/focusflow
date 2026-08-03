@@ -20,9 +20,14 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as WellnessRouteImport } from './routes/wellness'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ClassesIndexRouteImport } from './routes/classes.index'
 import { Route as ClassesClassIdRouteImport } from './routes/classes.$classId'
 import { Route as GameJoinRouteImport } from './routes/game.join'
+import { Route as QuizzesQuizIdRouteImport } from './routes/quizzes.$quizId'
+import { Route as AdminContentIndexRouteImport } from './routes/admin.content.index'
+import { Route as AdminContentQuizIdRouteImport } from './routes/admin.content.$quizId'
+import { Route as AdminContentNewRouteImport } from './routes/admin.content.new'
 import { Route as ClassesClassIdIndexRouteImport } from './routes/classes.$classId.index'
 import { Route as GameHostSessionIdRouteImport } from './routes/game.host.$sessionId'
 import { Route as GamePlaySessionIdRouteImport } from './routes/game.play.$sessionId'
@@ -84,6 +89,11 @@ const WellnessRoute = WellnessRouteImport.update({
   path: '/wellness',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ClassesIndexRoute = ClassesIndexRouteImport.update({
   id: '/classes/',
   path: '/classes/',
@@ -97,6 +107,26 @@ const ClassesClassIdRoute = ClassesClassIdRouteImport.update({
 const GameJoinRoute = GameJoinRouteImport.update({
   id: '/game/join',
   path: '/game/join',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuizzesQuizIdRoute = QuizzesQuizIdRouteImport.update({
+  id: '/quizzes/$quizId',
+  path: '/quizzes/$quizId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminContentIndexRoute = AdminContentIndexRouteImport.update({
+  id: '/admin/content/',
+  path: '/admin/content/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminContentQuizIdRoute = AdminContentQuizIdRouteImport.update({
+  id: '/admin/content/$quizId',
+  path: '/admin/content/$quizId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminContentNewRoute = AdminContentNewRouteImport.update({
+  id: '/admin/content/new',
+  path: '/admin/content/new',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClassesClassIdIndexRoute = ClassesClassIdIndexRouteImport.update({
@@ -141,9 +171,14 @@ export interface FileRoutesByFullPath {
   '/wellness': typeof WellnessRoute
   '/classes/$classId': typeof ClassesClassIdRouteWithChildren
   '/game/join': typeof GameJoinRoute
+  '/quizzes/$quizId': typeof QuizzesQuizIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/classes/': typeof ClassesIndexRoute
+  '/admin/content/$quizId': typeof AdminContentQuizIdRoute
+  '/admin/content/new': typeof AdminContentNewRoute
   '/game/host/$sessionId': typeof GameHostSessionIdRoute
   '/game/play/$sessionId': typeof GamePlaySessionIdRoute
+  '/admin/content/': typeof AdminContentIndexRoute
   '/classes/$classId/': typeof ClassesClassIdIndexRoute
   '/classes/$classId/quizzes/$quizId': typeof ClassesClassIdQuizzesQuizIdRoute
   '/classes/$classId/quizzes/new': typeof ClassesClassIdQuizzesNewRoute
@@ -161,9 +196,14 @@ export interface FileRoutesByTo {
   '/tasks': typeof TasksRoute
   '/wellness': typeof WellnessRoute
   '/game/join': typeof GameJoinRoute
+  '/quizzes/$quizId': typeof QuizzesQuizIdRoute
+  '/admin': typeof AdminIndexRoute
   '/classes': typeof ClassesIndexRoute
+  '/admin/content/$quizId': typeof AdminContentQuizIdRoute
+  '/admin/content/new': typeof AdminContentNewRoute
   '/game/host/$sessionId': typeof GameHostSessionIdRoute
   '/game/play/$sessionId': typeof GamePlaySessionIdRoute
+  '/admin/content': typeof AdminContentIndexRoute
   '/classes/$classId': typeof ClassesClassIdIndexRoute
   '/classes/$classId/quizzes/$quizId': typeof ClassesClassIdQuizzesQuizIdRoute
   '/classes/$classId/quizzes/new': typeof ClassesClassIdQuizzesNewRoute
@@ -183,9 +223,14 @@ export interface FileRoutesById {
   '/wellness': typeof WellnessRoute
   '/classes/$classId': typeof ClassesClassIdRouteWithChildren
   '/game/join': typeof GameJoinRoute
+  '/quizzes/$quizId': typeof QuizzesQuizIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/classes/': typeof ClassesIndexRoute
+  '/admin/content/$quizId': typeof AdminContentQuizIdRoute
+  '/admin/content/new': typeof AdminContentNewRoute
   '/game/host/$sessionId': typeof GameHostSessionIdRoute
   '/game/play/$sessionId': typeof GamePlaySessionIdRoute
+  '/admin/content/': typeof AdminContentIndexRoute
   '/classes/$classId/': typeof ClassesClassIdIndexRoute
   '/classes/$classId/quizzes/$quizId': typeof ClassesClassIdQuizzesQuizIdRoute
   '/classes/$classId/quizzes/new': typeof ClassesClassIdQuizzesNewRoute
@@ -206,9 +251,14 @@ export interface FileRouteTypes {
     | '/wellness'
     | '/classes/$classId'
     | '/game/join'
+    | '/quizzes/$quizId'
+    | '/admin/'
     | '/classes/'
+    | '/admin/content/$quizId'
+    | '/admin/content/new'
     | '/game/host/$sessionId'
     | '/game/play/$sessionId'
+    | '/admin/content/'
     | '/classes/$classId/'
     | '/classes/$classId/quizzes/$quizId'
     | '/classes/$classId/quizzes/new'
@@ -226,9 +276,14 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/wellness'
     | '/game/join'
+    | '/quizzes/$quizId'
+    | '/admin'
     | '/classes'
+    | '/admin/content/$quizId'
+    | '/admin/content/new'
     | '/game/host/$sessionId'
     | '/game/play/$sessionId'
+    | '/admin/content'
     | '/classes/$classId'
     | '/classes/$classId/quizzes/$quizId'
     | '/classes/$classId/quizzes/new'
@@ -247,9 +302,14 @@ export interface FileRouteTypes {
     | '/wellness'
     | '/classes/$classId'
     | '/game/join'
+    | '/quizzes/$quizId'
+    | '/admin/'
     | '/classes/'
+    | '/admin/content/$quizId'
+    | '/admin/content/new'
     | '/game/host/$sessionId'
     | '/game/play/$sessionId'
+    | '/admin/content/'
     | '/classes/$classId/'
     | '/classes/$classId/quizzes/$quizId'
     | '/classes/$classId/quizzes/new'
@@ -269,9 +329,14 @@ export interface RootRouteChildren {
   WellnessRoute: typeof WellnessRoute
   ClassesClassIdRoute: typeof ClassesClassIdRouteWithChildren
   GameJoinRoute: typeof GameJoinRoute
+  QuizzesQuizIdRoute: typeof QuizzesQuizIdRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   ClassesIndexRoute: typeof ClassesIndexRoute
+  AdminContentQuizIdRoute: typeof AdminContentQuizIdRoute
+  AdminContentNewRoute: typeof AdminContentNewRoute
   GameHostSessionIdRoute: typeof GameHostSessionIdRoute
   GamePlaySessionIdRoute: typeof GamePlaySessionIdRoute
+  AdminContentIndexRoute: typeof AdminContentIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -353,6 +418,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WellnessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/classes/': {
       id: '/classes/'
       path: '/classes'
@@ -372,6 +444,34 @@ declare module '@tanstack/react-router' {
       path: '/game/join'
       fullPath: '/game/join'
       preLoaderRoute: typeof GameJoinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quizzes/$quizId': {
+      id: '/quizzes/$quizId'
+      path: '/quizzes/$quizId'
+      fullPath: '/quizzes/$quizId'
+      preLoaderRoute: typeof QuizzesQuizIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/content/': {
+      id: '/admin/content/'
+      path: '/admin/content'
+      fullPath: '/admin/content/'
+      preLoaderRoute: typeof AdminContentIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/content/$quizId': {
+      id: '/admin/content/$quizId'
+      path: '/admin/content/$quizId'
+      fullPath: '/admin/content/$quizId'
+      preLoaderRoute: typeof AdminContentQuizIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/content/new': {
+      id: '/admin/content/new'
+      path: '/admin/content/new'
+      fullPath: '/admin/content/new'
+      preLoaderRoute: typeof AdminContentNewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/classes/$classId/': {
@@ -442,9 +542,14 @@ const rootRouteChildren: RootRouteChildren = {
   WellnessRoute: WellnessRoute,
   ClassesClassIdRoute: ClassesClassIdRouteWithChildren,
   GameJoinRoute: GameJoinRoute,
+  QuizzesQuizIdRoute: QuizzesQuizIdRoute,
+  AdminIndexRoute: AdminIndexRoute,
   ClassesIndexRoute: ClassesIndexRoute,
+  AdminContentQuizIdRoute: AdminContentQuizIdRoute,
+  AdminContentNewRoute: AdminContentNewRoute,
   GameHostSessionIdRoute: GameHostSessionIdRoute,
   GamePlaySessionIdRoute: GamePlaySessionIdRoute,
+  AdminContentIndexRoute: AdminContentIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { isSoundMuted, playCorrectSound, playJumpSound, playWrongSound, setSoundMuted } from '@/lib/sound'
+import { usePublicQuizzes } from '@/features/quizzes/hooks/usePublicQuizzes'
 import { DEMO_GRADES, DEMO_SUBJECTS, getDemoQuestions, type DemoQuestion, type DemoSubject } from './demoQuestions'
 
 const NUDGE_AFTER_CORRECT = 2
@@ -113,6 +114,13 @@ export function ArcadeDemoGame() {
   const [finished, setFinished] = useState(false)
   const [pathTaken, setPathTaken] = useState<Array<{ x: number; y: number; correct: boolean }>>([])
   const [muted, setMuted] = useState(isSoundMuted())
+  const [contentAuthor, setContentAuthor] = useState<string | null>(null)
+
+  // Real admin/teacher-authored public content, when any exists for the
+  // chosen subject+grade, takes priority over the generic static bank —
+  // that's the whole point of the content-library feature: a landing-page
+  // visitor sees real authored content and who made it, not just filler.
+  const { data: publicQuizzes } = usePublicQuizzes()
 
   const question = questions ? questions[questionIndex] : null
   const showNudge = score >= NUDGE_AFTER_CORRECT && !nudgeDismissed && !finished
@@ -138,7 +146,15 @@ export function ArcadeDemoGame() {
   function handleStart(chosenSubject: DemoSubject, chosenGrade: string) {
     setSubject(chosenSubject)
     setGrade(chosenGrade)
-    setQuestions(getDemoQuestions(chosenSubject, chosenGrade))
+    const subjectLabel = DEMO_SUBJECTS.find((s) => s.id === chosenSubject)?.label
+    const match = publicQuizzes?.find((q) => q.subjectName === subjectLabel && q.gradeLabel === chosenGrade)
+    if (match) {
+      setQuestions(match.questions)
+      setContentAuthor(match.authorName)
+    } else {
+      setQuestions(getDemoQuestions(chosenSubject, chosenGrade))
+      setContentAuthor(null)
+    }
   }
 
   function toggleMute() {
@@ -184,6 +200,7 @@ export function ArcadeDemoGame() {
     setQuestions(null)
     setSubject(null)
     setGrade(null)
+    setContentAuthor(null)
   }
 
   return (
@@ -381,6 +398,7 @@ export function ArcadeDemoGame() {
         <div className="flex items-center justify-between border-t border-border bg-card px-4 py-1.5 text-xs text-muted-foreground">
           <span>
             {DEMO_SUBJECTS.find((s) => s.id === subject)?.label} · {grade}
+            {contentAuthor && <> · by {contentAuthor}</>}
           </span>
           {!finished && (
             <button type="button" onClick={handleChangeSubject} className="underline hover:text-foreground">

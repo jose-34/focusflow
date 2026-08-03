@@ -13,6 +13,8 @@
     "db:push": "drizzle-kit push",
     "db:rls": "tsx --env-file=.env app/db/apply-rls.ts",
     "db:seed-curricula": "tsx --env-file=.env app/db/seed-curricula.ts",
+    "db:seed-admin": "tsx --env-file=.env app/db/seed-admin.ts",
+    "db:backfill-quiz-authors": "tsx --env-file=.env app/db/backfill-quiz-authors.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:unit": "vitest run",

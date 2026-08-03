@@ -1,16 +1,34 @@
 import { boolean, index, integer, pgEnum, pgPolicy, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import { classes } from './classes'
+import { curricula, subjects } from './curricula'
 import { users } from './users'
 
 export const questionTypeEnum = pgEnum('question_type', ['multiple_choice', 'true_false'])
+// 'public' = visible beyond the owning class/author: to any authenticated
+// user, and (via a separate adminDb-backed read path, since anonymous
+// visitors have no RLS user context at all) to anonymous landing-page
+// visitors too. 'private' is the original, unchanged class-only behavior.
+export const quizVisibilityEnum = pgEnum('quiz_visibility', ['private', 'public'])
 
 export const quizzes = pgTable(
   'quizzes',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    classId: uuid('class_id')
-      .notNull()
-      .references(() => classes.id, { onDelete: 'cascade' }),
+    // Nullable as of the admin content system: a teacher's quiz always has
+    // one, but an admin-authored quiz (never tied to any class) doesn't.
+    classId: uuid('class_id').references(() => classes.id, { onDelete: 'cascade' }),
+    // The creating user — a teacher (classId set) or an admin (classId
+    // null). Nullable only because existing rows predate this column;
+    // every new quiz always sets it (backfilled for old rows via
+    // app/db/backfill-quiz-authors.ts).
+    authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+    visibility: quizVisibilityEnum('visibility').notNull().default('private'),
+    // Only meaningful when classId is null (admin content has no class to
+    // inherit a subject/grade from). A class-owned quiz's subject/grade
+    // comes from its class instead — deliberately not duplicated here.
+    curriculumId: uuid('curriculum_id').references(() => curricula.id, { onDelete: 'set null' }),
+    subjectId: uuid('subject_id').references(() => subjects.id, { onDelete: 'set null' }),
+    gradeLabel: text('grade_label'),
     title: text('title').notNull(),
     description: text('description'),
     timeLimitMinutes: integer('time_limit_minutes'),
@@ -24,6 +42,8 @@ export const quizzes = pgTable(
   },
   (table) => [
     index('quizzes_class_id_idx').on(table.classId),
+    index('quizzes_author_id_idx').on(table.authorId),
+    index('quizzes_visibility_idx').on(table.visibility),
     pgPolicy('quizzes_select', { for: 'select' }),
     pgPolicy('quizzes_insert', { for: 'insert' }),
     pgPolicy('quizzes_update', { for: 'update' }),

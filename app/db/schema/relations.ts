@@ -70,6 +70,20 @@ export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
     fields: [quizzes.classId],
     references: [classes.id],
   }),
+  author: one(users, {
+    fields: [quizzes.authorId],
+    references: [users.id],
+  }),
+  // Only populated for classless (admin) content — a class-owned quiz's
+  // subject/curriculum comes from `class` instead.
+  curriculum: one(curricula, {
+    fields: [quizzes.curriculumId],
+    references: [curricula.id],
+  }),
+  subject: one(subjects, {
+    fields: [quizzes.subjectId],
+    references: [subjects.id],
+  }),
   questions: many(quizQuestions),
   attempts: many(quizAttempts),
 }))

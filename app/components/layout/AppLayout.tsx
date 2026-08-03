@@ -104,8 +104,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
 }
 
 function MobileNavLinks({ onNavigate }: { onNavigate: () => void }) {
-  const { isAuthenticated, isTeacher, logout } = useAuth()
-  const links = getNavLinks(isTeacher)
+  const { isAuthenticated, user, logout } = useAuth()
+  const links = getNavLinks(user?.role === 'admin' ? 'admin' : user?.role === 'teacher' ? 'teacher' : 'student')
 
   return (
     <>
