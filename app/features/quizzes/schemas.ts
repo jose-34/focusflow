@@ -69,6 +69,30 @@ export const generateQuestionsSchema = z.object({
 
 export type GenerateQuestionsInput = z.infer<typeof generateQuestionsSchema>
 
+// "Generate a whole new quiz from a document" — the AI supplies the title,
+// so unlike createAdminQuizSchema/createQuizSchema there's no title field
+// here. Curriculum/subject/grade are still real foreign keys the AI can't
+// safely guess, so those stay explicit user picks.
+export const generateAdminQuizFromDocumentSchema = z.object({
+  curriculumId: z.string().uuid(),
+  subjectId: z.string().uuid(),
+  gradeLabel: z.string().max(50).optional(),
+  mimeType: z.enum(ACCEPTED_DOCUMENT_MIME_TYPES),
+  fileBase64: z.string().min(1).max(12_000_000),
+  questionCount: z.coerce.number().int().min(1).max(20).default(5),
+})
+
+export type GenerateAdminQuizFromDocumentInput = z.infer<typeof generateAdminQuizFromDocumentSchema>
+
+export const generateClassQuizFromDocumentSchema = z.object({
+  classId: z.string().uuid(),
+  mimeType: z.enum(ACCEPTED_DOCUMENT_MIME_TYPES),
+  fileBase64: z.string().min(1).max(12_000_000),
+  questionCount: z.coerce.number().int().min(1).max(20).default(5),
+})
+
+export type GenerateClassQuizFromDocumentInput = z.infer<typeof generateClassQuizFromDocumentSchema>
+
 export const questionTypeValues = ['multiple_choice', 'true_false'] as const
 
 export const createQuestionSchema = z

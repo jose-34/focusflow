@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { ArrowLeft, CheckCircle2, ClipboardList, LoaderCircle, Mail, Plus, Trash2, UserMinus, Users } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ClipboardList, LoaderCircle, Mail, Plus, Sparkles, Trash2, UserMinus, Users } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { useClassDetail } from '@/features/classes/hooks/useClasses'
 import { usePracticeTasks } from '@/features/classes/hooks/usePracticeTasks'
@@ -112,12 +112,20 @@ function ClassDetailPage() {
             </CardDescription>
           </div>
           {classDetail.isTeacher && (
-            <Button size="sm" className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90" asChild>
-              <Link to="/classes/$classId/quizzes/new" params={{ classId }}>
-                <Plus className="size-4" />
-                Create Quiz
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="gap-2" asChild>
+                <Link to="/classes/$classId/quizzes/new" params={{ classId }}>
+                  <Plus className="size-4" />
+                  Create Quiz
+                </Link>
+              </Button>
+              <Button size="sm" className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90" asChild>
+                <Link to="/classes/$classId/quizzes/generate" params={{ classId }}>
+                  <Sparkles className="size-4" />
+                  Generate with AI
+                </Link>
+              </Button>
+            </div>
           )}
         </CardHeader>
         <CardContent className="space-y-2">

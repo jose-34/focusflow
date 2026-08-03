@@ -1,6 +1,6 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { BookOpen, CheckCircle2, ListChecks, Plus } from 'lucide-react'
+import { BookOpen, CheckCircle2, ListChecks, Plus, Sparkles } from 'lucide-react'
 import { getCurrentUserFn, useAuth } from '@/features/auth/hooks/useAuth'
 import { getAdminContentListFn } from '@/features/quizzes/hooks/useQuizzes'
 import { DashboardShell, StatGrid } from '@/components/dashboard/DashboardShell'
@@ -52,12 +52,20 @@ function AdminOverviewPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="font-heading text-foreground">Recent Content</CardTitle>
-          <Button size="sm" className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90" asChild>
-            <Link to="/admin/content/new">
-              <Plus className="size-4" />
-              New Quiz
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="gap-2" asChild>
+              <Link to="/admin/content/new">
+                <Plus className="size-4" />
+                New Quiz
+              </Link>
+            </Button>
+            <Button size="sm" className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90" asChild>
+              <Link to="/admin/content/generate">
+                <Sparkles className="size-4" />
+                Generate with AI
+              </Link>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-2">
           {quizzes.length === 0 ? (

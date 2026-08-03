@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { BookOpen, Plus } from 'lucide-react'
+import { BookOpen, Plus, Sparkles } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { useAdminContent, type AdminContentSummary } from '@/features/quizzes/hooks/useQuizzes'
 import { gradeSortIndex } from '@/features/curricula/gradeOptions'
@@ -113,12 +113,20 @@ function AdminContentPage() {
     <div className="mx-auto max-w-4xl px-4 py-10">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="font-heading text-2xl font-semibold text-foreground">Content Library</h1>
-        <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90" asChild>
-          <Link to="/admin/content/new">
-            <Plus className="size-4" />
-            New Quiz
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" asChild>
+            <Link to="/admin/content/new">
+              <Plus className="size-4" />
+              New Quiz
+            </Link>
+          </Button>
+          <Button className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90" asChild>
+            <Link to="/admin/content/generate">
+              <Sparkles className="size-4" />
+              Generate with AI
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (

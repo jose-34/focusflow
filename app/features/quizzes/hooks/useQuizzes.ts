@@ -6,10 +6,17 @@ import { withRlsContext } from '@/db'
 import { quizAnswers, quizAttempts, quizChoices, quizQuestions, quizzes, tasks, xpLedger } from '@/db/schema'
 import { requireUser } from '@/features/auth/utils'
 import { createQuestionSchema, createQuizSchema, questionIdSchema, quizIdSchema, submitQuizSchema, togglePublishSchema } from '@/features/auth/validators'
-import { ACCEPTED_DOCUMENT_MIME_TYPES, createAdminQuizSchema, generateQuestionsSchema, toggleVisibilitySchema } from '@/features/quizzes/schemas'
+import {
+  ACCEPTED_DOCUMENT_MIME_TYPES,
+  createAdminQuizSchema,
+  generateAdminQuizFromDocumentSchema,
+  generateClassQuizFromDocumentSchema,
+  generateQuestionsSchema,
+  toggleVisibilitySchema,
+} from '@/features/quizzes/schemas'
 import { classIdSchema } from '@/features/classes/schemas'
 import { checkAndUnlockAchievements } from '@/features/achievements/services/achievement.service'
-import { generateQuestionsFromDocument, MAX_DOCUMENT_BYTES } from '@/lib/ai'
+import { generateQuestionsFromDocument, generateQuizFromDocument, MAX_DOCUMENT_BYTES } from '@/lib/ai'
 import { rateLimit } from '@/lib/rateLimit'
 import { computeRiskScore } from '../riskScore'
 
@@ -225,6 +232,42 @@ export const addQuestionFn = createServerFn({ method: 'POST' })
     })
   })
 
+// Shared by generateQuestionsFromDocumentFn (adds to an existing quiz) and
+// the two create-a-whole-quiz-from-a-document functions below — the
+// question/choice insert loop is identical either way, only what quiz row
+// they're attached to differs.
+async function insertGeneratedQuestions(
+  tx: Tx,
+  quizId: string,
+  generated: Array<{ questionText: string; points: number; choices: Array<{ choiceText: string; isCorrect: boolean }> }>,
+  startPosition: number,
+): Promise<number> {
+  let nextPosition = startPosition
+  for (const generatedQuestion of generated) {
+    const [question] = await tx
+      .insert(quizQuestions)
+      .values({
+        quizId,
+        questionText: generatedQuestion.questionText.trim(),
+        questionType: 'multiple_choice',
+        points: generatedQuestion.points,
+        position: nextPosition,
+      })
+      .returning()
+    nextPosition += 1
+
+    await tx.insert(quizChoices).values(
+      generatedQuestion.choices.map((choice, index) => ({
+        questionId: question.id,
+        choiceText: choice.choiceText.trim(),
+        isCorrect: choice.isCorrect,
+        position: index,
+      })),
+    )
+  }
+  return generated.length
+}
+
 export const generateQuestionsFromDocumentFn = createServerFn({ method: 'POST' })
   .validator(generateQuestionsSchema)
   .handler(async ({ data }) => {
@@ -263,35 +306,89 @@ export const generateQuestionsFromDocumentFn = createServerFn({ method: 'POST' }
       const existing = await tx.query.quizQuestions.findMany({
         where: (q, { eq: eqOp }) => eqOp(q.quizId, data.quizId),
       })
-      let nextPosition = existing.length
+      const createdCount = await insertGeneratedQuestions(tx, data.quizId, generated, existing.length)
+      return { createdCount }
+    })
+  })
 
-      const createdQuestions = []
-      for (const generatedQuestion of generated) {
-        const [question] = await tx
-          .insert(quizQuestions)
-          .values({
-            quizId: data.quizId,
-            questionText: generatedQuestion.questionText.trim(),
-            questionType: 'multiple_choice',
-            points: generatedQuestion.points,
-            position: nextPosition,
-          })
-          .returning()
-        nextPosition += 1
+// "Generate with AI" entry point for admin content — creates the quiz row
+// AND its questions from a single document upload, so there's no separate
+// "create an empty quiz shell first" step. Curriculum/subject/grade are
+// still explicit picks (they're real foreign keys the model can't safely
+// guess), but the title comes from the document.
+export const generateAdminQuizFromDocumentFn = createServerFn({ method: 'POST' })
+  .validator(generateAdminQuizFromDocumentSchema)
+  .handler(async ({ data }) => {
+    const user = await requireUser()
+    if (user.role !== 'admin') {
+      throw new Error('Only admins can create public content this way')
+    }
+    rateLimit('generate-questions', { max: 10, windowMs: 10 * 60_000 })
 
-        await tx.insert(quizChoices).values(
-          generatedQuestion.choices.map((choice, index) => ({
-            questionId: question.id,
-            choiceText: choice.choiceText.trim(),
-            isCorrect: choice.isCorrect,
-            position: index,
-          })),
-        )
+    const approxRawBytes = (data.fileBase64.length * 3) / 4
+    if (approxRawBytes > MAX_DOCUMENT_BYTES) {
+      throw new Error('File is too large — please upload a document under 8MB.')
+    }
 
-        createdQuestions.push(question)
-      }
+    const generatedQuiz = await generateQuizFromDocument({
+      mimeType: data.mimeType,
+      base64: data.fileBase64,
+      questionCount: data.questionCount,
+    })
 
-      return { createdCount: createdQuestions.length }
+    return withRlsContext(user.id, async (tx) => {
+      const [quiz] = await tx
+        .insert(quizzes)
+        .values({
+          classId: null,
+          authorId: user.id,
+          visibility: 'public',
+          curriculumId: data.curriculumId,
+          subjectId: data.subjectId,
+          gradeLabel: data.gradeLabel?.trim() || null,
+          title: generatedQuiz.title,
+        })
+        .returning()
+
+      await insertGeneratedQuestions(tx, quiz.id, generatedQuiz.questions, 0)
+      return quiz
+    })
+  })
+
+// Teacher equivalent — same one-motion creation, scoped to a class instead
+// of curriculum/subject/grade (the class already carries those).
+export const generateClassQuizFromDocumentFn = createServerFn({ method: 'POST' })
+  .validator(generateClassQuizFromDocumentSchema)
+  .handler(async ({ data }) => {
+    const user = await requireUser()
+    if (user.role !== 'teacher') {
+      throw new Error('Only teachers can create quizzes this way')
+    }
+    rateLimit('generate-questions', { max: 10, windowMs: 10 * 60_000 })
+
+    const approxRawBytes = (data.fileBase64.length * 3) / 4
+    if (approxRawBytes > MAX_DOCUMENT_BYTES) {
+      throw new Error('File is too large — please upload a document under 8MB.')
+    }
+
+    const generatedQuiz = await generateQuizFromDocument({
+      mimeType: data.mimeType,
+      base64: data.fileBase64,
+      questionCount: data.questionCount,
+    })
+
+    return withRlsContext(user.id, async (tx) => {
+      const [quiz] = await tx
+        .insert(quizzes)
+        .values({
+          classId: data.classId,
+          authorId: user.id,
+          title: generatedQuiz.title,
+        })
+        .returning()
+
+      await insertGeneratedQuestions(tx, quiz.id, generatedQuiz.questions, 0)
+      return quiz
     })
   })
 
@@ -872,6 +969,36 @@ export function useGenerateQuestionsFromDocument(quizId: string) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['quizzes', 'authoring', quizId] })
       await queryClient.invalidateQueries({ queryKey: ['quizzes', quizId] })
+    },
+  })
+}
+
+export function useGenerateAdminQuizFromDocument() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: {
+      curriculumId: string
+      subjectId: string
+      gradeLabel?: string
+      mimeType: (typeof ACCEPTED_DOCUMENT_MIME_TYPES)[number]
+      fileBase64: string
+      questionCount: number
+    }) => generateAdminQuizFromDocumentFn({ data: input }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['quizzes', 'admin-content'] })
+    },
+  })
+}
+
+export function useGenerateClassQuizFromDocument(classId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: { mimeType: (typeof ACCEPTED_DOCUMENT_MIME_TYPES)[number]; fileBase64: string; questionCount: number }) =>
+      generateClassQuizFromDocumentFn({ data: { classId, ...input } }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['quizzes', classId] })
     },
   })
 }

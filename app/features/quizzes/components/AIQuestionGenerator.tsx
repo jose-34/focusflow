@@ -2,35 +2,10 @@ import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Sparkles, Upload } from 'lucide-react'
 import { useGenerateQuestionsFromDocument } from '@/features/quizzes/hooks/useQuizzes'
+import { ACCEPTED_EXTENSIONS, fileToBase64, validateDocumentFile } from '@/features/quizzes/documentUpload'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-
-const ACCEPTED_EXTENSIONS = '.pdf,.docx,.txt,.png,.jpg,.jpeg,.webp'
-const MAX_FILE_BYTES = 8 * 1024 * 1024
-
-const ACCEPTED_MIME_TYPES = new Set([
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'text/plain',
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-])
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result as string
-      // FileReader's data URL is "data:<mime>;base64,<data>" — the API
-      // wants just the base64 payload.
-      resolve(result.slice(result.indexOf(',') + 1))
-    }
-    reader.onerror = () => reject(reader.error ?? new Error('Failed to read file'))
-    reader.readAsDataURL(file)
-  })
-}
 
 // Shared by both the teacher and admin quiz editors — upload a document,
 // AI reads it and generates ready-to-review multiple-choice questions
@@ -44,13 +19,9 @@ export function AIQuestionGenerator({ quizId }: { quizId: string }) {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0]
     if (!selected) return
-    if (!ACCEPTED_MIME_TYPES.has(selected.type)) {
-      toast.error('Unsupported file type — use PDF, DOCX, TXT, PNG, JPG, or WEBP')
-      e.target.value = ''
-      return
-    }
-    if (selected.size > MAX_FILE_BYTES) {
-      toast.error('File is too large — please upload a document under 8MB')
+    const error = validateDocumentFile(selected)
+    if (error) {
+      toast.error(error)
       e.target.value = ''
       return
     }

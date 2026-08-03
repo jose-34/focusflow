@@ -34,37 +34,43 @@ export interface GeneratedQuestion {
   choices: Array<GeneratedChoice>
 }
 
+const questionItemSchema = {
+  type: 'object',
+  properties: {
+    questionText: { type: 'string', description: 'The question, self-contained and answerable from the document alone' },
+    points: { type: 'integer', description: 'Point value 1-10, higher for questions requiring deeper reasoning' },
+    choices: {
+      type: 'array',
+      description: 'Exactly 4 choices, exactly one marked isCorrect: true',
+      items: {
+        type: 'object',
+        properties: {
+          choiceText: { type: 'string' },
+          isCorrect: { type: 'boolean' },
+        },
+        required: ['choiceText', 'isCorrect'],
+      },
+    },
+  },
+  required: ['questionText', 'points', 'choices'],
+}
+
 // Plain JSON Schema, passed via responseJsonSchema — Gemini enforces this
 // on the response, so no separate parsing/validation pass is needed and
 // there's no risk of the model wrapping the array in explanatory prose.
 const questionsJsonSchema = {
   type: 'object',
-  properties: {
-    questions: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          questionText: { type: 'string', description: 'The question, self-contained and answerable from the document alone' },
-          points: { type: 'integer', description: 'Point value 1-10, higher for questions requiring deeper reasoning' },
-          choices: {
-            type: 'array',
-            description: 'Exactly 4 choices, exactly one marked isCorrect: true',
-            items: {
-              type: 'object',
-              properties: {
-                choiceText: { type: 'string' },
-                isCorrect: { type: 'boolean' },
-              },
-              required: ['choiceText', 'isCorrect'],
-            },
-          },
-        },
-        required: ['questionText', 'points', 'choices'],
-      },
-    },
-  },
+  properties: { questions: { type: 'array', items: questionItemSchema } },
   required: ['questions'],
+}
+
+const quizWithTitleJsonSchema = {
+  type: 'object',
+  properties: {
+    title: { type: 'string', description: 'A short, specific quiz title describing what this document covers (e.g. "Photosynthesis Basics"), not a generic label' },
+    questions: { type: 'array', items: questionItemSchema },
+  },
+  required: ['title', 'questions'],
 }
 
 // DOCX has no native Gemini document-understanding support (unlike PDF/
@@ -81,21 +87,20 @@ async function extractTextIfNeeded(mimeType: string, base64: string): Promise<st
   return null
 }
 
-export async function generateQuestionsFromDocument(params: {
-  mimeType: string
-  base64: string
-  questionCount: number
-}): Promise<Array<GeneratedQuestion>> {
-  const extractedText = await extractTextIfNeeded(params.mimeType, params.base64)
+function buildQuestionPrompt(questionCount: number, includeTitle: boolean): string {
+  const titlePart = includeTitle ? ' Also generate a short, specific title for a quiz built from this material.' : ''
+  return `Read the attached study material and generate exactly ${questionCount} multiple-choice quiz questions that test understanding of its content.${titlePart} Each question needs exactly 4 answer choices with exactly one correct. Assign points 1-10 based on difficulty. Questions must be answerable from the material alone — do not invent facts not present in it.`
+}
 
-  const promptText = `Read the attached study material and generate exactly ${params.questionCount} multiple-choice quiz questions that test understanding of its content. Each question needs exactly 4 answer choices with exactly one correct. Assign points 1-10 based on difficulty. Questions must be answerable from the material alone — do not invent facts not present in it.`
+async function callGemini(params: { mimeType: string; base64: string; prompt: string; schema: object }): Promise<string> {
+  const extractedText = await extractTextIfNeeded(params.mimeType, params.base64)
 
   const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = []
   if (extractedText !== null) {
-    parts.push({ text: `--- Document content ---\n${extractedText}\n--- End of document ---\n\n${promptText}` })
+    parts.push({ text: `--- Document content ---\n${extractedText}\n--- End of document ---\n\n${params.prompt}` })
   } else {
     parts.push({ inlineData: { mimeType: params.mimeType, data: params.base64 } })
-    parts.push({ text: promptText })
+    parts.push({ text: params.prompt })
   }
 
   const response = await getClient().models.generateContent({
@@ -103,14 +108,38 @@ export async function generateQuestionsFromDocument(params: {
     contents: [{ role: 'user', parts }],
     config: {
       responseMimeType: 'application/json',
-      responseJsonSchema: questionsJsonSchema,
+      responseJsonSchema: params.schema,
     },
   })
 
   const text = response.text
   if (!text) {
-    throw new Error('The AI did not return any questions — try again or use a clearer document.')
+    throw new Error('The AI did not return a response — try again or use a clearer document.')
   }
+  return text
+}
+
+function sanitizeQuestions(questions: Array<GeneratedQuestion>): Array<GeneratedQuestion> {
+  return questions
+    .filter((q) => q.choices.filter((c) => c.isCorrect).length === 1 && q.choices.length >= 2)
+    .map((q) => ({
+      questionText: q.questionText,
+      points: Math.max(1, Math.min(10, Math.round(q.points))),
+      choices: q.choices,
+    }))
+}
+
+export async function generateQuestionsFromDocument(params: {
+  mimeType: string
+  base64: string
+  questionCount: number
+}): Promise<Array<GeneratedQuestion>> {
+  const text = await callGemini({
+    mimeType: params.mimeType,
+    base64: params.base64,
+    prompt: buildQuestionPrompt(params.questionCount, false),
+    schema: questionsJsonSchema,
+  })
 
   let parsed: { questions: Array<GeneratedQuestion> }
   try {
@@ -118,12 +147,41 @@ export async function generateQuestionsFromDocument(params: {
   } catch {
     throw new Error('The AI returned an invalid response — please try again.')
   }
+  return sanitizeQuestions(parsed.questions)
+}
 
-  return parsed.questions
-    .filter((q) => q.choices.filter((c) => c.isCorrect).length === 1 && q.choices.length >= 2)
-    .map((q) => ({
-      questionText: q.questionText,
-      points: Math.max(1, Math.min(10, Math.round(q.points))),
-      choices: q.choices,
-    }))
+export interface GeneratedQuiz {
+  title: string
+  questions: Array<GeneratedQuestion>
+}
+
+// Used by the "generate a whole new quiz from a document" entry point —
+// unlike generateQuestionsFromDocument (which only adds questions to a
+// quiz that already has a title), this also asks the model for a title so
+// the quiz can be created in one motion, no manual title entry required.
+export async function generateQuizFromDocument(params: {
+  mimeType: string
+  base64: string
+  questionCount: number
+}): Promise<GeneratedQuiz> {
+  const text = await callGemini({
+    mimeType: params.mimeType,
+    base64: params.base64,
+    prompt: buildQuestionPrompt(params.questionCount, true),
+    schema: quizWithTitleJsonSchema,
+  })
+
+  let parsed: { title: string; questions: Array<GeneratedQuestion> }
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    throw new Error('The AI returned an invalid response — please try again.')
+  }
+
+  const questions = sanitizeQuestions(parsed.questions)
+  if (questions.length === 0) {
+    throw new Error('Could not extract any valid questions from this document — try a clearer or more detailed file.')
+  }
+
+  return { title: parsed.title?.trim() || 'Generated Quiz', questions }
 }

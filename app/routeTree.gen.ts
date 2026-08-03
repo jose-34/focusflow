@@ -14,6 +14,7 @@ import { Route as AchievementsRouteImport } from './routes/achievements'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as FocusRouteImport } from './routes/focus'
 import { Route as JourneyRouteImport } from './routes/journey'
+import { Route as LibraryRouteImport } from './routes/library'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ProgressRouteImport } from './routes/progress'
 import { Route as RegisterRouteImport } from './routes/register'
@@ -29,11 +30,13 @@ import { Route as ReportsIndexRouteImport } from './routes/reports.index'
 import { Route as ReportsSessionIdRouteImport } from './routes/reports.$sessionId'
 import { Route as AdminContentIndexRouteImport } from './routes/admin.content.index'
 import { Route as AdminContentQuizIdRouteImport } from './routes/admin.content.$quizId'
+import { Route as AdminContentGenerateRouteImport } from './routes/admin.content.generate'
 import { Route as AdminContentNewRouteImport } from './routes/admin.content.new'
 import { Route as ClassesClassIdIndexRouteImport } from './routes/classes.$classId.index'
 import { Route as GameHostSessionIdRouteImport } from './routes/game.host.$sessionId'
 import { Route as GamePlaySessionIdRouteImport } from './routes/game.play.$sessionId'
 import { Route as ClassesClassIdQuizzesQuizIdRouteImport } from './routes/classes.$classId.quizzes.$quizId'
+import { Route as ClassesClassIdQuizzesGenerateRouteImport } from './routes/classes.$classId.quizzes.generate'
 import { Route as ClassesClassIdQuizzesNewRouteImport } from './routes/classes.$classId.quizzes.new'
 
 const IndexRoute = IndexRouteImport.update({
@@ -59,6 +62,11 @@ const FocusRoute = FocusRouteImport.update({
 const JourneyRoute = JourneyRouteImport.update({
   id: '/journey',
   path: '/journey',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -136,6 +144,11 @@ const AdminContentQuizIdRoute = AdminContentQuizIdRouteImport.update({
   path: '/admin/content/$quizId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminContentGenerateRoute = AdminContentGenerateRouteImport.update({
+  id: '/admin/content/generate',
+  path: '/admin/content/generate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminContentNewRoute = AdminContentNewRouteImport.update({
   id: '/admin/content/new',
   path: '/admin/content/new',
@@ -162,6 +175,12 @@ const ClassesClassIdQuizzesQuizIdRoute =
     path: '/quizzes/$quizId',
     getParentRoute: () => ClassesClassIdRoute,
   } as any)
+const ClassesClassIdQuizzesGenerateRoute =
+  ClassesClassIdQuizzesGenerateRouteImport.update({
+    id: '/quizzes/generate',
+    path: '/quizzes/generate',
+    getParentRoute: () => ClassesClassIdRoute,
+  } as any)
 const ClassesClassIdQuizzesNewRoute =
   ClassesClassIdQuizzesNewRouteImport.update({
     id: '/quizzes/new',
@@ -175,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/focus': typeof FocusRoute
   '/journey': typeof JourneyRoute
+  '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/progress': typeof ProgressRoute
   '/register': typeof RegisterRoute
@@ -189,12 +209,14 @@ export interface FileRoutesByFullPath {
   '/classes/': typeof ClassesIndexRoute
   '/reports/': typeof ReportsIndexRoute
   '/admin/content/$quizId': typeof AdminContentQuizIdRoute
+  '/admin/content/generate': typeof AdminContentGenerateRoute
   '/admin/content/new': typeof AdminContentNewRoute
   '/game/host/$sessionId': typeof GameHostSessionIdRoute
   '/game/play/$sessionId': typeof GamePlaySessionIdRoute
   '/admin/content/': typeof AdminContentIndexRoute
   '/classes/$classId/': typeof ClassesClassIdIndexRoute
   '/classes/$classId/quizzes/$quizId': typeof ClassesClassIdQuizzesQuizIdRoute
+  '/classes/$classId/quizzes/generate': typeof ClassesClassIdQuizzesGenerateRoute
   '/classes/$classId/quizzes/new': typeof ClassesClassIdQuizzesNewRoute
 }
 export interface FileRoutesByTo {
@@ -203,6 +225,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/focus': typeof FocusRoute
   '/journey': typeof JourneyRoute
+  '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/progress': typeof ProgressRoute
   '/register': typeof RegisterRoute
@@ -216,12 +239,14 @@ export interface FileRoutesByTo {
   '/classes': typeof ClassesIndexRoute
   '/reports': typeof ReportsIndexRoute
   '/admin/content/$quizId': typeof AdminContentQuizIdRoute
+  '/admin/content/generate': typeof AdminContentGenerateRoute
   '/admin/content/new': typeof AdminContentNewRoute
   '/game/host/$sessionId': typeof GameHostSessionIdRoute
   '/game/play/$sessionId': typeof GamePlaySessionIdRoute
   '/admin/content': typeof AdminContentIndexRoute
   '/classes/$classId': typeof ClassesClassIdIndexRoute
   '/classes/$classId/quizzes/$quizId': typeof ClassesClassIdQuizzesQuizIdRoute
+  '/classes/$classId/quizzes/generate': typeof ClassesClassIdQuizzesGenerateRoute
   '/classes/$classId/quizzes/new': typeof ClassesClassIdQuizzesNewRoute
 }
 export interface FileRoutesById {
@@ -231,6 +256,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/focus': typeof FocusRoute
   '/journey': typeof JourneyRoute
+  '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/progress': typeof ProgressRoute
   '/register': typeof RegisterRoute
@@ -245,12 +271,14 @@ export interface FileRoutesById {
   '/classes/': typeof ClassesIndexRoute
   '/reports/': typeof ReportsIndexRoute
   '/admin/content/$quizId': typeof AdminContentQuizIdRoute
+  '/admin/content/generate': typeof AdminContentGenerateRoute
   '/admin/content/new': typeof AdminContentNewRoute
   '/game/host/$sessionId': typeof GameHostSessionIdRoute
   '/game/play/$sessionId': typeof GamePlaySessionIdRoute
   '/admin/content/': typeof AdminContentIndexRoute
   '/classes/$classId/': typeof ClassesClassIdIndexRoute
   '/classes/$classId/quizzes/$quizId': typeof ClassesClassIdQuizzesQuizIdRoute
+  '/classes/$classId/quizzes/generate': typeof ClassesClassIdQuizzesGenerateRoute
   '/classes/$classId/quizzes/new': typeof ClassesClassIdQuizzesNewRoute
 }
 export interface FileRouteTypes {
@@ -261,6 +289,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/focus'
     | '/journey'
+    | '/library'
     | '/login'
     | '/progress'
     | '/register'
@@ -275,12 +304,14 @@ export interface FileRouteTypes {
     | '/classes/'
     | '/reports/'
     | '/admin/content/$quizId'
+    | '/admin/content/generate'
     | '/admin/content/new'
     | '/game/host/$sessionId'
     | '/game/play/$sessionId'
     | '/admin/content/'
     | '/classes/$classId/'
     | '/classes/$classId/quizzes/$quizId'
+    | '/classes/$classId/quizzes/generate'
     | '/classes/$classId/quizzes/new'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -289,6 +320,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/focus'
     | '/journey'
+    | '/library'
     | '/login'
     | '/progress'
     | '/register'
@@ -302,12 +334,14 @@ export interface FileRouteTypes {
     | '/classes'
     | '/reports'
     | '/admin/content/$quizId'
+    | '/admin/content/generate'
     | '/admin/content/new'
     | '/game/host/$sessionId'
     | '/game/play/$sessionId'
     | '/admin/content'
     | '/classes/$classId'
     | '/classes/$classId/quizzes/$quizId'
+    | '/classes/$classId/quizzes/generate'
     | '/classes/$classId/quizzes/new'
   id:
     | '__root__'
@@ -316,6 +350,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/focus'
     | '/journey'
+    | '/library'
     | '/login'
     | '/progress'
     | '/register'
@@ -330,12 +365,14 @@ export interface FileRouteTypes {
     | '/classes/'
     | '/reports/'
     | '/admin/content/$quizId'
+    | '/admin/content/generate'
     | '/admin/content/new'
     | '/game/host/$sessionId'
     | '/game/play/$sessionId'
     | '/admin/content/'
     | '/classes/$classId/'
     | '/classes/$classId/quizzes/$quizId'
+    | '/classes/$classId/quizzes/generate'
     | '/classes/$classId/quizzes/new'
   fileRoutesById: FileRoutesById
 }
@@ -345,6 +382,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   FocusRoute: typeof FocusRoute
   JourneyRoute: typeof JourneyRoute
+  LibraryRoute: typeof LibraryRoute
   LoginRoute: typeof LoginRoute
   ProgressRoute: typeof ProgressRoute
   RegisterRoute: typeof RegisterRoute
@@ -359,6 +397,7 @@ export interface RootRouteChildren {
   ClassesIndexRoute: typeof ClassesIndexRoute
   ReportsIndexRoute: typeof ReportsIndexRoute
   AdminContentQuizIdRoute: typeof AdminContentQuizIdRoute
+  AdminContentGenerateRoute: typeof AdminContentGenerateRoute
   AdminContentNewRoute: typeof AdminContentNewRoute
   GameHostSessionIdRoute: typeof GameHostSessionIdRoute
   GamePlaySessionIdRoute: typeof GamePlaySessionIdRoute
@@ -400,6 +439,13 @@ declare module '@tanstack/react-router' {
       path: '/journey'
       fullPath: '/journey'
       preLoaderRoute: typeof JourneyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -507,6 +553,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminContentQuizIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/content/generate': {
+      id: '/admin/content/generate'
+      path: '/admin/content/generate'
+      fullPath: '/admin/content/generate'
+      preLoaderRoute: typeof AdminContentGenerateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/content/new': {
       id: '/admin/content/new'
       path: '/admin/content/new'
@@ -542,6 +595,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClassesClassIdQuizzesQuizIdRouteImport
       parentRoute: typeof ClassesClassIdRoute
     }
+    '/classes/$classId/quizzes/generate': {
+      id: '/classes/$classId/quizzes/generate'
+      path: '/quizzes/generate'
+      fullPath: '/classes/$classId/quizzes/generate'
+      preLoaderRoute: typeof ClassesClassIdQuizzesGenerateRouteImport
+      parentRoute: typeof ClassesClassIdRoute
+    }
     '/classes/$classId/quizzes/new': {
       id: '/classes/$classId/quizzes/new'
       path: '/quizzes/new'
@@ -555,12 +615,14 @@ declare module '@tanstack/react-router' {
 interface ClassesClassIdRouteChildren {
   ClassesClassIdIndexRoute: typeof ClassesClassIdIndexRoute
   ClassesClassIdQuizzesQuizIdRoute: typeof ClassesClassIdQuizzesQuizIdRoute
+  ClassesClassIdQuizzesGenerateRoute: typeof ClassesClassIdQuizzesGenerateRoute
   ClassesClassIdQuizzesNewRoute: typeof ClassesClassIdQuizzesNewRoute
 }
 
 const ClassesClassIdRouteChildren: ClassesClassIdRouteChildren = {
   ClassesClassIdIndexRoute: ClassesClassIdIndexRoute,
   ClassesClassIdQuizzesQuizIdRoute: ClassesClassIdQuizzesQuizIdRoute,
+  ClassesClassIdQuizzesGenerateRoute: ClassesClassIdQuizzesGenerateRoute,
   ClassesClassIdQuizzesNewRoute: ClassesClassIdQuizzesNewRoute,
 }
 
@@ -574,6 +636,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   FocusRoute: FocusRoute,
   JourneyRoute: JourneyRoute,
+  LibraryRoute: LibraryRoute,
   LoginRoute: LoginRoute,
   ProgressRoute: ProgressRoute,
   RegisterRoute: RegisterRoute,
@@ -588,6 +651,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClassesIndexRoute: ClassesIndexRoute,
   ReportsIndexRoute: ReportsIndexRoute,
   AdminContentQuizIdRoute: AdminContentQuizIdRoute,
+  AdminContentGenerateRoute: AdminContentGenerateRoute,
   AdminContentNewRoute: AdminContentNewRoute,
   GameHostSessionIdRoute: GameHostSessionIdRoute,
   GamePlaySessionIdRoute: GamePlaySessionIdRoute,

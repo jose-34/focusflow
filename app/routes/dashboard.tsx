@@ -286,12 +286,17 @@ function DiscoverSection() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 font-heading text-foreground">
-          <Compass className="size-4 text-accent" />
-          Discover
-        </CardTitle>
-        <CardDescription>Public quizzes from FocusFlow and teachers, open to everyone.</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2 font-heading text-foreground">
+            <Compass className="size-4 text-accent" />
+            Discover
+          </CardTitle>
+          <CardDescription>Public quizzes from FocusFlow and teachers, open to everyone.</CardDescription>
+        </div>
+        <Link to="/library" className="text-xs font-medium text-accent hover:underline">
+          View Library
+        </Link>
       </CardHeader>
       <CardContent className="space-y-2">
         {publicQuizzes.slice(0, 6).map((quiz) => (
