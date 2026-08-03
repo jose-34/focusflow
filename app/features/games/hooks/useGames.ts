@@ -99,6 +99,31 @@ export const joinGameFn = createServerFn({ method: 'POST' })
           nickname: `${user.firstName} ${user.lastName.charAt(0)}.`,
         })
         .returning()
+
+      // Without this, the host's WS-held state never reflects new joiners
+      // (nothing else broadcasts during the lobby phase), so "Start Game" —
+      // gated on participants.length > 0 — could stay disabled forever once
+      // the host's WebSocket has connected.
+      const participants = await tx.query.gameParticipants.findMany({
+        where: (gp, { eq: eqOp }) => eqOp(gp.sessionId, targetSession.id),
+      })
+      const questions = await tx.query.quizQuestions.findMany({
+        where: (q, { eq: eqOp }) => eqOp(q.quizId, targetSession.quizId),
+      })
+      void broadcastGameState(targetSession.id, {
+        id: targetSession.id,
+        status: targetSession.status,
+        pin: targetSession.pin,
+        currentQuestionIndex: targetSession.currentQuestionIndex,
+        questionDurationSeconds: targetSession.questionDurationSeconds,
+        phaseStartedAt: targetSession.phaseStartedAt.toISOString(),
+        totalQuestions: questions.length,
+        currentQuestion: null,
+        answeredCount: 0,
+        choiceCounts: {},
+        participants: participants.map((p) => ({ id: p.id, nickname: p.nickname, score: p.score })),
+      })
+
       return { sessionId: targetSession.id, participantId: participant.id }
     })
   })
@@ -521,6 +546,154 @@ export const getPlayerStateFn = createServerFn({ method: 'POST' })
     })
   })
 
+export interface PastGameSessionSummary {
+  id: string
+  quizTitle: string
+  endedAt: string
+  participantCount: number
+  topScore: number
+}
+
+// Reports are host-only for now — the same person who ran the live game
+// revisiting it later, matching how the "Host Live Game" entry point
+// itself is host-scoped. RLS's game_sessions_select already grants the
+// host (fn_quiz_owned_by_teacher) access regardless of status, so a
+// finished session is exactly as reachable as a live one.
+export const getPastGameSessionsFn = createServerFn({ method: 'GET' }).handler(async (): Promise<Array<PastGameSessionSummary>> => {
+  const user = await requireUser()
+
+  return withRlsContext(user.id, async (tx) => {
+    const sessions = await tx.query.gameSessions.findMany({
+      where: (gs, { eq: eqOp, and: andOp }) => andOp(eqOp(gs.hostId, user.id), eqOp(gs.status, 'finished')),
+      with: { quiz: true, participants: true },
+      orderBy: (gs, { desc }) => desc(gs.endedAt),
+    })
+
+    return sessions.map((session) => ({
+      id: session.id,
+      quizTitle: session.quiz.title,
+      endedAt: session.endedAt ? session.endedAt.toISOString() : session.createdAt.toISOString(),
+      participantCount: session.participants.length,
+      topScore: session.participants.reduce((max, p) => Math.max(max, p.score), 0),
+    }))
+  })
+})
+
+export interface GameReportChoiceBreakdown {
+  choiceId: string
+  choiceText: string
+  isCorrect: boolean
+  count: number
+}
+
+export interface GameReportQuestion {
+  questionId: string
+  questionText: string
+  points: number
+  correctCount: number
+  totalAnswered: number
+  choices: Array<GameReportChoiceBreakdown>
+}
+
+export interface GameReportLeaderboardEntry {
+  rank: number
+  participantId: string
+  nickname: string
+  score: number
+}
+
+export interface GameReport {
+  sessionId: string
+  quizTitle: string
+  endedAt: string | null
+  participantCount: number
+  leaderboard: Array<GameReportLeaderboardEntry>
+  questions: Array<GameReportQuestion>
+}
+
+export const getGameReportFn = createServerFn({ method: 'POST' })
+  .validator(sessionIdSchema)
+  .handler(async ({ data }): Promise<GameReport> => {
+    const user = await requireUser()
+
+    return withRlsContext(user.id, async (tx) => {
+      const session = await tx.query.gameSessions.findFirst({
+        where: (gs, { eq: eqOp }) => eqOp(gs.id, data.sessionId),
+        with: { quiz: true },
+      })
+      if (!session) throw new Error('Game session not found')
+      if (session.hostId !== user.id) throw new Error('Only the host can view this report')
+
+      const participants = await tx.query.gameParticipants.findMany({
+        where: (gp, { eq: eqOp }) => eqOp(gp.sessionId, data.sessionId),
+        orderBy: (gp, { desc }) => desc(gp.score),
+      })
+
+      const questions = await tx.query.quizQuestions.findMany({
+        where: (q, { eq: eqOp }) => eqOp(q.quizId, session.quizId),
+        with: { choices: true },
+        orderBy: (q, { asc }) => asc(q.position),
+      })
+
+      const participantIds = new Set(participants.map((p) => p.id))
+      const allAnswers = await tx.query.gameAnswers.findMany({
+        where: (a, { inArray: inArrayOp }) => inArrayOp(a.questionId, questions.map((q) => q.id)),
+      })
+      const relevantAnswers = allAnswers.filter((a) => participantIds.has(a.participantId))
+      const answersByQuestion = new Map<string, Array<(typeof relevantAnswers)[number]>>()
+      for (const answer of relevantAnswers) {
+        const list = answersByQuestion.get(answer.questionId) ?? []
+        list.push(answer)
+        answersByQuestion.set(answer.questionId, list)
+      }
+
+      return {
+        sessionId: session.id,
+        quizTitle: session.quiz.title,
+        endedAt: session.endedAt ? session.endedAt.toISOString() : null,
+        participantCount: participants.length,
+        leaderboard: participants.map((p, index) => ({
+          rank: index + 1,
+          participantId: p.id,
+          nickname: p.nickname,
+          score: p.score,
+        })),
+        questions: questions.map((q) => {
+          const answersForQuestion = answersByQuestion.get(q.id) ?? []
+          const sortedChoices = q.choices.slice().sort((a, b) => a.position - b.position)
+          return {
+            questionId: q.id,
+            questionText: q.questionText,
+            points: q.points,
+            correctCount: answersForQuestion.filter((a) => a.isCorrect).length,
+            totalAnswered: answersForQuestion.length,
+            choices: sortedChoices.map((c) => ({
+              choiceId: c.id,
+              choiceText: c.choiceText,
+              isCorrect: c.isCorrect,
+              count: answersForQuestion.filter((a) => a.selectedChoiceId === c.id).length,
+            })),
+          }
+        }),
+      }
+    })
+  })
+
+export function usePastGameSessions() {
+  return useQuery({
+    queryKey: ['games', 'past-sessions'],
+    queryFn: () => getPastGameSessionsFn(),
+  })
+}
+
+export function useGameReport(sessionId: string) {
+  return useQuery({
+    queryKey: ['games', 'report', sessionId],
+    queryFn: () => getGameReportFn({ data: { sessionId } }),
+    retry: false,
+  })
+}
+
 export function useCreateGameSession() {
   return useMutation({
     mutationFn: (input: { quizId: string; questionDurationSeconds?: number }) =>
@@ -644,12 +817,20 @@ export function useHostGameStateRealtime(sessionId: string) {
   }
 }
 
+// Unlike the host hook, this never accepts a raw state payload over the
+// socket — the server only ever sends a player {type: 'state:changed'}
+// notification (see ws-server.ts), never the host-shaped broadcast state,
+// because a player's correct view (myScore, hasAnsweredCurrent, the
+// answer key hidden until reveal) can only be computed per-player by
+// getPlayerStateFn. The socket's only job here is to trigger an immediate
+// refetch instead of waiting out the polling interval.
 export function usePlayerGameStateRealtime(sessionId: string, participantId: string) {
-  const [state, setState] = useState<PlayerGameState | null>(null)
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const fallbackQuery = usePlayerGameState(sessionId)
+  const refetchRef = useRef(fallbackQuery.refetch)
+  refetchRef.current = fallbackQuery.refetch
 
   useEffect(() => {
     if (!sessionId || !participantId) return
@@ -682,8 +863,8 @@ export function usePlayerGameStateRealtime(sessionId: string, participantId: str
         ws.onmessage = (event) => {
           try {
             const message = JSON.parse(event.data)
-            if (message.type === 'init' || message.type === 'state:update') {
-              setState(message.state as PlayerGameState)
+            if (message.type === 'init' || message.type === 'state:changed') {
+              void refetchRef.current()
             }
           } catch {
             // ignore
@@ -702,9 +883,9 @@ export function usePlayerGameStateRealtime(sessionId: string, participantId: str
   }, [sessionId, participantId])
 
   return {
-    data: state ?? fallbackQuery.data,
-    isLoading: !state && fallbackQuery.isLoading,
-    error: state ? null : (error ?? fallbackQuery.error),
+    data: fallbackQuery.data,
+    isLoading: fallbackQuery.isLoading,
+    error: error ?? fallbackQuery.error,
     connected,
     refetch: fallbackQuery.refetch,
   }

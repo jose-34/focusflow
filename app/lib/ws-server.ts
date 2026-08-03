@@ -9,7 +9,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 // consumers elsewhere in the app.
 import { withRlsContext } from '../db'
 import { adminDb } from '../db/admin'
-import { gameParticipants, gameSessions, sessions } from '../db/schema'
+import { gameParticipants, gameSessions, quizQuestions, sessions } from '../db/schema'
 
 async function validateSessionToken(token: string): Promise<{ userId: string } | null> {
   const session = await adminDb.query.sessions.findFirst({ where: eq(sessions.token, token) })
@@ -18,6 +18,8 @@ async function validateSessionToken(token: string): Promise<{ userId: string } |
 }
 
 type GameState = {
+  id: string
+  pin: string
   status: 'lobby' | 'question' | 'reveal' | 'finished'
   currentQuestionIndex: number
   questionDurationSeconds: number
@@ -29,13 +31,75 @@ type GameState = {
   participants: Array<{ id: string; nickname: string; score: number }>
 }
 
+// The very first "init" message a freshly-connected socket receives (before
+// any real game action has triggered broadcastGameState()) used to be a
+// generic placeholder with no pin/id — which meant the PIN never actually
+// appeared on the host's lobby screen once the WebSocket connected, since
+// that placeholder overrides the correct REST-fetched fallback state on the
+// client. Fetching the real row here instead means "init" is correct even
+// for the very first connection, and for a host/player reconnecting
+// mid-game.
+async function buildInitialRoomState(sessionId: string): Promise<GameState> {
+  const session = await adminDb.query.gameSessions.findFirst({ where: eq(gameSessions.id, sessionId) })
+  if (!session) {
+    return {
+      id: sessionId,
+      pin: '',
+      status: 'lobby',
+      currentQuestionIndex: 0,
+      questionDurationSeconds: 20,
+      phaseStartedAt: new Date().toISOString(),
+      totalQuestions: 0,
+      currentQuestion: null,
+      answeredCount: 0,
+      choiceCounts: {},
+      participants: [],
+    }
+  }
+
+  const questions = await adminDb.query.quizQuestions.findMany({ where: eq(quizQuestions.quizId, session.quizId) })
+  const participants = await adminDb.query.gameParticipants.findMany({
+    where: eq(gameParticipants.sessionId, sessionId),
+    orderBy: (gp, { desc }) => desc(gp.score),
+  })
+
+  return {
+    id: session.id,
+    pin: session.pin,
+    status: session.status,
+    currentQuestionIndex: session.currentQuestionIndex,
+    questionDurationSeconds: session.questionDurationSeconds,
+    phaseStartedAt: session.phaseStartedAt.toISOString(),
+    totalQuestions: questions.length,
+    currentQuestion: null,
+    answeredCount: 0,
+    choiceCounts: {},
+    participants: participants.map((p) => ({ id: p.id, nickname: p.nickname, score: p.score })),
+  }
+}
+
 type GameRoom = {
   host: WebSocket | null
   players: Map<string, WebSocket>
   state: GameState
 }
 
-const rooms = new Map<string, GameRoom>()
+// In dev, vite.config.ts loads this file via a raw require() (a plain Node
+// CJS load, outside Vite's module graph — see getWss() below) to start the
+// standalone WS server, while application server functions (useGames.ts)
+// import it through Vite's own SSR module transform/cache. Those are two
+// separate module instantiations with two separate `rooms` Maps — a
+// broadcastGameState() call from a server function was silently hitting an
+// empty map belonging to the wrong instance, so no live update ever reached
+// an already-connected socket after its first 'init' message (confirmed via
+// a live-game Playwright walkthrough: participants joining never appeared
+// on the host's screen, and no error was thrown — the miss is silent by
+// design in broadcastGameState). Stashing the Map on `globalThis` guarantees
+// every instantiation of this module, however it was loaded, shares the one
+// real Map. Harmless in production, which only ever has one instance.
+const globalForGameRooms = globalThis as unknown as { __focusflowGameRooms?: Map<string, GameRoom> }
+const rooms = globalForGameRooms.__focusflowGameRooms ?? new Map<string, GameRoom>()
+globalForGameRooms.__focusflowGameRooms = rooms
 
 // The production entry (server/prod.ts) mounts the game socket on the same
 // http.Server and port as the main app via attachGameWebSocketServer() — one
@@ -109,17 +173,7 @@ function handleGameConnection(ws: WebSocket, req: import('node:http').IncomingMe
       rooms.set(sessionId, {
         host: null,
         players: new Map(),
-        state: {
-          status: 'lobby',
-          currentQuestionIndex: 0,
-          questionDurationSeconds: 20,
-          phaseStartedAt: new Date().toISOString(),
-          totalQuestions: 0,
-          currentQuestion: null,
-          answeredCount: 0,
-          choiceCounts: {},
-          participants: [],
-        },
+        state: await buildInitialRoomState(sessionId),
       })
     }
 
@@ -130,7 +184,15 @@ function handleGameConnection(ws: WebSocket, req: import('node:http').IncomingMe
       ws.send(JSON.stringify({ type: 'init', state: room.state }))
     } else if (role === 'player' && participantId) {
       room.players.set(participantId, ws)
-      ws.send(JSON.stringify({ type: 'init', state: room.state }))
+      // Players never receive the raw broadcast state — it's host-shaped
+      // (participants/choiceCounts, and unconditionally includes each
+      // choice's isCorrect) rather than player-shaped (myScore,
+      // hasAnsweredCurrent, leaderboard, answer-key hidden until reveal).
+      // 'state:changed' just tells the client to refetch through
+      // getPlayerStateFn, which already computes the correct per-player,
+      // security-correct shape — see submitGameAnswerFn's is_correct
+      // handling and getPlayerStateFn's revealAnswers gate.
+      ws.send(JSON.stringify({ type: 'state:changed' }))
     }
 
     // State is only ever pushed via broadcastGameState(), called from the
@@ -155,25 +217,25 @@ function handleGameConnection(ws: WebSocket, req: import('node:http').IncomingMe
   })
 }
 
-function broadcast(sessionId: string, message: unknown, exclude?: WebSocket) {
-  const room = rooms.get(sessionId)
-  if (!room) return
-  const payload = JSON.stringify(message)
-  if (room.host && room.host !== exclude && room.host.readyState === 1) {
-    room.host.send(payload)
-  }
-  for (const player of room.players.values()) {
-    if (player !== exclude && player.readyState === 1) {
-      player.send(payload)
-    }
-  }
-}
-
+// Host and players are deliberately sent different payloads — see the
+// 'state:changed' comment above for why players never get the raw
+// broadcast state.
 export function broadcastGameState(sessionId: string, state: GameState) {
   const room = rooms.get(sessionId)
   if (!room) return
   room.state = state
-  broadcast(sessionId, { type: 'state:update', state })
+
+  const hostPayload = JSON.stringify({ type: 'state:update', state })
+  if (room.host && room.host.readyState === 1) {
+    room.host.send(hostPayload)
+  }
+
+  const playerPayload = JSON.stringify({ type: 'state:changed' })
+  for (const player of room.players.values()) {
+    if (player.readyState === 1) {
+      player.send(playerPayload)
+    }
+  }
 }
 
 let devWss: WebSocketServer | null = null

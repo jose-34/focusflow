@@ -1,7 +1,7 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, LoaderCircle, Play, Users } from 'lucide-react'
+import { ArrowLeft, ClipboardList, LoaderCircle, Play, Users } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { useAdvancePhase, useHostGameStateRealtime, useStartGame } from '@/features/games/hooks/useGames'
 import { AnswerButton } from '@/features/games/components/AnswerButton'
@@ -219,12 +219,20 @@ function HostGamePage() {
                 <LiveLeaderboard entries={game.participants} />
               </CardContent>
             </Card>
-            <Button variant="outline" className="mt-6 w-full gap-2" asChild>
-              <Link to="/classes">
-                <ArrowLeft className="size-4" />
-                Back to Classes
-              </Link>
-            </Button>
+            <div className="mt-6 flex gap-2">
+              <Button variant="outline" className="flex-1 gap-2" asChild>
+                <Link to="/classes">
+                  <ArrowLeft className="size-4" />
+                  Back to Classes
+                </Link>
+              </Button>
+              <Button className="flex-1 gap-2 bg-primary text-primary-foreground hover:bg-primary/90" asChild>
+                <Link to="/reports/$sessionId" params={{ sessionId }}>
+                  <ClipboardList className="size-4" />
+                  View Full Report
+                </Link>
+              </Button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

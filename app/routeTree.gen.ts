@@ -25,6 +25,8 @@ import { Route as ClassesIndexRouteImport } from './routes/classes.index'
 import { Route as ClassesClassIdRouteImport } from './routes/classes.$classId'
 import { Route as GameJoinRouteImport } from './routes/game.join'
 import { Route as QuizzesQuizIdRouteImport } from './routes/quizzes.$quizId'
+import { Route as ReportsIndexRouteImport } from './routes/reports.index'
+import { Route as ReportsSessionIdRouteImport } from './routes/reports.$sessionId'
 import { Route as AdminContentIndexRouteImport } from './routes/admin.content.index'
 import { Route as AdminContentQuizIdRouteImport } from './routes/admin.content.$quizId'
 import { Route as AdminContentNewRouteImport } from './routes/admin.content.new'
@@ -114,6 +116,16 @@ const QuizzesQuizIdRoute = QuizzesQuizIdRouteImport.update({
   path: '/quizzes/$quizId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReportsIndexRoute = ReportsIndexRouteImport.update({
+  id: '/reports/',
+  path: '/reports/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsSessionIdRoute = ReportsSessionIdRouteImport.update({
+  id: '/reports/$sessionId',
+  path: '/reports/$sessionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminContentIndexRoute = AdminContentIndexRouteImport.update({
   id: '/admin/content/',
   path: '/admin/content/',
@@ -172,8 +184,10 @@ export interface FileRoutesByFullPath {
   '/classes/$classId': typeof ClassesClassIdRouteWithChildren
   '/game/join': typeof GameJoinRoute
   '/quizzes/$quizId': typeof QuizzesQuizIdRoute
+  '/reports/$sessionId': typeof ReportsSessionIdRoute
   '/admin/': typeof AdminIndexRoute
   '/classes/': typeof ClassesIndexRoute
+  '/reports/': typeof ReportsIndexRoute
   '/admin/content/$quizId': typeof AdminContentQuizIdRoute
   '/admin/content/new': typeof AdminContentNewRoute
   '/game/host/$sessionId': typeof GameHostSessionIdRoute
@@ -197,8 +211,10 @@ export interface FileRoutesByTo {
   '/wellness': typeof WellnessRoute
   '/game/join': typeof GameJoinRoute
   '/quizzes/$quizId': typeof QuizzesQuizIdRoute
+  '/reports/$sessionId': typeof ReportsSessionIdRoute
   '/admin': typeof AdminIndexRoute
   '/classes': typeof ClassesIndexRoute
+  '/reports': typeof ReportsIndexRoute
   '/admin/content/$quizId': typeof AdminContentQuizIdRoute
   '/admin/content/new': typeof AdminContentNewRoute
   '/game/host/$sessionId': typeof GameHostSessionIdRoute
@@ -224,8 +240,10 @@ export interface FileRoutesById {
   '/classes/$classId': typeof ClassesClassIdRouteWithChildren
   '/game/join': typeof GameJoinRoute
   '/quizzes/$quizId': typeof QuizzesQuizIdRoute
+  '/reports/$sessionId': typeof ReportsSessionIdRoute
   '/admin/': typeof AdminIndexRoute
   '/classes/': typeof ClassesIndexRoute
+  '/reports/': typeof ReportsIndexRoute
   '/admin/content/$quizId': typeof AdminContentQuizIdRoute
   '/admin/content/new': typeof AdminContentNewRoute
   '/game/host/$sessionId': typeof GameHostSessionIdRoute
@@ -252,8 +270,10 @@ export interface FileRouteTypes {
     | '/classes/$classId'
     | '/game/join'
     | '/quizzes/$quizId'
+    | '/reports/$sessionId'
     | '/admin/'
     | '/classes/'
+    | '/reports/'
     | '/admin/content/$quizId'
     | '/admin/content/new'
     | '/game/host/$sessionId'
@@ -277,8 +297,10 @@ export interface FileRouteTypes {
     | '/wellness'
     | '/game/join'
     | '/quizzes/$quizId'
+    | '/reports/$sessionId'
     | '/admin'
     | '/classes'
+    | '/reports'
     | '/admin/content/$quizId'
     | '/admin/content/new'
     | '/game/host/$sessionId'
@@ -303,8 +325,10 @@ export interface FileRouteTypes {
     | '/classes/$classId'
     | '/game/join'
     | '/quizzes/$quizId'
+    | '/reports/$sessionId'
     | '/admin/'
     | '/classes/'
+    | '/reports/'
     | '/admin/content/$quizId'
     | '/admin/content/new'
     | '/game/host/$sessionId'
@@ -330,8 +354,10 @@ export interface RootRouteChildren {
   ClassesClassIdRoute: typeof ClassesClassIdRouteWithChildren
   GameJoinRoute: typeof GameJoinRoute
   QuizzesQuizIdRoute: typeof QuizzesQuizIdRoute
+  ReportsSessionIdRoute: typeof ReportsSessionIdRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ClassesIndexRoute: typeof ClassesIndexRoute
+  ReportsIndexRoute: typeof ReportsIndexRoute
   AdminContentQuizIdRoute: typeof AdminContentQuizIdRoute
   AdminContentNewRoute: typeof AdminContentNewRoute
   GameHostSessionIdRoute: typeof GameHostSessionIdRoute
@@ -453,6 +479,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QuizzesQuizIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reports/': {
+      id: '/reports/'
+      path: '/reports'
+      fullPath: '/reports/'
+      preLoaderRoute: typeof ReportsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports/$sessionId': {
+      id: '/reports/$sessionId'
+      path: '/reports/$sessionId'
+      fullPath: '/reports/$sessionId'
+      preLoaderRoute: typeof ReportsSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/content/': {
       id: '/admin/content/'
       path: '/admin/content'
@@ -543,8 +583,10 @@ const rootRouteChildren: RootRouteChildren = {
   ClassesClassIdRoute: ClassesClassIdRouteWithChildren,
   GameJoinRoute: GameJoinRoute,
   QuizzesQuizIdRoute: QuizzesQuizIdRoute,
+  ReportsSessionIdRoute: ReportsSessionIdRoute,
   AdminIndexRoute: AdminIndexRoute,
   ClassesIndexRoute: ClassesIndexRoute,
+  ReportsIndexRoute: ReportsIndexRoute,
   AdminContentQuizIdRoute: AdminContentQuizIdRoute,
   AdminContentNewRoute: AdminContentNewRoute,
   GameHostSessionIdRoute: GameHostSessionIdRoute,
