@@ -11,6 +11,7 @@ import {
   removeStudentSchema,
   type CreateClassInput,
 } from '@/features/classes/schemas'
+import { rateLimit } from '@/lib/rateLimit'
 import { eq, and } from 'drizzle-orm'
 
 const classesQueryKey = ['classes'] as const
@@ -120,6 +121,10 @@ export const joinClassFn = createServerFn({ method: 'POST' })
     if (user.role !== 'student') {
       throw new Error('Only students can join classes')
     }
+    // A 6-character code is brute-forceable given enough unthrottled
+    // attempts; this caps guessing speed without affecting a real student
+    // mistyping a code a few times.
+    rateLimit('join-class', { max: 15, windowMs: 60_000 })
 
     const normalizedCode = data.code.trim().toUpperCase()
 

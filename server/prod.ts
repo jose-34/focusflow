@@ -49,12 +49,47 @@ function serveStatic(req: http.IncomingMessage, res: http.ServerResponse): boole
 
 const fetchAdapter = createServerAdapter(handler.fetch)
 
+// Node's http.Server does NOT catch a synchronous throw inside a request
+// listener — an uncaught one becomes a process-level 'uncaughtException',
+// which by default crashes the entire server for every connected user over
+// one bad request. This wraps every request so a single failure returns a
+// 500 to that one caller instead of taking the whole app down.
 const server = http.createServer((req, res) => {
-  if (serveStatic(req, res)) return
-  fetchAdapter(req, res)
+  try {
+    if (serveStatic(req, res)) return
+    const result = fetchAdapter(req, res)
+    if (result && typeof (result as Promise<unknown>).catch === 'function') {
+      ;(result as Promise<unknown>).catch((error) => {
+        console.error('Unhandled error in request handler:', error)
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'text/plain' })
+        }
+        if (!res.writableEnded) res.end('Internal Server Error')
+      })
+    }
+  } catch (error) {
+    console.error('Synchronous error in request handler:', error)
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' })
+    }
+    if (!res.writableEnded) res.end('Internal Server Error')
+  }
 })
 
 attachGameWebSocketServer(server)
+
+// Last-resort safety nets: log and keep serving instead of crashing the
+// whole process out from under every other connected user. Per-request
+// errors should already be caught above and inside handleGameConnection's
+// own .catch() — these exist for anything that still slips through (a
+// stray unhandled rejection in unrelated background work, a bug in a
+// library), so one rare bug degrades to a logged error, not a full outage.
+process.on('uncaughtException', (error) => {
+  console.error('uncaughtException (server kept running):', error)
+})
+process.on('unhandledRejection', (reason) => {
+  console.error('unhandledRejection (server kept running):', reason)
+})
 
 const port = Number(process.env.PORT) || 3000
 server.listen(port, () => {

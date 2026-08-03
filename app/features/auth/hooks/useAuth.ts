@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { loginSchema, registerSchema, type LoginInput, type RegisterInput } from '../schemas'
 import { authService, type SanitizedUser } from '../services/auth.service'
+import { rateLimit } from '@/lib/rateLimit'
 
 const SESSION_COOKIE_NAME = 'session_token'
 const SESSION_COOKIE_MAX_AGE = 604800
@@ -21,6 +22,10 @@ function setSessionCookie(token: string) {
 export const loginFn = createServerFn({ method: 'POST' })
   .validator(loginSchema)
   .handler(async ({ data }): Promise<{ user: SanitizedUser }> => {
+    // Password brute-forcing is the classic abuse case for a login
+    // endpoint — 10 attempts/minute per IP is generous for a real user
+    // (including fat-fingered passwords) but blunts an automated guesser.
+    rateLimit('login', { max: 10, windowMs: 60_000 })
     const { user, session } = await authService.login(data.email, data.password)
     setSessionCookie(session.token)
     return { user }
@@ -29,6 +34,8 @@ export const loginFn = createServerFn({ method: 'POST' })
 export const registerFn = createServerFn({ method: 'POST' })
   .validator(registerSchema)
   .handler(async ({ data }): Promise<{ user: SanitizedUser }> => {
+    // Mainly to stop scripted mass-account creation, not real signups.
+    rateLimit('register', { max: 5, windowMs: 60_000 })
     const { confirmPassword: _confirmPassword, gradeLevel, role, firstName, lastName, email, password } = data
     const { user, session } = await authService.register({
       firstName,

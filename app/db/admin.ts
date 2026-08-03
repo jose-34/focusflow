@@ -6,7 +6,11 @@ if (!process.env.DATABASE_ADMIN_URL) {
   throw new Error('DATABASE_ADMIN_URL environment variable is not set')
 }
 
-const adminClient = postgres(process.env.DATABASE_ADMIN_URL)
+const adminClient = postgres(process.env.DATABASE_ADMIN_URL, {
+  max: 10,
+  idle_timeout: 30,
+  connect_timeout: 10,
+})
 
 /**
  * Bypasses RLS (connects as the Postgres superuser). Reserved for the auth

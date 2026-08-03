@@ -7,7 +7,18 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is not set')
 }
 
-const queryClient = postgres(process.env.DATABASE_URL)
+// Explicit pool limits rather than postgres.js's silent defaults: `max`
+// caps how many concurrent connections this client can open (a burst of
+// traffic queues for a free connection instead of exhausting Postgres's
+// own connection limit — shared with `adminDb`'s own pool below, so the
+// two together must stay under whatever the Postgres plan allows).
+// `connect_timeout`/`idle_timeout` keep a slow network or a leaked
+// transaction from holding a connection open indefinitely.
+const queryClient = postgres(process.env.DATABASE_URL, {
+  max: 20,
+  idle_timeout: 30,
+  connect_timeout: 10,
+})
 
 export const db = drizzle(queryClient, { schema })
 

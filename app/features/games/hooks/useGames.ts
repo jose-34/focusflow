@@ -8,6 +8,7 @@ import { gameAnswers, gameParticipants, gameSessions } from '@/db/schema'
 import { requireUser } from '@/features/auth/utils'
 import { createGameSessionSchema, joinGameSchema, sessionIdSchema, submitGameAnswerSchema } from '@/features/auth/validators'
 import { broadcastGameState } from '@/lib/ws-server'
+import { rateLimit } from '@/lib/rateLimit'
 
 const MAX_POINTS = 1000
 const MIN_POINTS = 100
@@ -69,6 +70,9 @@ export const joinGameFn = createServerFn({ method: 'POST' })
     if (user.role !== 'student') {
       throw new Error('Only students can join a game')
     }
+    // Same reasoning as joinClassFn: a 6-digit PIN is brute-forceable
+    // without a cap on guess rate.
+    rateLimit('join-game', { max: 15, windowMs: 60_000 })
 
     const normalizedPin = data.pin.trim()
 
