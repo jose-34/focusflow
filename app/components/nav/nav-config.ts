@@ -30,6 +30,7 @@ export const studentNavLinks: Array<NavLink> = [
 export const adminNavLinks: Array<NavLink> = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard },
   { to: '/admin/content', label: 'Content Library', icon: BookOpen },
+  { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
 export function getNavLinks(role: 'student' | 'teacher' | 'admin'): Array<NavLink> {
