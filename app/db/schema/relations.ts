@@ -6,6 +6,7 @@ import { gameAnswers, gameParticipants, gameSessions } from './game_sessions'
 import { taskTemplates } from './task_templates'
 import { tasks } from './tasks'
 import { users } from './users'
+import { shopItems, userEquippedItems, userOwnedItems } from './economy'
 
 export const taskTemplatesRelations = relations(taskTemplates, ({ one, many }) => ({
   class: one(classes, {
@@ -170,5 +171,32 @@ export const gameAnswersRelations = relations(gameAnswers, ({ one }) => ({
   question: one(quizQuestions, {
     fields: [gameAnswers.questionId],
     references: [quizQuestions.id],
+  }),
+}))
+
+export const shopItemsRelations = relations(shopItems, ({ many }) => ({
+  ownedBy: many(userOwnedItems),
+  equippedBy: many(userEquippedItems),
+}))
+
+export const userOwnedItemsRelations = relations(userOwnedItems, ({ one }) => ({
+  item: one(shopItems, {
+    fields: [userOwnedItems.itemId],
+    references: [shopItems.id],
+  }),
+  user: one(users, {
+    fields: [userOwnedItems.userId],
+    references: [users.id],
+  }),
+}))
+
+export const userEquippedItemsRelations = relations(userEquippedItems, ({ one }) => ({
+  item: one(shopItems, {
+    fields: [userEquippedItems.itemId],
+    references: [shopItems.id],
+  }),
+  user: one(users, {
+    fields: [userEquippedItems.userId],
+    references: [users.id],
   }),
 }))

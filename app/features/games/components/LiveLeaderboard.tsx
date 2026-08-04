@@ -1,11 +1,13 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Crown } from 'lucide-react'
+import { AvatarDisplay } from '@/features/economy/components/AvatarDisplay'
 import { cn } from '@/lib/utils'
 
 interface LeaderboardEntry {
   id: string
   nickname: string
   score: number
+  sprites?: Record<string, string>
 }
 
 export function LiveLeaderboard({
@@ -44,6 +46,7 @@ export function LiveLeaderboard({
               >
                 {index === 0 ? <Crown className="size-3.5" /> : index + 1}
               </span>
+              {entry.sprites && <AvatarDisplay sprites={entry.sprites} size="sm" />}
               <span className="text-sm font-medium text-foreground">{entry.nickname}</span>
             </div>
             <span className="font-heading text-sm font-bold text-foreground">{entry.score.toLocaleString()}</span>

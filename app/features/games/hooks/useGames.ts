@@ -9,6 +9,7 @@ import { requireUser } from '@/features/auth/utils'
 import { createGameSessionSchema, joinGameSchema, sessionIdSchema, submitGameAnswerSchema } from '@/features/auth/validators'
 import { broadcastGameState } from '@/lib/ws-server'
 import { rateLimit } from '@/lib/rateLimit'
+import { awardCoins, getBulkEquippedSprites } from '@/features/economy/hooks/useEconomy'
 
 const MAX_POINTS = 1000
 const MIN_POINTS = 100
@@ -271,6 +272,19 @@ export const advancePhaseFn = createServerFn({ method: 'POST' })
           .where(eq(gameSessions.id, data.sessionId))
           .returning()
 
+        if (isLastQuestion) {
+          // Flat completion bonus to every participant, winner or not —
+          // docs/12_Gamification_Framework.md §10: losing gracefully is
+          // always at least as rewarded as winning, so this can't scale
+          // with rank or score.
+          const finishedParticipants = await tx.query.gameParticipants.findMany({
+            where: (gp, { eq: eqOp }) => eqOp(gp.sessionId, data.sessionId),
+          })
+          for (const participant of finishedParticipants) {
+            await awardCoins(tx, participant.studentId, 5, 'game_completion', { sessionId: data.sessionId })
+          }
+        }
+
         const questions = await tx.query.quizQuestions.findMany({
           where: (q, { eq: eqOp }) => eqOp(q.quizId, session.quizId),
           with: { choices: true },
@@ -367,6 +381,15 @@ export const submitGameAnswerFn = createServerFn({ method: 'POST' })
         .update(gameParticipants)
         .set({ score: sql`${gameParticipants.score} + ${pointsAwarded}` })
         .where(eq(gameParticipants.id, participant.id))
+
+      // Live-game scoring (100-1000/question) is on a different scale than
+      // quiz points — a flat small award per correct answer, not tied to
+      // the speed-bonus score, keeps this roughly in line with the async
+      // quiz path's coin rate rather than paying out hundreds of coins for
+      // one fast answer.
+      if (isCorrect) {
+        await awardCoins(tx, user.id, 2, 'game_answer', { sessionId: data.sessionId, questionId: data.questionId })
+      }
 
       return { isCorrect, pointsAwarded }
     })
@@ -475,8 +498,8 @@ export interface PlayerGameState {
   hasAnsweredCurrent: boolean
   myLastAnswer: { isCorrect: boolean; pointsAwarded: number } | null
   currentQuestion: PlayerGameQuestion | null
-  leaderboard: Array<{ id: string; nickname: string; score: number }>
-  lobbyParticipants: Array<{ id: string; nickname: string }>
+  leaderboard: Array<{ id: string; nickname: string; score: number; sprites: Record<string, string> }>
+  lobbyParticipants: Array<{ id: string; nickname: string; sprites: Record<string, string> }>
 }
 
 export const getPlayerStateFn = createServerFn({ method: 'POST' })
@@ -532,17 +555,19 @@ export const getPlayerStateFn = createServerFn({ method: 'POST' })
           }
         : null
 
-      let leaderboard: Array<{ id: string; nickname: string; score: number }> = []
-      let lobbyParticipants: Array<{ id: string; nickname: string }> = []
+      let leaderboard: Array<{ id: string; nickname: string; score: number; sprites: Record<string, string> }> = []
+      let lobbyParticipants: Array<{ id: string; nickname: string; sprites: Record<string, string> }> = []
       if (session.status === 'lobby') {
         const all = await tx.query.gameParticipants.findMany({ where: (gp, { eq: eqOp }) => eqOp(gp.sessionId, data.sessionId) })
-        lobbyParticipants = all.map((p) => ({ id: p.id, nickname: p.nickname }))
+        const spritesByStudent = await getBulkEquippedSprites(tx, all.map((p) => p.studentId))
+        lobbyParticipants = all.map((p) => ({ id: p.id, nickname: p.nickname, sprites: spritesByStudent[p.studentId] ?? {} }))
       } else {
         const all = await tx.query.gameParticipants.findMany({
           where: (gp, { eq: eqOp }) => eqOp(gp.sessionId, data.sessionId),
           orderBy: (gp, { desc }) => desc(gp.score),
         })
-        leaderboard = all.map((p) => ({ id: p.id, nickname: p.nickname, score: p.score }))
+        const spritesByStudent = await getBulkEquippedSprites(tx, all.map((p) => p.studentId))
+        leaderboard = all.map((p) => ({ id: p.id, nickname: p.nickname, score: p.score, sprites: spritesByStudent[p.studentId] ?? {} }))
       }
 
       return {

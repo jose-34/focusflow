@@ -1,7 +1,12 @@
 import type { Tx } from '@/db'
 import { userAchievements } from '@/db/schema'
 import { computeStreaks, toDateKey } from '@/features/progress/streaks'
+import { awardCoins } from '@/features/economy/hooks/useEconomy'
 import { ACHIEVEMENT_DEFINITIONS } from '../definitions'
+
+// Small flat bonus per badge — cosmetic-only currency, not scaled to make
+// achievement-farming a meaningful coin-grinding strategy on its own.
+const COINS_PER_ACHIEVEMENT = 15
 
 /**
  * Evaluates every achievement rule for `userId` inside the caller's
@@ -61,6 +66,9 @@ export async function checkAndUnlockAchievements(tx: Tx, userId: string): Promis
       .insert(userAchievements)
       .values(newlyUnlocked.map((achievementKey) => ({ userId, achievementKey })))
       .onConflictDoNothing()
+    for (const achievementKey of newlyUnlocked) {
+      await awardCoins(tx, userId, COINS_PER_ACHIEVEMENT, 'achievement', { achievementKey })
+    }
   }
 
   return newlyUnlocked

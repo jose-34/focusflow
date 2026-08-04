@@ -9,6 +9,8 @@ import { enrollments, focusSessions, quizAttempts, quizzes, userAchievements, us
 import { authService } from '@/features/auth/services/auth.service'
 import { getCurrentUserFn, useAuth } from '@/features/auth/hooks/useAuth'
 import { usePublicQuizzes } from '@/features/quizzes/hooks/usePublicQuizzes'
+import { useMyEquippedSprites } from '@/features/economy/hooks/useEconomy'
+import { AvatarDisplay } from '@/features/economy/components/AvatarDisplay'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { DashboardShell, StatGrid } from '@/components/dashboard/DashboardShell'
@@ -169,6 +171,7 @@ function DashboardPage() {
     queryFn: () => getDashboardDataFn(),
     enabled: !!user,
   })
+  const { data: equippedSprites } = useMyEquippedSprites()
 
   if (isLoading || !data) {
     return (
@@ -179,7 +182,18 @@ function DashboardPage() {
   }
 
   return (
-    <DashboardShell title={`Welcome back, ${user?.firstName}`}>
+    <DashboardShell
+      title={
+        data.role === 'student' ? (
+          <span className="flex items-center gap-3">
+            <AvatarDisplay sprites={equippedSprites ?? {}} size="sm" />
+            Welcome back, {user?.firstName}
+          </span>
+        ) : (
+          `Welcome back, ${user?.firstName}`
+        )
+      }
+    >
       {data.role === 'teacher' ? <TeacherDashboard data={data} /> : <StudentDashboard data={data} />}
     </DashboardShell>
   )

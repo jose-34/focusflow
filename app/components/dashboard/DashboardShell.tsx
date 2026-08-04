@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { OrganicBlob } from '@/components/decor/OrganicBlob'
 
 interface DashboardShellProps {
-  title: string
+  title: ReactNode
   subtitle?: string
   children: ReactNode
   decorated?: boolean

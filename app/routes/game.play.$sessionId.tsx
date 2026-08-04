@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle2, Trophy, XCircle } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { usePlayerGameStateRealtime, useSubmitGameAnswer } from '@/features/games/hooks/useGames'
 import { useTranslation } from '@/features/i18n/I18nContext'
+import { AvatarDisplay } from '@/features/economy/components/AvatarDisplay'
 import { AnswerButton } from '@/features/games/components/AnswerButton'
 import { CountdownTimer } from '@/features/games/components/CountdownTimer'
 import { LiveLeaderboard } from '@/features/games/components/LiveLeaderboard'
@@ -89,7 +90,8 @@ function PlayGamePage() {
             <p className="mb-6 text-sm text-muted-foreground">{t('play.lobbyWaiting')}</p>
             <div className="flex flex-wrap justify-center gap-2">
               {game.lobbyParticipants.map((p) => (
-                <Badge key={p.id} variant="outline" className="px-3 py-1.5 text-sm">
+                <Badge key={p.id} variant="outline" className="gap-1.5 px-3 py-1.5 text-sm">
+                  <AvatarDisplay sprites={p.sprites} size="sm" />
                   {p.nickname}
                 </Badge>
               ))}

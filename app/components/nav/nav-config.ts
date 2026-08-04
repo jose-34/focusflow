@@ -1,4 +1,4 @@
-import { BookOpen, ChartColumn, ClipboardList, Gamepad2, GraduationCap, Heart, LayoutDashboard, Library, ListTodo, Map, Settings, Timer, Trophy } from 'lucide-react'
+import { BookOpen, ChartColumn, ClipboardList, Coins, Gamepad2, GraduationCap, Heart, LayoutDashboard, Library, ListTodo, Map, Settings, Timer, Trophy } from 'lucide-react'
 
 export interface NavLink {
   to: string
@@ -27,6 +27,7 @@ export const studentNavLinks: Array<NavLink> = [
   ...sharedLinks,
   { to: '/library', label: 'Library', icon: Library },
   { to: '/game/join', label: 'Play', icon: Gamepad2 },
+  { to: '/shop', label: 'Shop', icon: Coins },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 

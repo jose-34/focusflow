@@ -133,12 +133,15 @@ Anchored to the real structure of a Kenyan school calendar (term start, mid-term
 
 ## 8. Rewards — what's earned, and what never will be
 
+**Reversal, 2026-08-04**: the original table below excluded any redeemable currency permanently. That's been reversed for one specific, narrow case — a coin economy that earns coins alongside XP (same events, roughly half the XP rate) and spends them in an avatar-customization shop (helmets, outfits, accessories, backgrounds). This is *not* a walk-back of §1's overjustification concern in general — it's a judgment call that a **strictly cosmetic** currency (zero effect on gameplay, grading, or standing) sits outside what that concern was actually guarding against. The line items that mattered most — no pay-to-win, no real-world prizes, losing rewarded as much as winning — are unchanged and still fully binding; the coin shop is built to respect all three (every game participant earns a completion bonus regardless of rank, and coins can never buy anything that affects a score, a grade, or an academic outcome).
+
 | Earned (representational only) | Never (excluded permanently, per §1's overjustification/variable-ratio reasoning) |
 |---|---|
-| Badges (visual, catalog above) | Redeemable points, coupons, or any monetary-equivalent currency |
-| Mastery Path level-ups, with a tied 3D celebration moment (reusing the existing celebration system, [02_Product_Definition.md](02_Product_Definition.md)) | Loot boxes or any randomized/mystery reward reveal |
-| Cosmetic profile flourishes (e.g., a name-tag accent tied to highest Mastery Path level reached) | Pay-to-win boosts of any kind (XP multipliers, streak repair, purchased levels) |
-| Unlocked celebration-scene variants at milestone levels | Real-world prizes or school-grade-affecting rewards tied to gamification standing |
+| Badges (visual, catalog above) | Loot boxes or any randomized/mystery reward reveal |
+| Mastery Path level-ups, with a tied 3D celebration moment (reusing the existing celebration system, [02_Product_Definition.md](02_Product_Definition.md)) | Pay-to-win boosts of any kind (XP multipliers, streak repair, purchased levels) |
+| Cosmetic profile flourishes (e.g., a name-tag accent tied to highest Mastery Path level reached) | Real-world prizes or school-grade-affecting rewards tied to gamification standing |
+| Unlocked celebration-scene variants at milestone levels | Redeemable currency that buys anything **other than** cosmetic avatar items — the coin shop is the one narrow exception, not a general opening |
+| **Coins**, spent only in the avatar shop (see the FocusFlow Wayground-style expansion plan) — strictly cosmetic, never redeemable for anything with a gameplay, grading, or real-world effect | |
 
 ---
 
@@ -159,7 +162,7 @@ Restated concretely, now that every mechanic above has been specified, so this l
 
 - No XP, badge, or level for opening the app, starting-but-abandoning a session, or any idle action.
 - No public, school-wide, raw-score leaderboard, anywhere.
-- No tangible or monetary reward of any kind.
+- No tangible or real-world-monetary reward of any kind. (The one exception, per §8's 2026-08-04 reversal: an in-app coin currency, spendable only on cosmetic avatar items — never redeemable for anything real, never affecting gameplay/grading.)
 - No randomized or "mystery" reward mechanic.
 - No pay-to-win or pay-to-restore mechanic (streak repair, purchased XP, or similar).
 - No gamification mechanic that only rewards winning a Challenge or Live Game — losing gracefully is always at least as rewarded as winning.

@@ -19,6 +19,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ProgressRouteImport } from './routes/progress'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ShopRouteImport } from './routes/shop'
 import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as WellnessRouteImport } from './routes/wellness'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
@@ -87,6 +88,11 @@ const RegisterRoute = RegisterRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShopRoute = ShopRouteImport.update({
+  id: '/shop',
+  path: '/shop',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TasksRoute = TasksRouteImport.update({
@@ -199,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/progress': typeof ProgressRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
+  '/shop': typeof ShopRoute
   '/tasks': typeof TasksRoute
   '/wellness': typeof WellnessRoute
   '/classes/$classId': typeof ClassesClassIdRouteWithChildren
@@ -230,6 +237,7 @@ export interface FileRoutesByTo {
   '/progress': typeof ProgressRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
+  '/shop': typeof ShopRoute
   '/tasks': typeof TasksRoute
   '/wellness': typeof WellnessRoute
   '/game/join': typeof GameJoinRoute
@@ -261,6 +269,7 @@ export interface FileRoutesById {
   '/progress': typeof ProgressRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
+  '/shop': typeof ShopRoute
   '/tasks': typeof TasksRoute
   '/wellness': typeof WellnessRoute
   '/classes/$classId': typeof ClassesClassIdRouteWithChildren
@@ -294,6 +303,7 @@ export interface FileRouteTypes {
     | '/progress'
     | '/register'
     | '/settings'
+    | '/shop'
     | '/tasks'
     | '/wellness'
     | '/classes/$classId'
@@ -325,6 +335,7 @@ export interface FileRouteTypes {
     | '/progress'
     | '/register'
     | '/settings'
+    | '/shop'
     | '/tasks'
     | '/wellness'
     | '/game/join'
@@ -355,6 +366,7 @@ export interface FileRouteTypes {
     | '/progress'
     | '/register'
     | '/settings'
+    | '/shop'
     | '/tasks'
     | '/wellness'
     | '/classes/$classId'
@@ -387,6 +399,7 @@ export interface RootRouteChildren {
   ProgressRoute: typeof ProgressRoute
   RegisterRoute: typeof RegisterRoute
   SettingsRoute: typeof SettingsRoute
+  ShopRoute: typeof ShopRoute
   TasksRoute: typeof TasksRoute
   WellnessRoute: typeof WellnessRoute
   ClassesClassIdRoute: typeof ClassesClassIdRouteWithChildren
@@ -474,6 +487,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shop': {
+      id: '/shop'
+      path: '/shop'
+      fullPath: '/shop'
+      preLoaderRoute: typeof ShopRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tasks': {
@@ -641,6 +661,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProgressRoute: ProgressRoute,
   RegisterRoute: RegisterRoute,
   SettingsRoute: SettingsRoute,
+  ShopRoute: ShopRoute,
   TasksRoute: TasksRoute,
   WellnessRoute: WellnessRoute,
   ClassesClassIdRoute: ClassesClassIdRouteWithChildren,

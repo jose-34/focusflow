@@ -26,6 +26,7 @@ import {
   type GenerateClassQuizFromTopicInput,
 } from '@/features/quizzes/schemas'
 import { gradeAnswer } from '@/features/quizzes/grading'
+import { awardCoins } from '@/features/economy/hooks/useEconomy'
 import { isManualGradingType, type QuestionAnswerConfig, type QuestionResponseData, type QuestionTypeValue } from '@/features/quizzes/questionTypes'
 import { classIdSchema } from '@/features/classes/schemas'
 import { checkAndUnlockAchievements } from '@/features/achievements/services/achievement.service'
@@ -1059,6 +1060,9 @@ export const submitQuizFn = createServerFn({ method: 'POST' })
           source: 'quiz_attempt',
           metadata: { quizId: attempt.quizId, attemptId: attempt.id },
         })
+        // Coins at half the XP rate — cosmetic-only currency, see
+        // docs/12_Gamification_Framework.md §8's 2026-08-04 note.
+        await awardCoins(tx, user.id, Math.round(score / 2), 'quiz_attempt', { quizId: attempt.quizId, attemptId: attempt.id })
       }
       const unlockedAchievements = await checkAndUnlockAchievements(tx, user.id)
 

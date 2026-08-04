@@ -302,6 +302,36 @@ const functions = [
     `,
   },
   {
+    // Lets live-game participants (and the host) see each other's equipped
+    // avatar items on lobby/leaderboard/podium tiles while a session is
+    // active — mirrors game_participants_select's own visibility shape
+    // rather than inventing a new one. Visibility naturally ends once the
+    // session finishes.
+    name: 'fn_shares_active_game_session',
+    sql: `
+      create or replace function fn_shares_active_game_session(p_user_id uuid)
+      returns boolean
+      language sql
+      security definer
+      set search_path = public
+      stable
+      as $$
+        select exists (
+          select 1
+          from game_participants gp1
+          join game_participants gp2 on gp2.session_id = gp1.session_id
+          join game_sessions gs on gs.id = gp1.session_id
+          where gp1.student_id = ${CU} and gp2.student_id = p_user_id and gs.status <> 'finished'
+        ) or exists (
+          select 1
+          from game_sessions gs2
+          join game_participants gp3 on gp3.session_id = gs2.id
+          where gs2.host_id = ${CU} and gp3.student_id = p_user_id and gs2.status <> 'finished'
+        )
+      $$;
+    `,
+  },
+  {
     // A live-hosted game is its own access gate (see fn_can_join_game_session)
     // independent of is_published — so question/choice visibility for a
     // student must also have a path that doesn't depend on is_published, or a
@@ -784,6 +814,47 @@ const policies: Array<RlsPolicy> = [
     name: 'game_answers_insert',
     for: 'insert',
     withCheck: `fn_participant_owned_by_student(participant_id)`,
+  },
+
+  // --- Coin economy (docs/12_Gamification_Framework.md §8, 2026-08-04 —
+  // strictly cosmetic, avatar-shop-only currency) ---
+  {
+    table: 'currency_ledger',
+    name: 'currency_ledger_self_access',
+    for: 'all',
+    using: `${CU} = user_id`,
+    withCheck: `${CU} = user_id`,
+  },
+  {
+    // World-readable catalog, same pattern as curricula/subjects — no
+    // insert/update/delete policy, admin-seeded only via adminDb.
+    table: 'shop_items',
+    name: 'shop_items_select',
+    for: 'select',
+    using: 'true',
+  },
+  {
+    table: 'user_owned_items',
+    name: 'user_owned_items_self_access',
+    for: 'all',
+    using: `${CU} = user_id`,
+    withCheck: `${CU} = user_id`,
+  },
+  {
+    table: 'user_equipped_items',
+    name: 'user_equipped_items_self_access',
+    for: 'all',
+    using: `${CU} = user_id`,
+    withCheck: `${CU} = user_id`,
+  },
+  {
+    // Additive to the self-access policy above (Postgres ORs multiple
+    // permissive policies for the same command) — lets fellow live-game
+    // participants and the host see what a player is wearing.
+    table: 'user_equipped_items',
+    name: 'user_equipped_items_visible_to_co_participants',
+    for: 'select',
+    using: `fn_shares_active_game_session(user_id)`,
   },
 ]
 
