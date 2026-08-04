@@ -6,10 +6,12 @@ import { LoaderCircle } from 'lucide-react'
 import { getCurrentUserFn, useAuth } from '@/features/auth/hooks/useAuth'
 import { useSettings } from '@/features/settings/hooks/useSettings'
 import { updatePasswordSchema, updateProfileSchema, type UpdatePasswordInput, type UpdateProfileInput } from '@/features/auth/validators'
+import { SUPPORTED_LANGUAGES, useTranslation } from '@/features/i18n/I18nContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export const Route = createFileRoute('/settings')({
   beforeLoad: async () => {
@@ -24,6 +26,7 @@ export const Route = createFileRoute('/settings')({
 function SettingsPage() {
   const { user } = useAuth()
   const { updateProfile, isUpdatingProfile, updatePassword, isUpdatingPassword } = useSettings()
+  const { language, setLanguage } = useTranslation()
 
   const profileForm = useForm<UpdateProfileInput>({
     resolver: zodResolver(updateProfileSchema),
@@ -102,6 +105,29 @@ function SettingsPage() {
           </Form>
         </CardContent>
       </Card>
+
+      {user?.role === 'student' && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="font-heading text-base text-foreground">Play Language</CardTitle>
+            <CardDescription>Language used for live games and quiz-taking screens</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Select value={language} onValueChange={(v) => setLanguage(v as 'en' | 'sw')}>
+              <SelectTrigger className="w-full sm:w-64">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <SelectItem key={lang.code} value={lang.code}>
+                    {lang.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

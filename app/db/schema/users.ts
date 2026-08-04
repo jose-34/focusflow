@@ -16,6 +16,12 @@ export const users = pgTable(
     lastName: text('last_name').notNull(),
     role: userRoleEnum('role').notNull().default('student'),
     gradeLevel: integer('grade_level'),
+    // Student play-experience language (game/quiz-taking UI strings only —
+    // see app/features/i18n). Nullable: falls back to localStorage, then
+    // browser language, then English. Free text, not an enum — matches
+    // this codebase's "reference data over enum" convention so a new
+    // language is just a new translation dictionary file, no migration.
+    preferredLanguage: text('preferred_language'),
     // Sprint 5: xp column deleted — xp_ledger is the sole source of truth
     // for a user's XP total. This was a write-only running counter with
     // zero readers anywhere in the app (confirmed by grep before removing

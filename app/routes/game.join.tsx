@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { LoaderCircle, Gamepad2 } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { useJoinGame } from '@/features/games/hooks/useGames'
+import { useTranslation } from '@/features/i18n/I18nContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -22,6 +23,7 @@ function JoinGamePage() {
   const navigate = useNavigate()
   const [pin, setPin] = useState('')
   const joinMutation = useJoinGame()
+  const { t } = useTranslation()
 
   async function handleJoin() {
     if (pin.trim().length !== 6) return
@@ -29,7 +31,7 @@ function JoinGamePage() {
       const result = await joinMutation.mutateAsync(pin.trim())
       navigate({ to: '/game/play/$sessionId', params: { sessionId: result.sessionId }, search: { participantId: result.participantId } })
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to join game')
+      toast.error(error instanceof Error ? error.message : t('join.errorDefault'))
     }
   }
 
@@ -40,8 +42,8 @@ function JoinGamePage() {
           <div className="mb-2 flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Gamepad2 className="size-7" />
           </div>
-          <CardTitle className="font-heading text-xl text-foreground">Join a Live Game</CardTitle>
-          <CardDescription>Enter the PIN your teacher shared</CardDescription>
+          <CardTitle className="font-heading text-xl text-foreground">{t('join.title')}</CardTitle>
+          <CardDescription>{t('join.subtitle')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
@@ -59,7 +61,7 @@ function JoinGamePage() {
             className="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {joinMutation.isPending && <LoaderCircle className="size-4 animate-spin" />}
-            Join Game
+            {t('join.button')}
           </Button>
         </CardContent>
       </Card>

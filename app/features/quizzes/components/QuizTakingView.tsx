@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { CheckCircle2, LoaderCircle, Square, SquareCheck, XCircle } from 'lucide-react'
 import { useQuizTaking } from '@/features/quizzes/hooks/useQuizzes'
 import { isChoiceBasedType, isManualGradingType, type QuestionResponseData } from '@/features/quizzes/questionTypes'
+import { useTranslation } from '@/features/i18n/I18nContext'
 import { endFocusSessionFn, reportFocusHeartbeatFn, startAssignmentFn } from '@/features/focusMode'
 import { ACHIEVEMENT_MAP } from '@/features/achievements/definitions'
 import { useCelebration } from '@/features/celebration/CelebrationContext'
@@ -91,6 +92,7 @@ function MatchTaker({
   disabled: boolean
   onChange: (pairs: Array<{ left: string; right: string }>) => void
 }) {
+  const { t } = useTranslation()
   const rightOptions = pairs.map((p) => p.right)
   function setRightFor(left: string, right: string) {
     const current = value ?? []
@@ -112,7 +114,7 @@ function MatchTaker({
               className="rounded-md border border-border bg-background px-3 py-2 text-sm sm:w-1/2"
             >
               <option value="" disabled>
-                Choose a match…
+                {t('taking.chooseMatch')}
               </option>
               {rightOptions.map((right) => (
                 <option key={right} value={right}>
@@ -138,6 +140,7 @@ function CategorizeTaker({
   disabled: boolean
   onChange: (assignments: Array<{ text: string; category: string }>) => void
 }) {
+  const { t } = useTranslation()
   function setCategoryFor(text: string, category: string) {
     const current = value ?? []
     const next = current.filter((a) => a.text !== text)
@@ -158,7 +161,7 @@ function CategorizeTaker({
               className="rounded-md border border-border bg-background px-3 py-2 text-sm sm:w-1/2"
             >
               <option value="" disabled>
-                Choose a category…
+                {t('taking.chooseCategory')}
               </option>
               {config.categories.map((category) => (
                 <option key={category} value={category}>
@@ -184,6 +187,7 @@ function TableFillTaker({
   disabled: boolean
   onChange: (answers: Record<string, string>) => void
 }) {
+  const { t } = useTranslation()
   const answers = value ?? {}
   return (
     <div className="space-y-1">
@@ -195,7 +199,7 @@ function TableFillTaker({
               <span className="text-xs text-muted-foreground sm:w-32 sm:shrink-0 sm:truncate sm:text-sm">
                 {row} × {col}
               </span>
-              <Input disabled={disabled} value={answers[key] ?? ''} onChange={(e) => onChange({ ...answers, [key]: e.target.value })} placeholder="Your answer" />
+              <Input disabled={disabled} value={answers[key] ?? ''} onChange={(e) => onChange({ ...answers, [key]: e.target.value })} placeholder={t('taking.yourAnswerPlaceholder')} />
             </div>
           )
         }),
@@ -212,6 +216,7 @@ function TableFillTaker({
 export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink: ReactNode }) {
   const { quiz, isLoading, startAttempt, isStarting, submitQuiz, isSubmitting } = useQuizTaking(quizId)
   const { celebrate } = useCelebration()
+  const { t } = useTranslation()
   const [answers, setAnswers] = useState<Record<string, LocalAnswer>>({})
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
   const [isStartingQuiz, setIsStartingQuiz] = useState(false)
@@ -265,7 +270,7 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
   if (!quiz) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-10 text-center">
-        <p className="text-sm text-muted-foreground">Quiz not found, or it hasn&apos;t been published yet.</p>
+        <p className="text-sm text-muted-foreground">{t('taking.notFound')}</p>
       </div>
     )
   }
@@ -281,7 +286,7 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
       }
       await startAttempt()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to start quiz')
+      toast.error(error instanceof Error ? error.message : t('taking.failedToStart'))
     } finally {
       setIsStartingQuiz(false)
     }
@@ -328,7 +333,7 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
         }
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to submit quiz')
+      toast.error(error instanceof Error ? error.message : t('taking.failedToSubmit'))
     }
   }
 
@@ -341,11 +346,13 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <Badge variant="secondary" className="bg-primary/10 text-primary">
-                Challenge Mode
+                {t('taking.challengeMode')}
               </Badge>
               {quiz.timeLimitMinutes && (
                 <Badge variant="outline">
-                  {timeLeft !== null ? `${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, '0')} left` : `${quiz.timeLimitMinutes} min limit`}
+                  {timeLeft !== null
+                    ? `${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, '0')} ${t('taking.left')}`
+                    : `${quiz.timeLimitMinutes} ${t('taking.minLimit')}`}
                 </Badge>
               )}
             </div>
@@ -355,15 +362,16 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             {quiz.dueDate && (
               <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
-                Due {new Date(quiz.dueDate).toLocaleDateString()}
+                {t('taking.due')} {new Date(quiz.dueDate).toLocaleDateString()}
               </span>
             )}
             <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
-              {quiz.questions.length} question{quiz.questions.length === 1 ? '' : 's'}
+              {quiz.questions.length} {quiz.questions.length === 1 ? t('taking.question') : t('taking.questions')}
             </span>
             {focusSessionId && (
               <span className="rounded-full border border-success/70 bg-success/10 px-3 py-1 text-success">
-                Focus mode active{verifiedMinutes !== null ? ` · ${verifiedMinutes} min verified` : ''}
+                {t('taking.focusModeActive')}
+                {verifiedMinutes !== null ? ` · ${verifiedMinutes} ${t('taking.minVerified')}` : ''}
               </span>
             )}
           </div>
@@ -373,7 +381,7 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
       {hasSubmitted && (
         <Card className="mb-6 border-primary/30 bg-primary/5">
           <CardContent className="flex items-center justify-between py-4">
-            <span className="text-sm font-medium text-foreground">Your score</span>
+            <span className="text-sm font-medium text-foreground">{t('taking.yourScore')}</span>
             <Badge className="text-sm">
               {quiz.attempt!.score}/{quiz.attempt!.maxScore}
             </Badge>
@@ -385,14 +393,16 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
             <p className="text-sm text-muted-foreground">
-              {quiz.questions.length} question{quiz.questions.length === 1 ? '' : 's'} — ready when you are.
+              {quiz.questions.length} {quiz.questions.length === 1 ? t('taking.question') : t('taking.questions')} — {t('taking.readyWhenYouAre')}
             </p>
             <Button onClick={handleStart} disabled={isStarting || isStartingQuiz} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
               {(isStarting || isStartingQuiz) && <LoaderCircle className="size-4 animate-spin" />}
-              Start Quiz
+              {t('taking.startQuiz')}
             </Button>
             {focusHeartbeatError && (
-              <p className="text-xs text-destructive">Focus session sync error: {focusHeartbeatError}</p>
+              <p className="text-xs text-destructive">
+                {t('taking.focusSyncError')} {focusHeartbeatError}
+              </p>
             )}
           </CardContent>
         </Card>
@@ -414,7 +424,7 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
                   <CardTitle className="text-sm font-medium text-foreground">
                     {index + 1}. {question.questionText}{' '}
                     <span className="text-xs font-normal text-muted-foreground">
-                      ({question.points} pt{question.points === 1 ? '' : 's'})
+                      ({question.points} {question.points === 1 ? t('taking.pt') : t('taking.pts')})
                     </span>
                   </CardTitle>
                 </CardHeader>
@@ -484,7 +494,7 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
                       disabled={hasSubmitted}
                       value={(current?.responseData?.kind === 'fill_blank' ? current.responseData.answer : '') ?? ''}
                       onChange={(e) => setAnswer({ responseData: { kind: 'fill_blank', answer: e.target.value } })}
-                      placeholder="Your answer"
+                      placeholder={t('taking.yourAnswerPlaceholder')}
                     />
                   )}
 
@@ -494,7 +504,7 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
                       value={(current?.responseData?.kind === 'open_ended' ? current.responseData.answer : '') ?? ''}
                       onChange={(e) => setAnswer({ responseData: { kind: 'open_ended', answer: e.target.value } })}
                       rows={3}
-                      placeholder="Your answer"
+                      placeholder={t('taking.yourAnswerPlaceholder')}
                     />
                   )}
 
@@ -540,16 +550,16 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
                       value={(current?.responseData?.kind === 'manual' ? current.responseData.text : '') ?? ''}
                       onChange={(e) => setAnswer({ responseData: { kind: 'manual', text: e.target.value } })}
                       rows={3}
-                      placeholder="Your teacher will grade this response manually."
+                      placeholder={t('taking.manualGradingPlaceholder')}
                     />
                   )}
 
                   {hasSubmitted && myStoredAnswer && (myStoredAnswer.responseData || (myStoredAnswer.selectedChoiceIds?.length ?? 0) > 0) && (
                     <p className="pt-1 text-xs text-muted-foreground">
                       {question.questionType === 'poll'
-                        ? 'Thanks for your response.'
+                        ? t('taking.pollThanks')
                         : isManualGradingType(question.questionType) || question.questionType === 'open_ended'
-                          ? 'Submitted — awaiting teacher review.'
+                          ? t('taking.awaitingReview')
                           : null}
                     </p>
                   )}
@@ -565,7 +575,7 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
               className="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {isSubmitting && <LoaderCircle className="size-4 animate-spin" />}
-              Submit Quiz
+              {t('taking.submitQuiz')}
             </Button>
           )}
         </div>

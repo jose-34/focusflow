@@ -1,0 +1,52 @@
+import type { TranslationKey } from './en'
+
+// Kiswahili — checked against en.ts's exact key set via `satisfies` below,
+// so a missing translation is a compile error, not a silent fallback.
+const sw: Record<TranslationKey, string> = {
+  'join.title': 'Jiunge na Mchezo wa Moja kwa Moja',
+  'join.subtitle': 'Weka PIN aliyokupa mwalimu wako',
+  'join.button': 'Jiunge na Mchezo',
+  'join.errorDefault': 'Imeshindwa kujiunga na mchezo',
+
+  'play.notFound': 'Mchezo haujapatikana, au tayari umekwisha.',
+  'play.backToJoin': 'Jiunge na Mchezo Mwingine',
+  'play.lobbyTitle': 'Umeshajiunga!',
+  'play.lobbyWaiting': 'Inasubiri mwenyeji aanzishe mchezo…',
+  'play.question': 'Swali',
+  'play.answerLocked': 'Jibu limehifadhiwa — inasubiri wachezaji wengine…',
+  'play.pointsEarned': '+{points} pointi!',
+  'play.notQuite': 'Sio sahihi kabisa',
+  'play.timeUp': 'Muda umeisha — hakuna jibu lililowasilishwa.',
+  'play.leaderboard': 'Ubao wa Ushindi',
+  'play.gameOver': 'Mchezo Umekwisha!',
+  'play.finalScore': 'Alama zako za mwisho:',
+  'play.finalResults': 'Matokeo ya Mwisho',
+  'play.backToClasses': 'Rudi kwa Madarasa',
+
+  'taking.notFound': 'Jaribio halijapatikana, au bado halijachapishwa.',
+  'taking.startQuiz': 'Anza Jaribio',
+  'taking.submitQuiz': 'Wasilisha Jaribio',
+  'taking.yourScore': 'Alama zako',
+  'taking.readyWhenYouAre': 'tayari wakati wowote utakapokuwa tayari',
+  'taking.challengeMode': 'Hali ya Changamoto',
+  'taking.due': 'Tarehe ya mwisho',
+  'taking.question': 'swali',
+  'taking.questions': 'maswali',
+  'taking.focusModeActive': 'Hali ya Umakini imewashwa',
+  'taking.minVerified': 'dakika zimethibitishwa',
+  'taking.focusSyncError': 'Hitilafu ya usawazishaji wa kipindi cha umakini:',
+  'taking.yourAnswerPlaceholder': 'Jibu lako',
+  'taking.manualGradingPlaceholder': 'Mwalimu wako atapima jibu hili mwenyewe.',
+  'taking.chooseMatch': 'Chagua mlingano…',
+  'taking.chooseCategory': 'Chagua kundi…',
+  'taking.pollThanks': 'Asante kwa jibu lako.',
+  'taking.awaitingReview': 'Imewasilishwa — inasubiri ukaguzi wa mwalimu.',
+  'taking.failedToStart': 'Imeshindwa kuanza jaribio',
+  'taking.failedToSubmit': 'Imeshindwa kuwasilisha jaribio',
+  'taking.minLimit': 'kikomo cha dakika',
+  'taking.left': 'zimebaki',
+  'taking.pt': 'alama',
+  'taking.pts': 'alama',
+}
+
+export default sw

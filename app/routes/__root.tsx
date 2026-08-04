@@ -8,6 +8,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Toaster } from '@/components/ui/sonner'
 import { CelebrationProvider } from '@/features/celebration/CelebrationContext'
 import { ThemeProvider } from '@/features/theme/ThemeContext'
+import { I18nProvider } from '@/features/i18n/I18nContext'
 import '../styles/globals.css'
 
 export const Route = createRootRoute({
@@ -38,15 +39,17 @@ function RootComponent() {
     <RootDocument>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <CelebrationProvider>
-            <ErrorBoundary>
-              <AppLayout>
-                <Outlet />
-              </AppLayout>
-            </ErrorBoundary>
-            <Toaster position="top-right" richColors />
-            {process.env.NODE_ENV === 'development' && <TanStackRouterDevtools position="bottom-right" />}
-          </CelebrationProvider>
+          <I18nProvider>
+            <CelebrationProvider>
+              <ErrorBoundary>
+                <AppLayout>
+                  <Outlet />
+                </AppLayout>
+              </ErrorBoundary>
+              <Toaster position="top-right" richColors />
+              {process.env.NODE_ENV === 'development' && <TanStackRouterDevtools position="bottom-right" />}
+            </CelebrationProvider>
+          </I18nProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </RootDocument>

@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { ArrowLeft, CheckCircle2, Trophy, XCircle } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { usePlayerGameStateRealtime, useSubmitGameAnswer } from '@/features/games/hooks/useGames'
+import { useTranslation } from '@/features/i18n/I18nContext'
 import { AnswerButton } from '@/features/games/components/AnswerButton'
 import { CountdownTimer } from '@/features/games/components/CountdownTimer'
 import { LiveLeaderboard } from '@/features/games/components/LiveLeaderboard'
@@ -32,6 +33,7 @@ function PlayGamePage() {
   const { data: game, isLoading, error } = usePlayerGameStateRealtime(sessionId, participantId ?? '')
   const submitAnswer = useSubmitGameAnswer()
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null)
+  const { t } = useTranslation()
 
   useEffect(() => {
     setSelectedChoiceId(null)
@@ -48,11 +50,11 @@ function PlayGamePage() {
   if (error || !game) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-10 text-center">
-        <p className="text-sm text-muted-foreground">Game not found, or it has already ended.</p>
+        <p className="text-sm text-muted-foreground">{t('play.notFound')}</p>
         <Button variant="outline" className="mt-4 gap-2" asChild>
           <Link to="/game/join">
             <ArrowLeft className="size-4" />
-            Join Another Game
+            {t('play.backToJoin')}
           </Link>
         </Button>
       </div>
@@ -65,7 +67,7 @@ function PlayGamePage() {
     try {
       await submitAnswer.mutateAsync({ sessionId, questionId: game.currentQuestion.id, selectedChoiceId: choiceId })
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to submit answer')
+      toast.error(e instanceof Error ? e.message : t('taking.failedToSubmit'))
     }
   }
 
@@ -83,8 +85,8 @@ function PlayGamePage() {
                 <Trophy className="size-10" />
               </motion.div>
             </div>
-            <h2 className="mb-2 font-heading text-xl font-bold text-foreground">You&apos;re in!</h2>
-            <p className="mb-6 text-sm text-muted-foreground">Waiting for the host to start the game…</p>
+            <h2 className="mb-2 font-heading text-xl font-bold text-foreground">{t('play.lobbyTitle')}</h2>
+            <p className="mb-6 text-sm text-muted-foreground">{t('play.lobbyWaiting')}</p>
             <div className="flex flex-wrap justify-center gap-2">
               {game.lobbyParticipants.map((p) => (
                 <Badge key={p.id} variant="outline" className="px-3 py-1.5 text-sm">
@@ -98,14 +100,16 @@ function PlayGamePage() {
         {game.status === 'question' && game.currentQuestion && (
           <motion.div key="question" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <div className="mb-4 flex items-center justify-between">
-              <Badge variant="outline">Question {game.currentQuestionIndex + 1} / {game.totalQuestions}</Badge>
+              <Badge variant="outline">
+                {t('play.question')} {game.currentQuestionIndex + 1} / {game.totalQuestions}
+              </Badge>
               <CountdownTimer phaseStartedAt={game.phaseStartedAt} durationSeconds={game.questionDurationSeconds} />
             </div>
             <h2 className="mb-6 text-center font-heading text-xl font-bold text-foreground">{game.currentQuestion.questionText}</h2>
 
             {game.hasAnsweredCurrent ? (
               <div className="py-10 text-center">
-                <p className="text-sm text-muted-foreground">Answer locked in — waiting for other players…</p>
+                <p className="text-sm text-muted-foreground">{t('play.answerLocked')}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -131,17 +135,17 @@ function PlayGamePage() {
                 {game.myLastAnswer.isCorrect ? (
                   <>
                     <CheckCircle2 className="size-14 text-primary" />
-                    <p className="font-heading text-2xl font-bold text-primary">+{game.myLastAnswer.pointsAwarded} points!</p>
+                    <p className="font-heading text-2xl font-bold text-primary">{t('play.pointsEarned', { points: game.myLastAnswer.pointsAwarded })}</p>
                   </>
                 ) : (
                   <>
                     <XCircle className="size-14 text-destructive" />
-                    <p className="font-heading text-xl font-bold text-destructive">Not quite</p>
+                    <p className="font-heading text-xl font-bold text-destructive">{t('play.notQuite')}</p>
                   </>
                 )}
               </div>
             ) : (
-              <p className="mb-6 text-center text-sm text-muted-foreground">Time&apos;s up — no answer submitted.</p>
+              <p className="mb-6 text-center text-sm text-muted-foreground">{t('play.timeUp')}</p>
             )}
 
             <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -158,7 +162,7 @@ function PlayGamePage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="font-heading text-base text-foreground">Leaderboard</CardTitle>
+                <CardTitle className="font-heading text-base text-foreground">{t('play.leaderboard')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <LiveLeaderboard entries={game.leaderboard} highlightId={game.myParticipantId} limit={5} />
@@ -169,16 +173,16 @@ function PlayGamePage() {
 
         {game.status === 'finished' && (
           <motion.div key="finished" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <h2 className="mb-4 text-center font-heading text-2xl font-bold text-foreground">Game Over!</h2>
+            <h2 className="mb-4 text-center font-heading text-2xl font-bold text-foreground">{t('play.gameOver')}</h2>
             <div className="mx-auto mb-6 h-56 w-full max-w-md">
               <PodiumScene />
             </div>
             <p className="mb-4 text-center text-sm text-muted-foreground">
-              Your final score: <span className="font-semibold text-foreground">{game.myScore.toLocaleString()}</span>
+              {t('play.finalScore')} <span className="font-semibold text-foreground">{game.myScore.toLocaleString()}</span>
             </p>
             <Card>
               <CardHeader>
-                <CardTitle className="font-heading text-base text-foreground">Final Results</CardTitle>
+                <CardTitle className="font-heading text-base text-foreground">{t('play.finalResults')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <LiveLeaderboard entries={game.leaderboard} highlightId={game.myParticipantId} />
@@ -187,7 +191,7 @@ function PlayGamePage() {
             <Button variant="outline" className="mt-6 w-full gap-2" asChild>
               <Link to="/classes">
                 <ArrowLeft className="size-4" />
-                Back to Classes
+                {t('play.backToClasses')}
               </Link>
             </Button>
           </motion.div>
