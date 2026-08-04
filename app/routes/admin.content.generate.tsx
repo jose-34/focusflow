@@ -3,12 +3,13 @@ import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-ro
 import { toast } from 'sonner'
 import { ArrowLeft, LoaderCircle, Sparkles, Upload } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
-import { useGenerateAdminQuizFromDocument } from '@/features/quizzes/hooks/useQuizzes'
+import { useGenerateAdminQuizFromDocument, useGenerateAdminQuizFromTopic } from '@/features/quizzes/hooks/useQuizzes'
 import { useCurricula } from '@/features/curricula/hooks/useCurricula'
 import { getGradeOptions } from '@/features/curricula/gradeOptions'
-import { ACCEPTED_EXTENSIONS, fileToBase64, validateDocumentFile } from '@/features/quizzes/documentUpload'
+import { fileToBase64, validateDocumentFile } from '@/features/quizzes/documentUpload'
+import { AIGenerationFields, defaultAIGenerationValues, type AIGenerationValues } from '@/features/quizzes/components/AIGenerationFields'
+import { AIProcessingScreen } from '@/features/quizzes/components/AIProcessingScreen'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -32,40 +33,49 @@ function GenerateAdminQuizPage() {
   const [curriculumId, setCurriculumId] = useState('')
   const [subjectId, setSubjectId] = useState('')
   const [gradeLabel, setGradeLabel] = useState('')
-  const [file, setFile] = useState<File | null>(null)
-  const [questionCount, setQuestionCount] = useState('5')
-  const { mutateAsync: generate, isPending } = useGenerateAdminQuizFromDocument()
+  const [values, setValues] = useState<AIGenerationValues>(defaultAIGenerationValues)
+  const { mutateAsync: generateFromDocument, isPending: isGeneratingFromDocument } = useGenerateAdminQuizFromDocument()
+  const { mutateAsync: generateFromTopic, isPending: isGeneratingFromTopic } = useGenerateAdminQuizFromTopic()
+  const isPending = isGeneratingFromDocument || isGeneratingFromTopic
 
   const selectedCurriculum = useMemo(() => curricula?.find((c) => c.id === curriculumId), [curricula, curriculumId])
   const subjectsForCurriculum = selectedCurriculum?.subjects ?? []
   const gradeOptions = useMemo(() => getGradeOptions(selectedCurriculum?.code), [selectedCurriculum])
 
-  const canSubmit = !!curriculumId && !!subjectId && !!file
+  const canSubmit = !!curriculumId && !!subjectId && (values.mode === 'document' ? !!values.file : values.topic.trim().length >= 3)
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = e.target.files?.[0]
-    if (!selected) return
-    const error = validateDocumentFile(selected)
-    if (error) {
-      toast.error(error)
-      e.target.value = ''
+  function handleFileChange(file: File | null) {
+    if (!file) {
+      setValues((v) => ({ ...v, file: null }))
       return
     }
-    setFile(selected)
+    const error = validateDocumentFile(file)
+    if (error) {
+      toast.error(error)
+      return
+    }
+    setValues((v) => ({ ...v, file }))
   }
 
   async function handleGenerate() {
-    if (!canSubmit || !file) return
+    if (!canSubmit) return
+    const shared = {
+      curriculumId,
+      subjectId,
+      gradeLabel: gradeLabel.trim() || undefined,
+      // The already-selected grade badge doubles as the AI's writing-level
+      // hint — no need for a second, separate "grade level" field.
+      gradeLevel: gradeLabel.trim() || undefined,
+      questionCount: Number(values.questionCount) || 5,
+      dokLevel: values.dokLevel ? (Number(values.dokLevel) as 1 | 2 | 3) : undefined,
+      language: values.language,
+      questionTypes: values.questionTypes,
+    }
     try {
-      const fileBase64 = await fileToBase64(file)
-      const quiz = await generate({
-        curriculumId,
-        subjectId,
-        gradeLabel: gradeLabel.trim() || undefined,
-        mimeType: file.type as 'application/pdf',
-        fileBase64,
-        questionCount: Number(questionCount) || 5,
-      })
+      const quiz =
+        values.mode === 'document'
+          ? await generateFromDocument({ mimeType: values.file!.type as 'application/pdf', fileBase64: await fileToBase64(values.file!), ...shared })
+          : await generateFromTopic({ topic: values.topic.trim(), ...shared })
       toast.success('Quiz generated — review the questions below')
       navigate({ to: '/admin/content/$quizId', params: { quizId: quiz.id } })
     } catch (error) {
@@ -92,7 +102,7 @@ function GenerateAdminQuizPage() {
         <CardContent>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Upload a document — AI reads it, writes a title, and generates the questions in one step.
+              Upload a document or describe a topic — AI writes a title and generates the questions in one step.
             </p>
 
             <div className="space-y-2">
@@ -151,34 +161,17 @@ function GenerateAdminQuizPage() {
               </Select>
             </div>
 
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex-1 space-y-2" style={{ minWidth: 200 }}>
-                <Label htmlFor="ai-doc-upload">Document</Label>
-                <Input id="ai-doc-upload" type="file" accept={ACCEPTED_EXTENSIONS} onChange={handleFileChange} disabled={isPending} />
-              </div>
-              <div className="w-24 space-y-2">
-                <Label htmlFor="ai-question-count">Questions</Label>
-                <Input
-                  id="ai-question-count"
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={questionCount}
-                  onChange={(e) => setQuestionCount(e.target.value)}
-                  disabled={isPending}
-                />
-              </div>
-            </div>
-
-            <Button
-              onClick={handleGenerate}
-              disabled={!canSubmit || isPending}
-              className="w-full gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
-            >
-              {isPending ? <LoaderCircle className="size-4 animate-spin" /> : <Upload className="size-4" />}
-              {isPending ? 'Generating…' : 'Generate Quiz'}
-            </Button>
-            {isPending && <p className="text-center text-xs text-muted-foreground">This can take up to 30 seconds for longer documents.</p>}
+            {isPending ? (
+              <AIProcessingScreen />
+            ) : (
+              <>
+                <AIGenerationFields values={values} onChange={(patch) => setValues((v) => ({ ...v, ...patch }))} disabled={isPending} onFileChange={handleFileChange} />
+                <Button onClick={handleGenerate} disabled={!canSubmit || isPending} className="w-full gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
+                  {isPending ? <LoaderCircle className="size-4 animate-spin" /> : <Upload className="size-4" />}
+                  Generate Quiz
+                </Button>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

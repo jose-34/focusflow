@@ -13,17 +13,23 @@ import {
   createQuestionSchema,
   createQuizSchema,
   generateAdminQuizFromDocumentSchema,
+  generateAdminQuizFromTopicSchema,
   generateClassQuizFromDocumentSchema,
+  generateClassQuizFromTopicSchema,
   generateQuestionsSchema,
   submitQuizSchema,
   toggleVisibilitySchema,
   type CreateQuestionInput,
+  type GenerateAdminQuizFromDocumentInput,
+  type GenerateAdminQuizFromTopicInput,
+  type GenerateClassQuizFromDocumentInput,
+  type GenerateClassQuizFromTopicInput,
 } from '@/features/quizzes/schemas'
 import { gradeAnswer } from '@/features/quizzes/grading'
 import { isManualGradingType, type QuestionAnswerConfig, type QuestionResponseData, type QuestionTypeValue } from '@/features/quizzes/questionTypes'
 import { classIdSchema } from '@/features/classes/schemas'
 import { checkAndUnlockAchievements } from '@/features/achievements/services/achievement.service'
-import { generateQuestionsFromDocument, generateQuizFromDocument, MAX_DOCUMENT_BYTES } from '@/lib/ai'
+import { generateQuestionsFromDocument, generateQuizFromDocument, generateQuizFromTopic, MAX_DOCUMENT_BYTES, type GeneratedQuestion } from '@/lib/ai'
 import { rateLimit } from '@/lib/rateLimit'
 import { computeRiskScore } from '../riskScore'
 
@@ -244,15 +250,12 @@ export const addQuestionFn = createServerFn({ method: 'POST' })
   })
 
 // Shared by generateQuestionsFromDocumentFn (adds to an existing quiz) and
-// the two create-a-whole-quiz-from-a-document functions below — the
-// question/choice insert loop is identical either way, only what quiz row
-// they're attached to differs.
-async function insertGeneratedQuestions(
-  tx: Tx,
-  quizId: string,
-  generated: Array<{ questionText: string; points: number; choices: Array<{ choiceText: string; isCorrect: boolean }> }>,
-  startPosition: number,
-): Promise<number> {
+// the four create-a-whole-quiz functions below (document- and topic-based,
+// admin and teacher) — the question insert loop is identical either way,
+// only what quiz row they're attached to differs. Type-aware since Phase
+// 2/3: choice-based types insert into quiz_choices exactly as before,
+// every other AI-generatable type carries its answerConfig directly.
+async function insertGeneratedQuestions(tx: Tx, quizId: string, generated: Array<GeneratedQuestion>, startPosition: number): Promise<number> {
   let nextPosition = startPosition
   for (const generatedQuestion of generated) {
     const [question] = await tx
@@ -260,21 +263,24 @@ async function insertGeneratedQuestions(
       .values({
         quizId,
         questionText: generatedQuestion.questionText.trim(),
-        questionType: 'multiple_choice',
+        questionType: generatedQuestion.questionType,
         points: generatedQuestion.points,
         position: nextPosition,
+        answerConfig: generatedQuestion.answerConfig ?? null,
       })
       .returning()
     nextPosition += 1
 
-    await tx.insert(quizChoices).values(
-      generatedQuestion.choices.map((choice, index) => ({
-        questionId: question.id,
-        choiceText: choice.choiceText.trim(),
-        isCorrect: choice.isCorrect,
-        position: index,
-      })),
-    )
+    if (generatedQuestion.choices) {
+      await tx.insert(quizChoices).values(
+        generatedQuestion.choices.map((choice, index) => ({
+          questionId: question.id,
+          choiceText: choice.choiceText.trim(),
+          isCorrect: choice.isCorrect,
+          position: index,
+        })),
+      )
+    }
   }
   return generated.length
 }
@@ -309,6 +315,10 @@ export const generateQuestionsFromDocumentFn = createServerFn({ method: 'POST' }
         mimeType: data.mimeType,
         base64: data.fileBase64,
         questionCount: data.questionCount,
+        gradeLevel: data.gradeLevel,
+        dokLevel: data.dokLevel,
+        language: data.language,
+        questionTypes: data.questionTypes,
       })
       if (generated.length === 0) {
         throw new Error('Could not extract any valid questions from this document — try a clearer or more detailed file.')
@@ -345,6 +355,10 @@ export const generateAdminQuizFromDocumentFn = createServerFn({ method: 'POST' }
       mimeType: data.mimeType,
       base64: data.fileBase64,
       questionCount: data.questionCount,
+      gradeLevel: data.gradeLevel,
+      dokLevel: data.dokLevel,
+      language: data.language,
+      questionTypes: data.questionTypes,
     })
 
     return withRlsContext(user.id, async (tx) => {
@@ -386,6 +400,84 @@ export const generateClassQuizFromDocumentFn = createServerFn({ method: 'POST' }
       mimeType: data.mimeType,
       base64: data.fileBase64,
       questionCount: data.questionCount,
+      gradeLevel: data.gradeLevel,
+      dokLevel: data.dokLevel,
+      language: data.language,
+      questionTypes: data.questionTypes,
+    })
+
+    return withRlsContext(user.id, async (tx) => {
+      const [quiz] = await tx
+        .insert(quizzes)
+        .values({
+          classId: data.classId,
+          authorId: user.id,
+          title: generatedQuiz.title,
+        })
+        .returning()
+
+      await insertGeneratedQuestions(tx, quiz.id, generatedQuiz.questions, 0)
+      return quiz
+    })
+  })
+
+// Text-only "describe a topic" entry point — admin, classless public
+// content. Same rate-limit bucket as the document-based generators (same
+// real per-token billing cost regardless of entry point).
+export const generateAdminQuizFromTopicFn = createServerFn({ method: 'POST' })
+  .validator(generateAdminQuizFromTopicSchema)
+  .handler(async ({ data }) => {
+    const user = await requireUser()
+    if (user.role !== 'admin') {
+      throw new Error('Only admins can create public content this way')
+    }
+    rateLimit('generate-questions', { max: 10, windowMs: 10 * 60_000 })
+
+    const generatedQuiz = await generateQuizFromTopic({
+      topic: data.topic,
+      questionCount: data.questionCount,
+      gradeLevel: data.gradeLevel,
+      dokLevel: data.dokLevel,
+      language: data.language,
+      questionTypes: data.questionTypes,
+    })
+
+    return withRlsContext(user.id, async (tx) => {
+      const [quiz] = await tx
+        .insert(quizzes)
+        .values({
+          classId: null,
+          authorId: user.id,
+          visibility: 'public',
+          curriculumId: data.curriculumId,
+          subjectId: data.subjectId,
+          gradeLabel: data.gradeLabel?.trim() || null,
+          title: generatedQuiz.title,
+        })
+        .returning()
+
+      await insertGeneratedQuestions(tx, quiz.id, generatedQuiz.questions, 0)
+      return quiz
+    })
+  })
+
+// Teacher equivalent of the topic-only entry point above.
+export const generateClassQuizFromTopicFn = createServerFn({ method: 'POST' })
+  .validator(generateClassQuizFromTopicSchema)
+  .handler(async ({ data }) => {
+    const user = await requireUser()
+    if (user.role !== 'teacher') {
+      throw new Error('Only teachers can create quizzes this way')
+    }
+    rateLimit('generate-questions', { max: 10, windowMs: 10 * 60_000 })
+
+    const generatedQuiz = await generateQuizFromTopic({
+      topic: data.topic,
+      questionCount: data.questionCount,
+      gradeLevel: data.gradeLevel,
+      dokLevel: data.dokLevel,
+      language: data.language,
+      questionTypes: data.questionTypes,
     })
 
     return withRlsContext(user.id, async (tx) => {
@@ -1091,14 +1183,8 @@ export function useGenerateAdminQuizFromDocument() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (input: {
-      curriculumId: string
-      subjectId: string
-      gradeLabel?: string
-      mimeType: (typeof ACCEPTED_DOCUMENT_MIME_TYPES)[number]
-      fileBase64: string
-      questionCount: number
-    }) => generateAdminQuizFromDocumentFn({ data: input }),
+    mutationFn: (input: Omit<GenerateAdminQuizFromDocumentInput, 'questionCount'> & { questionCount: number }) =>
+      generateAdminQuizFromDocumentFn({ data: input }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['quizzes', 'admin-content'] })
     },
@@ -1109,8 +1195,31 @@ export function useGenerateClassQuizFromDocument(classId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (input: { mimeType: (typeof ACCEPTED_DOCUMENT_MIME_TYPES)[number]; fileBase64: string; questionCount: number }) =>
+    mutationFn: (input: Omit<GenerateClassQuizFromDocumentInput, 'classId' | 'questionCount'> & { questionCount: number }) =>
       generateClassQuizFromDocumentFn({ data: { classId, ...input } }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['quizzes', classId] })
+    },
+  })
+}
+
+export function useGenerateAdminQuizFromTopic() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: Omit<GenerateAdminQuizFromTopicInput, 'questionCount'> & { questionCount: number }) => generateAdminQuizFromTopicFn({ data: input }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['quizzes', 'admin-content'] })
+    },
+  })
+}
+
+export function useGenerateClassQuizFromTopic(classId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: Omit<GenerateClassQuizFromTopicInput, 'classId' | 'questionCount'> & { questionCount: number }) =>
+      generateClassQuizFromTopicFn({ data: { classId, ...input } }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['quizzes', classId] })
     },

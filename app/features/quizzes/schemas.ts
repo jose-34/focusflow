@@ -1,5 +1,23 @@
 import { z } from 'zod'
 import { isChoiceBasedType, isManualGradingType, questionTypeValues } from './questionTypes'
+import { AI_GENERATABLE_QUESTION_TYPES } from '@/lib/ai'
+
+// Shared by every AI-generation entry point (document-based and
+// topic-based, admin and teacher). Grade/DOK/language are free-form
+// prompt-shaping hints, not enforced foreign keys — curriculum/subject
+// stay explicit user picks everywhere since those are real relations the
+// model can't safely guess.
+const dokLevelSchema = z.preprocess(
+  (v) => (v === '' || v === undefined || v === null ? undefined : Number(v)),
+  z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+)
+
+const aiGenerationOptionsSchema = {
+  gradeLevel: z.string().max(50).optional(),
+  dokLevel: dokLevelSchema,
+  language: z.string().max(30).default('en'),
+  questionTypes: z.array(z.enum(AI_GENERATABLE_QUESTION_TYPES)).min(1).default(['multiple_choice']),
+}
 
 export const createQuizSchema = z.object({
   classId: z.string().uuid(),
@@ -66,9 +84,13 @@ export const generateQuestionsSchema = z.object({
   // size ~33%, so this ceiling is generous relative to that check).
   fileBase64: z.string().min(1).max(12_000_000),
   questionCount: z.coerce.number().int().min(1).max(20).default(5),
+  ...aiGenerationOptionsSchema,
 })
 
-export type GenerateQuestionsInput = z.infer<typeof generateQuestionsSchema>
+// z.input (not z.infer) — language/questionTypes/questionCount all have
+// zod .default()s, which z.infer treats as required-on-output; the client
+// needs the input-side type where defaulted fields stay optional.
+export type GenerateQuestionsInput = z.input<typeof generateQuestionsSchema>
 
 // "Generate a whole new quiz from a document" — the AI supplies the title,
 // so unlike createAdminQuizSchema/createQuizSchema there's no title field
@@ -81,18 +103,41 @@ export const generateAdminQuizFromDocumentSchema = z.object({
   mimeType: z.enum(ACCEPTED_DOCUMENT_MIME_TYPES),
   fileBase64: z.string().min(1).max(12_000_000),
   questionCount: z.coerce.number().int().min(1).max(20).default(5),
+  ...aiGenerationOptionsSchema,
 })
 
-export type GenerateAdminQuizFromDocumentInput = z.infer<typeof generateAdminQuizFromDocumentSchema>
+export type GenerateAdminQuizFromDocumentInput = z.input<typeof generateAdminQuizFromDocumentSchema>
 
 export const generateClassQuizFromDocumentSchema = z.object({
   classId: z.string().uuid(),
   mimeType: z.enum(ACCEPTED_DOCUMENT_MIME_TYPES),
   fileBase64: z.string().min(1).max(12_000_000),
   questionCount: z.coerce.number().int().min(1).max(20).default(5),
+  ...aiGenerationOptionsSchema,
 })
 
-export type GenerateClassQuizFromDocumentInput = z.infer<typeof generateClassQuizFromDocumentSchema>
+export type GenerateClassQuizFromDocumentInput = z.input<typeof generateClassQuizFromDocumentSchema>
+
+// Text-only "describe a topic" mode — same generation options, no file.
+export const generateAdminQuizFromTopicSchema = z.object({
+  curriculumId: z.string().uuid(),
+  subjectId: z.string().uuid(),
+  gradeLabel: z.string().max(50).optional(),
+  topic: z.string().min(3, 'Describe the topic in a bit more detail').max(500),
+  questionCount: z.coerce.number().int().min(1).max(20).default(5),
+  ...aiGenerationOptionsSchema,
+})
+
+export type GenerateAdminQuizFromTopicInput = z.input<typeof generateAdminQuizFromTopicSchema>
+
+export const generateClassQuizFromTopicSchema = z.object({
+  classId: z.string().uuid(),
+  topic: z.string().min(3, 'Describe the topic in a bit more detail').max(500),
+  questionCount: z.coerce.number().int().min(1).max(20).default(5),
+  ...aiGenerationOptionsSchema,
+})
+
+export type GenerateClassQuizFromTopicInput = z.input<typeof generateClassQuizFromTopicSchema>
 
 export { questionTypeValues }
 
