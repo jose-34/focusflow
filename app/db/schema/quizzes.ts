@@ -1,9 +1,28 @@
-import { boolean, index, integer, pgEnum, pgPolicy, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { boolean, index, integer, jsonb, pgEnum, pgPolicy, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import { classes } from './classes'
 import { curricula, subjects } from './curricula'
 import { users } from './users'
+import type { QuestionAnswerConfig, QuestionResponseData } from '@/features/quizzes/questionTypes'
 
-export const questionTypeEnum = pgEnum('question_type', ['multiple_choice', 'true_false'])
+export const questionTypeEnum = pgEnum('question_type', [
+  'multiple_choice',
+  'true_false',
+  'multi_select',
+  'fill_blank',
+  'poll',
+  'open_ended',
+  'match',
+  'reorder',
+  'categorize',
+  'dropdown',
+  'table_fill',
+  'audio_response',
+  'video_response',
+  'draw',
+  'hotspot',
+  'math_response',
+  'graphing',
+])
 // 'public' = visible beyond the owning class/author: to any authenticated
 // user, and (via a separate adminDb-backed read path, since anonymous
 // visitors have no RLS user context at all) to anonymous landing-page
@@ -62,6 +81,14 @@ export const quizQuestions = pgTable(
     questionType: questionTypeEnum('question_type').notNull().default('multiple_choice'),
     position: integer('position').notNull().default(0),
     points: integer('points').notNull().default(1),
+    // The correct-answer shape for every NON-choice-based type (quiz_choices
+    // keeps handling multiple_choice/true_false/multi_select exactly as
+    // before — this column stays null for those three).
+    answerConfig: jsonb('answer_config').$type<QuestionAnswerConfig>(),
+    // Audio/video response, draw, hotspot, math response, graphing — no
+    // deterministic auto-check exists for these, so grading always leaves
+    // isCorrect null until a teacher reviews the submission.
+    requiresManualGrading: boolean('requires_manual_grading').notNull().default(false),
   },
   (table) => [
     index('quiz_questions_quiz_id_idx').on(table.quizId),
@@ -128,12 +155,40 @@ export const quizAnswers = pgTable(
       .references(() => quizQuestions.id, { onDelete: 'cascade' }),
     selectedChoiceId: uuid('selected_choice_id').references(() => quizChoices.id, { onDelete: 'set null' }),
     isCorrect: boolean('is_correct'),
+    // The student's answer for every non-single-choice type (mirrors
+    // QuestionAnswerConfig's shapes). multi_select uses quizAnswerChoices
+    // below instead, since it needs real referential integrity to
+    // quiz_choices rows for grading, not a JSON array of ids.
+    responseData: jsonb('response_data').$type<QuestionResponseData>(),
+    gradedByTeacherId: uuid('graded_by_teacher_id').references(() => users.id, { onDelete: 'set null' }),
+    gradedAt: timestamp('graded_at', { withTimezone: true }),
   },
   (table) => [
     index('quiz_answers_attempt_id_idx').on(table.attemptId),
     pgPolicy('quiz_answers_select', { for: 'select' }),
     pgPolicy('quiz_answers_insert', { for: 'insert' }),
     pgPolicy('quiz_answers_update', { for: 'update' }),
+  ],
+).enableRLS()
+
+// multi_select answers: one row per choice the student picked. A join
+// table (not a JSON array of ids on quiz_answers) so grading can still join
+// straight to quiz_choices for isCorrect, same as single-choice answers.
+export const quizAnswerChoices = pgTable(
+  'quiz_answer_choices',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    answerId: uuid('answer_id')
+      .notNull()
+      .references(() => quizAnswers.id, { onDelete: 'cascade' }),
+    choiceId: uuid('choice_id')
+      .notNull()
+      .references(() => quizChoices.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    index('quiz_answer_choices_answer_id_idx').on(table.answerId),
+    pgPolicy('quiz_answer_choices_select', { for: 'select' }),
+    pgPolicy('quiz_answer_choices_insert', { for: 'insert' }),
   ],
 ).enableRLS()
 
@@ -147,3 +202,5 @@ export type QuizAttempt = typeof quizAttempts.$inferSelect
 export type NewQuizAttempt = typeof quizAttempts.$inferInsert
 export type QuizAnswer = typeof quizAnswers.$inferSelect
 export type NewQuizAnswer = typeof quizAnswers.$inferInsert
+export type QuizAnswerChoice = typeof quizAnswerChoices.$inferSelect
+export type NewQuizAnswerChoice = typeof quizAnswerChoices.$inferInsert

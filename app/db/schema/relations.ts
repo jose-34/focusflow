@@ -1,7 +1,7 @@
 import { relations } from 'drizzle-orm'
 import { classes, enrollments } from './classes'
 import { curricula, subjects } from './curricula'
-import { quizAttempts, quizChoices, quizQuestions, quizzes } from './quizzes'
+import { quizAnswerChoices, quizAnswers, quizAttempts, quizChoices, quizQuestions, quizzes } from './quizzes'
 import { gameAnswers, gameParticipants, gameSessions } from './game_sessions'
 import { taskTemplates } from './task_templates'
 import { tasks } from './tasks'
@@ -103,7 +103,7 @@ export const quizChoicesRelations = relations(quizChoices, ({ one }) => ({
   }),
 }))
 
-export const quizAttemptsRelations = relations(quizAttempts, ({ one }) => ({
+export const quizAttemptsRelations = relations(quizAttempts, ({ one, many }) => ({
   quiz: one(quizzes, {
     fields: [quizAttempts.quizId],
     references: [quizzes.id],
@@ -111,6 +111,30 @@ export const quizAttemptsRelations = relations(quizAttempts, ({ one }) => ({
   student: one(users, {
     fields: [quizAttempts.studentId],
     references: [users.id],
+  }),
+  answers: many(quizAnswers),
+}))
+
+export const quizAnswersRelations = relations(quizAnswers, ({ one, many }) => ({
+  attempt: one(quizAttempts, {
+    fields: [quizAnswers.attemptId],
+    references: [quizAttempts.id],
+  }),
+  question: one(quizQuestions, {
+    fields: [quizAnswers.questionId],
+    references: [quizQuestions.id],
+  }),
+  selectedChoices: many(quizAnswerChoices),
+}))
+
+export const quizAnswerChoicesRelations = relations(quizAnswerChoices, ({ one }) => ({
+  answer: one(quizAnswers, {
+    fields: [quizAnswerChoices.answerId],
+    references: [quizAnswers.id],
+  }),
+  choice: one(quizChoices, {
+    fields: [quizAnswerChoices.choiceId],
+    references: [quizChoices.id],
   }),
 }))
 

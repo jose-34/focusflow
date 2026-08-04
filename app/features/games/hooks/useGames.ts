@@ -42,6 +42,18 @@ export const createGameSessionFn = createServerFn({ method: 'POST' })
     }
 
     return withRlsContext(user.id, async (tx) => {
+      // A live game has no "wait for the teacher to grade this" concept —
+      // manual-grading question types (audio/video response, draw,
+      // hotspot, math response, graphing, open-ended) can't be scored in
+      // real time, so a quiz containing any of them can't be hosted live.
+      const questions = await tx.query.quizQuestions.findMany({
+        where: (q, { eq: eqOp }) => eqOp(q.quizId, data.quizId),
+      })
+      const manualTypeQuestion = questions.find((q) => q.requiresManualGrading)
+      if (manualTypeQuestion) {
+        throw new Error('This quiz has a question type that needs manual grading, so it can\'t be hosted as a live game.')
+      }
+
       for (let attempt = 0; attempt < 5; attempt++) {
         try {
           const [session] = await tx

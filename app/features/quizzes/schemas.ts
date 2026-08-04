@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isChoiceBasedType, isManualGradingType, questionTypeValues } from './questionTypes'
 
 export const createQuizSchema = z.object({
   classId: z.string().uuid(),
@@ -93,39 +94,94 @@ export const generateClassQuizFromDocumentSchema = z.object({
 
 export type GenerateClassQuizFromDocumentInput = z.infer<typeof generateClassQuizFromDocumentSchema>
 
-export const questionTypeValues = ['multiple_choice', 'true_false'] as const
+export { questionTypeValues }
 
+const choiceSchema = z.object({
+  choiceText: z.string().min(1, 'Choice text is required').max(500, 'Choice text is too long'),
+  isCorrect: z.boolean(),
+})
+
+const answerConfigSchema = z.union([
+  z.object({ kind: z.literal('fill_blank'), acceptedAnswers: z.array(z.string().min(1)).min(1), caseSensitive: z.boolean().optional() }),
+  z.object({ kind: z.literal('open_ended'), sampleAnswer: z.string().optional() }),
+  z.object({ kind: z.literal('match'), pairs: z.array(z.object({ left: z.string().min(1), right: z.string().min(1) })).min(2) }),
+  z.object({ kind: z.literal('reorder'), correctOrder: z.array(z.string().min(1)).min(2) }),
+  z.object({
+    kind: z.literal('categorize'),
+    categories: z.array(z.string().min(1)).min(2),
+    items: z.array(z.object({ text: z.string().min(1), category: z.string().min(1) })).min(2),
+  }),
+  z.object({
+    kind: z.literal('dropdown'),
+    segments: z.array(
+      z.union([
+        z.object({ text: z.string() }),
+        z.object({ blankOptions: z.array(z.string().min(1)).min(2), correctIndex: z.number().int().min(0) }),
+      ]),
+    ),
+  }),
+  z.object({
+    kind: z.literal('table_fill'),
+    rows: z.array(z.string().min(1)).min(1),
+    columns: z.array(z.string().min(1)).min(1),
+    answers: z.record(z.string(), z.string()),
+  }),
+  z.object({ kind: z.literal('manual') }),
+])
+
+// One schema, not 17 discriminated-union branches — `questionType` still
+// picks the required shape, but via superRefine rather than a literal-keyed
+// union, since most types share either the "choices" or "answerConfig"
+// shape and a real discriminated union would mean duplicating that shape
+// per type for no validation benefit.
 export const createQuestionSchema = z
   .object({
     quizId: z.string().uuid(),
     questionText: z.string().min(1, 'Question text is required').max(1000, 'Question text is too long'),
     questionType: z.enum(questionTypeValues),
     points: z.coerce.number().int().min(1, 'Must be at least 1 point').max(100, 'Must be 100 points or less'),
-    choices: z
-      .array(
-        z.object({
-          choiceText: z.string().min(1, 'Choice text is required').max(500, 'Choice text is too long'),
-          isCorrect: z.boolean(),
-        }),
-      )
-      .min(2, 'At least 2 choices are required')
-      .max(6, 'At most 6 choices are allowed'),
+    choices: z.array(choiceSchema).min(2, 'At least 2 choices are required').max(6, 'At most 6 choices are allowed').optional(),
+    answerConfig: answerConfigSchema.optional(),
   })
-  .refine((data) => data.choices.filter((c) => c.isCorrect).length === 1, {
-    message: 'Exactly one choice must be marked as correct',
-    path: ['choices'],
+  .superRefine((data, ctx) => {
+    if (isChoiceBasedType(data.questionType)) {
+      if (!data.choices) {
+        ctx.addIssue({ code: 'custom', message: 'Choices are required for this question type', path: ['choices'] })
+        return
+      }
+      const correctCount = data.choices.filter((c) => c.isCorrect).length
+      if (data.questionType === 'multi_select' && correctCount < 1) {
+        ctx.addIssue({ code: 'custom', message: 'At least one choice must be marked as correct', path: ['choices'] })
+      }
+      if ((data.questionType === 'multiple_choice' || data.questionType === 'true_false') && correctCount !== 1) {
+        ctx.addIssue({ code: 'custom', message: 'Exactly one choice must be marked as correct', path: ['choices'] })
+      }
+      // Poll intentionally has no correct-choice requirement — it just
+      // collects opinions, so `correctCount` is never validated for it.
+      if (data.questionType === 'true_false' && data.choices.length !== 2) {
+        ctx.addIssue({ code: 'custom', message: 'True/False questions need exactly 2 choices', path: ['choices'] })
+      }
+    } else if (isManualGradingType(data.questionType)) {
+      // Manual-grading types (audio/video response, draw, hotspot, math
+      // response, graphing) need no answerConfig payload beyond the
+      // question text itself — the teacher grades the submission directly.
+    } else if (!data.answerConfig || data.answerConfig.kind !== data.questionType) {
+      ctx.addIssue({ code: 'custom', message: 'Answer configuration does not match the selected question type', path: ['answerConfig'] })
+    }
   })
 
 export type CreateQuestionInput = z.infer<typeof createQuestionSchema>
 
+const submitAnswerSchema = z.object({
+  questionId: z.string().uuid(),
+  selectedChoiceId: z.string().uuid().nullable().optional(),
+  selectedChoiceIds: z.array(z.string().uuid()).optional(),
+  responseData: z.record(z.string(), z.unknown()).optional(),
+})
+
 export const submitQuizSchema = z.object({
   attemptId: z.string().uuid(),
-  answers: z.array(
-    z.object({
-      questionId: z.string().uuid(),
-      selectedChoiceId: z.string().uuid().nullable(),
-    }),
-  ),
+  answers: z.array(submitAnswerSchema),
 })
 
 export type SubmitQuizInput = z.infer<typeof submitQuizSchema>

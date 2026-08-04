@@ -1,14 +1,208 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
-import { CheckCircle2, LoaderCircle, XCircle } from 'lucide-react'
+import { CheckCircle2, LoaderCircle, Square, SquareCheck, XCircle } from 'lucide-react'
 import { useQuizTaking } from '@/features/quizzes/hooks/useQuizzes'
+import { isChoiceBasedType, isManualGradingType, type QuestionResponseData } from '@/features/quizzes/questionTypes'
 import { endFocusSessionFn, reportFocusHeartbeatFn, startAssignmentFn } from '@/features/focusMode'
 import { ACHIEVEMENT_MAP } from '@/features/achievements/definitions'
 import { useCelebration } from '@/features/celebration/CelebrationContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+
+interface LocalAnswer {
+  selectedChoiceId?: string
+  selectedChoiceIds?: Array<string>
+  responseData?: QuestionResponseData
+}
+
+// Deterministic (not Math.random) so the shuffle doesn't change across
+// re-renders — seeded off the steps' own text so it's stable per question.
+function seededShuffle(items: Array<string>): Array<string> {
+  const seed = items.join('').split('').reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) >>> 0, 7)
+  let state = seed || 1
+  function nextRandom() {
+    state = (state * 1103515245 + 12345) >>> 0
+    return state / 0xffffffff
+  }
+  const result = [...items]
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(nextRandom() * (i + 1))
+    ;[result[i], result[j]] = [result[j], result[i]]
+  }
+  // If the shuffle happened to land on the original (already-correct)
+  // order, nudge it by swapping the first two items — showing the correct
+  // order by default would hand the answer away for free.
+  return result.join('|') === items.join('|') && result.length > 1 ? [result[1], result[0], ...result.slice(2)] : result
+}
+
+function ReorderTaker({ steps, value, disabled, onChange }: { steps: Array<string>; value: Array<string> | undefined; disabled: boolean; onChange: (order: Array<string>) => void }) {
+  // Never display `steps` (the correct order) directly — that would leak
+  // the answer. Shuffle once per question, then let the student rearrange
+  // from there; record the shuffled starting order as their answer even if
+  // they never touch it, so "didn't reorder anything" is graded as their
+  // actual (very likely wrong) answer rather than silently uncounted.
+  const [shuffled] = useState(() => seededShuffle(steps))
+  const order = value ?? shuffled
+  useEffect(() => {
+    if (!value) onChange(shuffled)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  function move(index: number, direction: -1 | 1) {
+    const next = [...order]
+    const target = index + direction
+    if (target < 0 || target >= next.length) return
+    ;[next[index], next[target]] = [next[target], next[index]]
+    onChange(next)
+  }
+  return (
+    <div className="space-y-1">
+      {order.map((step, index) => (
+        <div key={step} className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary text-xs text-muted-foreground">{index + 1}</span>
+          <span className="flex-1">{step}</span>
+          {!disabled && (
+            <div className="flex gap-1">
+              <button type="button" onClick={() => move(index, -1)} disabled={index === 0} className="text-xs text-muted-foreground disabled:opacity-30">
+                ↑
+              </button>
+              <button type="button" onClick={() => move(index, 1)} disabled={index === order.length - 1} className="text-xs text-muted-foreground disabled:opacity-30">
+                ↓
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function MatchTaker({
+  pairs,
+  value,
+  disabled,
+  onChange,
+}: {
+  pairs: Array<{ left: string; right: string }>
+  value: Array<{ left: string; right: string }> | undefined
+  disabled: boolean
+  onChange: (pairs: Array<{ left: string; right: string }>) => void
+}) {
+  const rightOptions = pairs.map((p) => p.right)
+  function setRightFor(left: string, right: string) {
+    const current = value ?? []
+    const next = current.filter((p) => p.left !== left)
+    next.push({ left, right })
+    onChange(next)
+  }
+  return (
+    <div className="space-y-1">
+      {pairs.map((pair) => {
+        const selected = (value ?? []).find((p) => p.left === pair.left)?.right ?? ''
+        return (
+          <div key={pair.left} className="flex items-center gap-2 text-sm">
+            <span className="w-1/2 truncate rounded-md border border-border px-3 py-2">{pair.left}</span>
+            <select
+              disabled={disabled}
+              value={selected}
+              onChange={(e) => setRightFor(pair.left, e.target.value)}
+              className="w-1/2 rounded-md border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="" disabled>
+                Choose a match…
+              </option>
+              {rightOptions.map((right) => (
+                <option key={right} value={right}>
+                  {right}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function CategorizeTaker({
+  config,
+  value,
+  disabled,
+  onChange,
+}: {
+  config: { categories: Array<string>; items: Array<{ text: string; category: string }> }
+  value: Array<{ text: string; category: string }> | undefined
+  disabled: boolean
+  onChange: (assignments: Array<{ text: string; category: string }>) => void
+}) {
+  function setCategoryFor(text: string, category: string) {
+    const current = value ?? []
+    const next = current.filter((a) => a.text !== text)
+    next.push({ text, category })
+    onChange(next)
+  }
+  return (
+    <div className="space-y-1">
+      {config.items.map((item) => {
+        const selected = (value ?? []).find((a) => a.text === item.text)?.category ?? ''
+        return (
+          <div key={item.text} className="flex items-center gap-2 text-sm">
+            <span className="w-1/2 truncate rounded-md border border-border px-3 py-2">{item.text}</span>
+            <select
+              disabled={disabled}
+              value={selected}
+              onChange={(e) => setCategoryFor(item.text, e.target.value)}
+              className="w-1/2 rounded-md border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="" disabled>
+                Choose a category…
+              </option>
+              {config.categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function TableFillTaker({
+  config,
+  value,
+  disabled,
+  onChange,
+}: {
+  config: { rows: Array<string>; columns: Array<string> }
+  value: Record<string, string> | undefined
+  disabled: boolean
+  onChange: (answers: Record<string, string>) => void
+}) {
+  const answers = value ?? {}
+  return (
+    <div className="space-y-1">
+      {config.rows.map((row) =>
+        config.columns.map((col) => {
+          const key = `${row}|${col}`
+          return (
+            <div key={key} className="flex items-center gap-2 text-sm">
+              <span className="w-32 shrink-0 truncate text-muted-foreground">
+                {row} × {col}
+              </span>
+              <Input disabled={disabled} value={answers[key] ?? ''} onChange={(e) => onChange({ ...answers, [key]: e.target.value })} placeholder="Your answer" />
+            </div>
+          )
+        }),
+      )}
+    </div>
+  )
+}
 
 // Shared by both the class-scoped quiz route and the classless
 // (admin/public-content) quiz route — quiz-taking itself never depended on
@@ -18,7 +212,7 @@ import { cn } from '@/lib/utils'
 export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink: ReactNode }) {
   const { quiz, isLoading, startAttempt, isStarting, submitQuiz, isSubmitting } = useQuizTaking(quizId)
   const { celebrate } = useCelebration()
-  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [answers, setAnswers] = useState<Record<string, LocalAnswer>>({})
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
   const [isStartingQuiz, setIsStartingQuiz] = useState(false)
   const [focusSessionId, setFocusSessionId] = useState<string | null>(null)
@@ -111,7 +305,12 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
     try {
       const result = await submitQuiz({
         attemptId: quiz!.attempt.id,
-        answers: quiz!.questions.map((q) => ({ questionId: q.id, selectedChoiceId: answers[q.id] ?? null })),
+        answers: quiz!.questions.map((q) => ({
+          questionId: q.id,
+          selectedChoiceId: answers[q.id]?.selectedChoiceId ?? null,
+          selectedChoiceIds: answers[q.id]?.selectedChoiceIds,
+          responseData: answers[q.id]?.responseData as Record<string, unknown> | undefined,
+        })),
       })
       celebrate({ type: 'quiz', title: quiz!.title, score: result.score ?? 0, maxScore: result.maxScore })
 
@@ -200,9 +399,14 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
       ) : (
         <div className="space-y-4">
           {quiz.questions.map((question, index) => {
-            const myAnswer = hasSubmitted
-              ? quiz.myAnswers.find((a) => a.questionId === question.id)?.selectedChoiceId
+            const myStoredAnswer = quiz.myAnswers.find((a) => a.questionId === question.id)
+            const current = hasSubmitted
+              ? { selectedChoiceId: myStoredAnswer?.selectedChoiceId ?? undefined, selectedChoiceIds: myStoredAnswer?.selectedChoiceIds, responseData: myStoredAnswer?.responseData ?? undefined }
               : answers[question.id]
+
+            function setAnswer(next: LocalAnswer) {
+              setAnswers((prev) => ({ ...prev, [question.id]: next }))
+            }
 
             return (
               <Card key={question.id}>
@@ -215,30 +419,140 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1">
-                  {question.choices.map((choice) => {
-                    const isSelected = myAnswer === choice.id
-                    const showCorrectness = hasSubmitted && choice.isCorrect !== undefined
-                    return (
-                      <button
-                        key={choice.id}
-                        type="button"
-                        disabled={hasSubmitted}
-                        onClick={() => setAnswers((prev) => ({ ...prev, [question.id]: choice.id }))}
-                        className={cn(
-                          'flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors',
-                          isSelected && !hasSubmitted && 'border-primary bg-primary/10',
-                          !isSelected && !hasSubmitted && 'border-border hover:bg-secondary/50',
-                          showCorrectness && choice.isCorrect && 'border-primary bg-primary/10 text-primary',
-                          showCorrectness && isSelected && !choice.isCorrect && 'border-destructive bg-destructive/10 text-destructive',
-                          showCorrectness && !isSelected && !choice.isCorrect && 'border-border text-muted-foreground',
-                        )}
-                      >
-                        {choice.choiceText}
-                        {showCorrectness && choice.isCorrect && <CheckCircle2 className="size-4 shrink-0" />}
-                        {showCorrectness && isSelected && !choice.isCorrect && <XCircle className="size-4 shrink-0" />}
-                      </button>
-                    )
-                  })}
+                  {isChoiceBasedType(question.questionType) && question.questionType !== 'multi_select' && (
+                    <div className="space-y-1">
+                      {question.choices.map((choice) => {
+                        const isSelected = current?.selectedChoiceId === choice.id
+                        const showCorrectness = hasSubmitted && choice.isCorrect !== undefined && question.questionType !== 'poll'
+                        return (
+                          <button
+                            key={choice.id}
+                            type="button"
+                            disabled={hasSubmitted}
+                            onClick={() => setAnswer({ selectedChoiceId: choice.id })}
+                            className={cn(
+                              'flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors',
+                              isSelected && !hasSubmitted && 'border-primary bg-primary/10',
+                              !isSelected && !hasSubmitted && 'border-border hover:bg-secondary/50',
+                              showCorrectness && choice.isCorrect && 'border-primary bg-primary/10 text-primary',
+                              showCorrectness && isSelected && !choice.isCorrect && 'border-destructive bg-destructive/10 text-destructive',
+                              showCorrectness && !isSelected && !choice.isCorrect && 'border-border text-muted-foreground',
+                              hasSubmitted && question.questionType === 'poll' && isSelected && 'border-primary bg-primary/10',
+                            )}
+                          >
+                            {choice.choiceText}
+                            {showCorrectness && choice.isCorrect && <CheckCircle2 className="size-4 shrink-0" />}
+                            {showCorrectness && isSelected && !choice.isCorrect && <XCircle className="size-4 shrink-0" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {question.questionType === 'multi_select' && (
+                    <div className="space-y-1">
+                      {question.choices.map((choice) => {
+                        const selectedIds = current?.selectedChoiceIds ?? []
+                        const isSelected = selectedIds.includes(choice.id)
+                        const showCorrectness = hasSubmitted && choice.isCorrect !== undefined
+                        return (
+                          <button
+                            key={choice.id}
+                            type="button"
+                            disabled={hasSubmitted}
+                            onClick={() =>
+                              setAnswer({ selectedChoiceIds: isSelected ? selectedIds.filter((id) => id !== choice.id) : [...selectedIds, choice.id] })
+                            }
+                            className={cn(
+                              'flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm transition-colors',
+                              isSelected && !hasSubmitted && 'border-primary bg-primary/10',
+                              !isSelected && !hasSubmitted && 'border-border hover:bg-secondary/50',
+                              showCorrectness && choice.isCorrect && 'border-primary bg-primary/10 text-primary',
+                              showCorrectness && isSelected && !choice.isCorrect && 'border-destructive bg-destructive/10 text-destructive',
+                            )}
+                          >
+                            {isSelected ? <SquareCheck className="size-4 shrink-0" /> : <Square className="size-4 shrink-0" />}
+                            {choice.choiceText}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {question.questionType === 'fill_blank' && (
+                    <Input
+                      disabled={hasSubmitted}
+                      value={(current?.responseData?.kind === 'fill_blank' ? current.responseData.answer : '') ?? ''}
+                      onChange={(e) => setAnswer({ responseData: { kind: 'fill_blank', answer: e.target.value } })}
+                      placeholder="Your answer"
+                    />
+                  )}
+
+                  {question.questionType === 'open_ended' && (
+                    <Textarea
+                      disabled={hasSubmitted}
+                      value={(current?.responseData?.kind === 'open_ended' ? current.responseData.answer : '') ?? ''}
+                      onChange={(e) => setAnswer({ responseData: { kind: 'open_ended', answer: e.target.value } })}
+                      rows={3}
+                      placeholder="Your answer"
+                    />
+                  )}
+
+                  {question.questionType === 'reorder' && question.answerConfig?.kind === 'reorder' && (
+                    <ReorderTaker
+                      steps={question.answerConfig.correctOrder}
+                      value={current?.responseData?.kind === 'reorder' ? current.responseData.order : undefined}
+                      disabled={hasSubmitted}
+                      onChange={(order) => setAnswer({ responseData: { kind: 'reorder', order } })}
+                    />
+                  )}
+
+                  {question.questionType === 'match' && question.answerConfig?.kind === 'match' && (
+                    <MatchTaker
+                      pairs={question.answerConfig.pairs}
+                      value={current?.responseData?.kind === 'match' ? current.responseData.pairs : undefined}
+                      disabled={hasSubmitted}
+                      onChange={(pairs) => setAnswer({ responseData: { kind: 'match', pairs } })}
+                    />
+                  )}
+
+                  {question.questionType === 'categorize' && question.answerConfig?.kind === 'categorize' && (
+                    <CategorizeTaker
+                      config={question.answerConfig}
+                      value={current?.responseData?.kind === 'categorize' ? current.responseData.assignments : undefined}
+                      disabled={hasSubmitted}
+                      onChange={(assignments) => setAnswer({ responseData: { kind: 'categorize', assignments } })}
+                    />
+                  )}
+
+                  {question.questionType === 'table_fill' && question.answerConfig?.kind === 'table_fill' && (
+                    <TableFillTaker
+                      config={question.answerConfig}
+                      value={current?.responseData?.kind === 'table_fill' ? current.responseData.answers : undefined}
+                      disabled={hasSubmitted}
+                      onChange={(answersRecord) => setAnswer({ responseData: { kind: 'table_fill', answers: answersRecord } })}
+                    />
+                  )}
+
+                  {isManualGradingType(question.questionType) && (
+                    <Textarea
+                      disabled={hasSubmitted}
+                      value={(current?.responseData?.kind === 'manual' ? current.responseData.text : '') ?? ''}
+                      onChange={(e) => setAnswer({ responseData: { kind: 'manual', text: e.target.value } })}
+                      rows={3}
+                      placeholder="Your teacher will grade this response manually."
+                    />
+                  )}
+
+                  {hasSubmitted && myStoredAnswer && (myStoredAnswer.responseData || (myStoredAnswer.selectedChoiceIds?.length ?? 0) > 0) && (
+                    <p className="pt-1 text-xs text-muted-foreground">
+                      {question.questionType === 'poll'
+                        ? 'Thanks for your response.'
+                        : isManualGradingType(question.questionType) || question.questionType === 'open_ended'
+                          ? 'Submitted — awaiting teacher review.'
+                          : null}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             )

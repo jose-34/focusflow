@@ -1,19 +1,26 @@
 import { createServerFn } from '@tanstack/react-start'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { eq } from 'drizzle-orm'
+import { z } from 'zod'
 import type { Tx } from '@/db'
 import { withRlsContext } from '@/db'
-import { quizAnswers, quizAttempts, quizChoices, quizQuestions, quizzes, tasks, xpLedger } from '@/db/schema'
+import { quizAnswerChoices, quizAnswers, quizAttempts, quizChoices, quizQuestions, quizzes, tasks, xpLedger } from '@/db/schema'
 import { requireUser } from '@/features/auth/utils'
-import { createQuestionSchema, createQuizSchema, questionIdSchema, quizIdSchema, submitQuizSchema, togglePublishSchema } from '@/features/auth/validators'
+import { questionIdSchema, quizIdSchema, togglePublishSchema } from '@/features/auth/validators'
 import {
   ACCEPTED_DOCUMENT_MIME_TYPES,
   createAdminQuizSchema,
+  createQuestionSchema,
+  createQuizSchema,
   generateAdminQuizFromDocumentSchema,
   generateClassQuizFromDocumentSchema,
   generateQuestionsSchema,
+  submitQuizSchema,
   toggleVisibilitySchema,
+  type CreateQuestionInput,
 } from '@/features/quizzes/schemas'
+import { gradeAnswer } from '@/features/quizzes/grading'
+import { isManualGradingType, type QuestionAnswerConfig, type QuestionResponseData, type QuestionTypeValue } from '@/features/quizzes/questionTypes'
 import { classIdSchema } from '@/features/classes/schemas'
 import { checkAndUnlockAchievements } from '@/features/achievements/services/achievement.service'
 import { generateQuestionsFromDocument, generateQuizFromDocument, MAX_DOCUMENT_BYTES } from '@/lib/ai'
@@ -216,17 +223,21 @@ export const addQuestionFn = createServerFn({ method: 'POST' })
           questionType: data.questionType,
           points: data.points,
           position: existing.length,
+          answerConfig: data.answerConfig ?? null,
+          requiresManualGrading: isManualGradingType(data.questionType) || data.questionType === 'open_ended',
         })
         .returning()
 
-      await tx.insert(quizChoices).values(
-        data.choices.map((choice, index) => ({
-          questionId: question.id,
-          choiceText: choice.choiceText.trim(),
-          isCorrect: choice.isCorrect,
-          position: index,
-        })),
-      )
+      if (data.choices) {
+        await tx.insert(quizChoices).values(
+          data.choices.map((choice, index) => ({
+            questionId: question.id,
+            choiceText: choice.choiceText.trim(),
+            isCorrect: choice.isCorrect,
+            position: index,
+          })),
+        )
+      }
 
       return question
     })
@@ -392,6 +403,86 @@ export const generateClassQuizFromDocumentFn = createServerFn({ method: 'POST' }
     })
   })
 
+const gradeManualAnswerSchema = z.object({
+  answerId: z.string().uuid(),
+  isCorrect: z.boolean(),
+})
+
+// Audio/video response, draw, hotspot, math response, graphing, and
+// open-ended all leave isCorrect null at submit time (see gradeAnswer) —
+// this is the only path that ever sets it for those types.
+export const gradeManualAnswerFn = createServerFn({ method: 'POST' })
+  .validator(gradeManualAnswerSchema)
+  .handler(async ({ data }) => {
+    const user = await requireUser()
+    if (user.role !== 'teacher' && user.role !== 'admin') {
+      throw new Error('Only teachers and admins can grade answers')
+    }
+
+    return withRlsContext(user.id, async (tx) => {
+      const answer = await tx.query.quizAnswers.findFirst({
+        where: (a, { eq: eqOp }) => eqOp(a.id, data.answerId),
+        with: { question: true },
+      })
+      if (!answer) throw new Error('Answer not found')
+
+      const pointsEarned = data.isCorrect ? answer.question.points : 0
+      const [updated] = await tx
+        .update(quizAnswers)
+        .set({ isCorrect: data.isCorrect, gradedByTeacherId: user.id, gradedAt: new Date() })
+        .where(eq(quizAnswers.id, data.answerId))
+        .returning()
+
+      // Re-sum the attempt's score from every graded answer now that this
+      // one has a real isCorrect value — manual-grading answers contribute
+      // 0 until graded, so a re-grade can only ever raise the score.
+      const attempt = await tx.query.quizAttempts.findFirst({ where: (a, { eq: eqOp }) => eqOp(a.id, answer.attemptId) })
+      if (attempt) {
+        const allAnswers = await tx.query.quizAnswers.findMany({
+          where: (a, { eq: eqOp }) => eqOp(a.attemptId, answer.attemptId),
+          with: { question: true },
+        })
+        const score = allAnswers.reduce((sum, a) => sum + (a.isCorrect ? a.question.points : 0), 0)
+        await tx.update(quizAttempts).set({ score }).where(eq(quizAttempts.id, answer.attemptId))
+      }
+
+      return { ...updated, pointsEarned }
+    })
+  })
+
+// Teacher-only queue of answers awaiting manual grading for a given quiz
+// (audio/video response, draw, hotspot, math response, graphing,
+// open-ended). Surfaced on the class quiz-results view.
+export const getManualGradingQueueFn = createServerFn({ method: 'POST' })
+  .validator(quizIdSchema)
+  .handler(async ({ data }) => {
+    const user = await requireUser()
+    if (user.role !== 'teacher' && user.role !== 'admin') {
+      throw new Error('Only teachers and admins can view the grading queue')
+    }
+
+    return withRlsContext(user.id, async (tx) => {
+      const questions = await tx.query.quizQuestions.findMany({
+        where: (q, { eq: eqOp, and: andOp }) => andOp(eqOp(q.quizId, data.quizId), eqOp(q.requiresManualGrading, true)),
+      })
+      const questionIds = questions.map((q) => q.id)
+      if (questionIds.length === 0) return []
+
+      const answers = await tx.query.quizAnswers.findMany({
+        where: (a, { inArray, isNull, and: andOp }) => andOp(inArray(a.questionId, questionIds), isNull(a.isCorrect)),
+        with: { attempt: { with: { student: true } }, question: true },
+      })
+
+      return answers.map((a) => ({
+        answerId: a.id,
+        questionText: a.question.questionText,
+        studentName: `${a.attempt.student.firstName} ${a.attempt.student.lastName}`,
+        responseData: a.responseData,
+        points: a.question.points,
+      }))
+    })
+  })
+
 export const deleteQuestionFn = createServerFn({ method: 'POST' })
   .validator(questionIdSchema)
   .handler(async ({ data }) => {
@@ -453,9 +544,11 @@ export interface QuizAuthoringChoice {
 export interface QuizAuthoringQuestion {
   id: string
   questionText: string
-  questionType: 'multiple_choice' | 'true_false'
+  questionType: QuestionTypeValue
   points: number
   choices: Array<QuizAuthoringChoice>
+  answerConfig: QuestionAnswerConfig | null
+  requiresManualGrading: boolean
 }
 
 export interface QuizAuthoringDetail {
@@ -519,6 +612,8 @@ export const getQuizAuthoringFn = createServerFn({ method: 'POST' })
           choices: q.choices
             .sort((a, b) => a.position - b.position)
             .map((c) => ({ id: c.id, choiceText: c.choiceText, isCorrect: c.isCorrect })),
+          answerConfig: q.answerConfig,
+          requiresManualGrading: q.requiresManualGrading,
         })),
         attempts: attempts.map((a) => ({
           id: a.id,
@@ -734,6 +829,7 @@ export const getQuizForStudentFn = createServerFn({ method: 'POST' })
       const myAnswers = existingAttempt
         ? await tx.query.quizAnswers.findMany({
             where: (answer, { eq: eqOp }) => eqOp(answer.attemptId, existingAttempt.id),
+            with: { selectedChoices: true },
           })
         : []
 
@@ -752,7 +848,12 @@ export const getQuizForStudentFn = createServerFn({ method: 'POST' })
               submittedAt: existingAttempt.submittedAt ? existingAttempt.submittedAt.toISOString() : null,
             }
           : null,
-        myAnswers: myAnswers.map((answer) => ({ questionId: answer.questionId, selectedChoiceId: answer.selectedChoiceId })),
+        myAnswers: myAnswers.map((answer) => ({
+          questionId: answer.questionId,
+          selectedChoiceId: answer.selectedChoiceId,
+          selectedChoiceIds: answer.selectedChoices.map((sc) => sc.choiceId),
+          responseData: answer.responseData,
+        })),
         questions: quiz.questions.map((q) => ({
           id: q.id,
           questionText: q.questionText,
@@ -761,6 +862,7 @@ export const getQuizForStudentFn = createServerFn({ method: 'POST' })
           choices: q.choices
             .sort((a, b) => a.position - b.position)
             .map((c) => ({ id: c.id, choiceText: c.choiceText })),
+          answerConfig: q.answerConfig,
         })),
       }
     })
@@ -805,7 +907,7 @@ export const submitQuizFn = createServerFn({ method: 'POST' })
       }
 
       let score = 0
-      const graded: Array<{ questionId: string; selectedChoiceId: string | null; isCorrect: boolean }> = []
+      const graded: Array<{ questionId: string; selectedChoiceId: string | null; isCorrect: boolean | null }> = []
 
       for (const answer of data.answers) {
         const question = await tx.query.quizQuestions.findFirst({
@@ -814,20 +916,31 @@ export const submitQuizFn = createServerFn({ method: 'POST' })
         })
         if (!question) continue
 
-        const correctChoice = question.choices.find((c) => c.isCorrect)
-        const isCorrect = !!answer.selectedChoiceId && answer.selectedChoiceId === correctChoice?.id
-        if (isCorrect) score += question.points
+        const { isCorrect, pointsEarned } = gradeAnswer(question, answer)
+        score += pointsEarned
 
-        await tx.insert(quizAnswers).values({
-          attemptId: attempt.id,
-          questionId: answer.questionId,
-          selectedChoiceId: answer.selectedChoiceId,
-          isCorrect,
-        })
+        const [inserted] = await tx
+          .insert(quizAnswers)
+          .values({
+            attemptId: attempt.id,
+            questionId: answer.questionId,
+            selectedChoiceId: answer.selectedChoiceId ?? null,
+            isCorrect,
+            responseData: (answer.responseData as never) ?? null,
+            // Manual-grading types (audio/video response, draw, hotspot,
+            // math response, graphing, open-ended) leave isCorrect null
+            // here; gradeManualAnswerFn picks them up later by joining back
+            // to quiz_questions.requiresManualGrading.
+          })
+          .returning()
+
+        if (question.questionType === 'multi_select' && answer.selectedChoiceIds?.length) {
+          await tx.insert(quizAnswerChoices).values(answer.selectedChoiceIds.map((choiceId) => ({ answerId: inserted.id, choiceId })))
+        }
 
         graded.push({
           questionId: answer.questionId,
-          selectedChoiceId: answer.selectedChoiceId,
+          selectedChoiceId: answer.selectedChoiceId ?? null,
           isCorrect,
         })
       }
@@ -916,8 +1029,9 @@ export function useQuizAuthoring(quizId: string) {
   })
 
   const addQuestionMutation = useMutation({
-    mutationFn: (input: { questionText: string; questionType: 'multiple_choice' | 'true_false'; points: number; choices: Array<{ choiceText: string; isCorrect: boolean }> }) =>
-      addQuestionFn({ data: { quizId, ...input } }),
+    mutationFn: (
+      input: Omit<CreateQuestionInput, 'quizId'>,
+    ) => addQuestionFn({ data: { quizId, ...input } }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['quizzes', 'authoring', quizId] })
       await queryClient.invalidateQueries({ queryKey: ['quizzes', quizId] })
@@ -1073,12 +1187,18 @@ export interface StudentQuizDetail {
     maxScore: number
     submittedAt: string | null
   } | null
-  myAnswers: Array<{ questionId: string; selectedChoiceId: string | null }>
+  myAnswers: Array<{
+    questionId: string
+    selectedChoiceId: string | null
+    selectedChoiceIds: Array<string>
+    responseData: QuestionResponseData | null
+  }>
   questions: Array<{
     id: string
     questionText: string
-    questionType: 'multiple_choice' | 'true_false'
+    questionType: QuestionTypeValue
     points: number
     choices: Array<{ id: string; choiceText: string; isCorrect?: boolean }>
+    answerConfig: QuestionAnswerConfig | null
   }>
 }

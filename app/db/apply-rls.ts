@@ -208,6 +208,44 @@ const functions = [
     `,
   },
   {
+    // quiz_answer_choices (multi_select) has no attempt_id column of its
+    // own — joins through quiz_answers to reuse the same ownership check
+    // as quiz_answers itself, rather than duplicating the join logic in
+    // every policy that needs it.
+    name: 'fn_answer_owned_by_student',
+    sql: `
+      create or replace function fn_answer_owned_by_student(p_answer_id uuid)
+      returns boolean
+      language sql
+      security definer
+      set search_path = public
+      stable
+      as $$
+        select exists (
+          select 1 from quiz_answers qa
+          where qa.id = p_answer_id and fn_attempt_owned_by_student(qa.attempt_id)
+        )
+      $$;
+    `,
+  },
+  {
+    name: 'fn_answer_visible_to_teacher',
+    sql: `
+      create or replace function fn_answer_visible_to_teacher(p_answer_id uuid)
+      returns boolean
+      language sql
+      security definer
+      set search_path = public
+      stable
+      as $$
+        select exists (
+          select 1 from quiz_answers qa
+          where qa.id = p_answer_id and fn_attempt_visible_to_teacher(qa.attempt_id)
+        )
+      $$;
+    `,
+  },
+  {
     name: 'fn_game_session_owned_by_teacher',
     sql: `
       create or replace function fn_game_session_owned_by_teacher(p_session_id uuid)
@@ -660,6 +698,18 @@ const policies: Array<RlsPolicy> = [
     for: 'update',
     using: `fn_attempt_owned_by_student(attempt_id)`,
     withCheck: `fn_attempt_owned_by_student(attempt_id)`,
+  },
+  {
+    table: 'quiz_answer_choices',
+    name: 'quiz_answer_choices_select',
+    for: 'select',
+    using: `fn_answer_owned_by_student(answer_id) OR fn_answer_visible_to_teacher(answer_id)`,
+  },
+  {
+    table: 'quiz_answer_choices',
+    name: 'quiz_answer_choices_insert',
+    for: 'insert',
+    withCheck: `fn_answer_owned_by_student(answer_id)`,
   },
 
   // --- Live game sessions: teacher owns via quiz; students see sessions they've joined ---
