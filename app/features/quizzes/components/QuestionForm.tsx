@@ -203,25 +203,27 @@ function CategorizeEditor({
       <div className="space-y-2">
         <Label>Items to sort</Label>
         {items.map((item, index) => (
-          <div key={index} className="flex items-center gap-2">
+          <div key={index} className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Input value={item.text} onChange={(e) => setItems(items.map((it, i) => (i === index ? { ...it, text: e.target.value } : it)))} placeholder="Item" />
-            <Select value={item.category} onValueChange={(v) => setItems(items.map((it, i) => (i === index ? { ...it, category: v } : it)))}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.filter(Boolean).map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {items.length > 1 && (
-              <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => setItems(items.filter((_, i) => i !== index))}>
-                <Trash2 className="size-3.5 text-muted-foreground" />
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              <Select value={item.category} onValueChange={(v) => setItems(items.map((it, i) => (i === index ? { ...it, category: v } : it)))}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.filter(Boolean).map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {items.length > 1 && (
+                <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => setItems(items.filter((_, i) => i !== index))}>
+                  <Trash2 className="size-3.5 text-muted-foreground" />
+                </Button>
+              )}
+            </div>
           </div>
         ))}
         <Button variant="outline" size="sm" className="gap-1" onClick={() => setItems([...items, { text: '', category: categories[0] ?? '' }])}>
@@ -281,8 +283,8 @@ function TableFillEditor({
               columns
                 .filter(Boolean)
                 .map((col) => (
-                  <div key={`${row}|${col}`} className="flex items-center gap-2 text-sm">
-                    <span className="w-32 shrink-0 truncate text-muted-foreground">
+                  <div key={`${row}|${col}`} className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:gap-2">
+                    <span className="text-xs text-muted-foreground sm:w-32 sm:shrink-0 sm:truncate sm:text-sm">
                       {row} × {col}
                     </span>
                     <Input

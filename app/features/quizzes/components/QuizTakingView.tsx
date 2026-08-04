@@ -103,13 +103,13 @@ function MatchTaker({
       {pairs.map((pair) => {
         const selected = (value ?? []).find((p) => p.left === pair.left)?.right ?? ''
         return (
-          <div key={pair.left} className="flex items-center gap-2 text-sm">
-            <span className="w-1/2 truncate rounded-md border border-border px-3 py-2">{pair.left}</span>
+          <div key={pair.left} className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:gap-2">
+            <span className="rounded-md border border-border px-3 py-2 sm:w-1/2 sm:truncate">{pair.left}</span>
             <select
               disabled={disabled}
               value={selected}
               onChange={(e) => setRightFor(pair.left, e.target.value)}
-              className="w-1/2 rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm sm:w-1/2"
             >
               <option value="" disabled>
                 Choose a match…
@@ -149,13 +149,13 @@ function CategorizeTaker({
       {config.items.map((item) => {
         const selected = (value ?? []).find((a) => a.text === item.text)?.category ?? ''
         return (
-          <div key={item.text} className="flex items-center gap-2 text-sm">
-            <span className="w-1/2 truncate rounded-md border border-border px-3 py-2">{item.text}</span>
+          <div key={item.text} className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:gap-2">
+            <span className="rounded-md border border-border px-3 py-2 sm:w-1/2 sm:truncate">{item.text}</span>
             <select
               disabled={disabled}
               value={selected}
               onChange={(e) => setCategoryFor(item.text, e.target.value)}
-              className="w-1/2 rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm sm:w-1/2"
             >
               <option value="" disabled>
                 Choose a category…
@@ -191,8 +191,8 @@ function TableFillTaker({
         config.columns.map((col) => {
           const key = `${row}|${col}`
           return (
-            <div key={key} className="flex items-center gap-2 text-sm">
-              <span className="w-32 shrink-0 truncate text-muted-foreground">
+            <div key={key} className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:gap-2">
+              <span className="text-xs text-muted-foreground sm:w-32 sm:shrink-0 sm:truncate sm:text-sm">
                 {row} × {col}
               </span>
               <Input disabled={disabled} value={answers[key] ?? ''} onChange={(e) => onChange({ ...answers, [key]: e.target.value })} placeholder="Your answer" />
