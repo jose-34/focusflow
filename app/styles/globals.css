@@ -1,44 +1,44 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "@fontsource/sora/400.css";
-@import "@fontsource/sora/600.css";
-@import "@fontsource/sora/700.css";
-@import "@fontsource/sora/800.css";
-@import "@fontsource/manrope/400.css";
-@import "@fontsource/manrope/500.css";
-@import "@fontsource/manrope/600.css";
-@import "@fontsource/manrope/700.css";
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/500.css";
+@import "@fontsource/poppins/600.css";
+@import "@fontsource/poppins/700.css";
 
 @custom-variant dark (&:is(.dark *));
 
+/* FocusFlow brand palette: 0D3B34 (deep teal) / 1E7D4F & 3DBE7A (greens) /
+   F2B134 (gold) / FFF4E0 (cream). Semantic tokens below are all derived
+   from these five values — never introduce a new raw hex outside this
+   block, add another brand color to the palette instead. */
 :root {
   --radius: 0.75rem;
 
-  --background: #f5f0e0;
+  --background: #fff4e0;
   --foreground: #0f172a;
-  --card: #fbf9f2;
+  --card: #fffbf2;
   --card-foreground: #0f172a;
-  --popover: #fbf9f2;
+  --popover: #fffbf2;
   --popover-foreground: #0f172a;
-  --primary: #064e3b;
-  --primary-foreground: #f5f0e0;
-  --secondary: #eae2cb;
-  --secondary-foreground: #064e3b;
-  --muted: #eae2cb;
-  --muted-foreground: #78716c;
-  --accent: #c9a84c;
-  --accent-foreground: #022c22;
+  --primary: #0d3b34;
+  --primary-foreground: #fff4e0;
+  --secondary: #e3e9dc;
+  --secondary-foreground: #0d3b34;
+  --muted: #e3e9dc;
+  --muted-foreground: #5b6b62;
+  --accent: #f2b134;
+  --accent-foreground: #0d3b34;
   --destructive: #dc2626;
-  --destructive-foreground: #f5f0e0;
-  --border: #dcd3b4;
-  --input: #dcd3b4;
-  --ring: #c9a84c;
+  --destructive-foreground: #fff4e0;
+  --border: #ded7bc;
+  --input: #ded7bc;
+  --ring: #f2b134;
 
-  --chart-1: #064e3b;
-  --chart-2: #c9a84c;
-  --chart-3: #059669;
-  --chart-4: #a8763e;
-  --chart-5: #065f46;
+  --chart-1: #0d3b34;
+  --chart-2: #f2b134;
+  --chart-3: #1e7d4f;
+  --chart-4: #3dbe7a;
+  --chart-5: #c9a24a;
 
   /* Deliberately separate from --primary: primary and --accent converge on
      the same gold in dark mode (a real, sensible choice for button contrast
@@ -46,42 +46,42 @@
      needs to visibly distinguish two states by color alone — e.g. the
      landing page's Student/Teacher toggle. --role-teacher stays a real
      green, distinct from gold, in both themes. */
-  --role-teacher: #059669;
-  --role-teacher-foreground: #f5f0e0;
+  --role-teacher: #1e7d4f;
+  --role-teacher-foreground: #fff4e0;
 
-  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
-  --font-heading: "Sora", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Poppins", ui-sans-serif, system-ui, sans-serif;
 }
 
 .dark {
-  --background: #022c22;
-  --foreground: #f8fafc;
-  --card: #064e3b;
-  --card-foreground: #f8fafc;
-  --popover: #064e3b;
-  --popover-foreground: #f8fafc;
-  --primary: #c9a84c;
-  --primary-foreground: #022c22;
-  --secondary: #065f46;
-  --secondary-foreground: #f8fafc;
-  --muted: #065f46;
-  --muted-foreground: #9fb8ac;
-  --accent: #c9a84c;
-  --accent-foreground: #022c22;
+  --background: #0d3b34;
+  --foreground: #fff4e0;
+  --card: #14493f;
+  --card-foreground: #fff4e0;
+  --popover: #14493f;
+  --popover-foreground: #fff4e0;
+  --primary: #f2b134;
+  --primary-foreground: #0d3b34;
+  --secondary: #1e7d4f;
+  --secondary-foreground: #fff4e0;
+  --muted: #1e7d4f;
+  --muted-foreground: #b9d2c5;
+  --accent: #f2b134;
+  --accent-foreground: #0d3b34;
   --destructive: #f87171;
-  --destructive-foreground: #022c22;
+  --destructive-foreground: #0d3b34;
   --border: color-mix(in oklab, white 12%, transparent);
   --input: color-mix(in oklab, white 15%, transparent);
-  --ring: #c9a84c;
+  --ring: #f2b134;
 
-  --chart-1: #34d399;
-  --chart-2: #c9a84c;
+  --chart-1: #3dbe7a;
+  --chart-2: #f2b134;
   --chart-3: #6ee7b7;
   --chart-4: #d8b978;
   --chart-5: #a7f3d0;
 
-  --role-teacher: #34d399;
-  --role-teacher-foreground: #022c22;
+  --role-teacher: #3dbe7a;
+  --role-teacher-foreground: #0d3b34;
 }
 
 @theme inline {

@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { LayoutDashboard, LogOut, Moon, Sun } from 'lucide-react'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { useTheme } from '@/features/theme/ThemeContext'
+import { LogoBadge } from '@/components/Logo'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -33,9 +34,7 @@ export function TopNav({ onOpenMobile }: TopNavProps) {
           </Button>
         )}
         <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-heading font-bold text-primary-foreground">
-            F
-          </div>
+          <LogoBadge className="h-8 w-8 shrink-0" />
           <span className="font-heading text-sm font-semibold text-foreground">FocusFlow</span>
         </Link>
 
