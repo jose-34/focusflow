@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -11,6 +11,9 @@ import { AnswerButton } from '@/features/games/components/AnswerButton'
 import { CountdownTimer } from '@/features/games/components/CountdownTimer'
 import { LiveLeaderboard } from '@/features/games/components/LiveLeaderboard'
 import { PodiumScene } from '@/features/games/components/PodiumScene'
+import { GameCountdown } from '@/features/games/components/GameCountdown'
+import { GameSettingsPanel, speakText } from '@/features/games/components/GameSettingsPanel'
+import { getStoredGameTheme, type GameThemeKey } from '@/features/games/gameThemes'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,11 +37,32 @@ function PlayGamePage() {
   const { data: game, isLoading, error } = usePlayerGameStateRealtime(sessionId, participantId ?? '')
   const submitAnswer = useSubmitGameAnswer()
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null)
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
+  const [gameTheme, setGameTheme] = useState<GameThemeKey>(() => getStoredGameTheme())
+  const [readAloudEnabled, setReadAloudEnabled] = useState(false)
+  const [showCountdown, setShowCountdown] = useState(false)
+  const hasShownCountdownRef = useRef(false)
+  const lastSpokenQuestionIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     setSelectedChoiceId(null)
   }, [game?.currentQuestionIndex])
+
+  // The 3-2-1-Go overlay plays exactly once, on the very first question of
+  // the game — not on every subsequent question transition.
+  useEffect(() => {
+    if (game?.status === 'question' && game.currentQuestionIndex === 0 && !hasShownCountdownRef.current) {
+      hasShownCountdownRef.current = true
+      setShowCountdown(true)
+    }
+  }, [game?.status, game?.currentQuestionIndex])
+
+  useEffect(() => {
+    if (!readAloudEnabled || !game?.currentQuestion) return
+    if (lastSpokenQuestionIdRef.current === game.currentQuestion.id) return
+    lastSpokenQuestionIdRef.current = game.currentQuestion.id
+    speakText(game.currentQuestion.questionText, language)
+  }, [readAloudEnabled, game?.currentQuestion, language])
 
   if (isLoading) {
     return (
@@ -73,8 +97,13 @@ function PlayGamePage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10">
-      <AnimatePresence mode="wait">
+    <div data-game-theme={gameTheme} className="game-theme-surface min-h-[calc(100vh-3.5rem)]">
+      {showCountdown && <GameCountdown onDone={() => setShowCountdown(false)} />}
+      <div className="mx-auto max-w-2xl px-4 py-10">
+        <div className="mb-2 flex justify-end">
+          <GameSettingsPanel onThemeChange={setGameTheme} readAloudEnabled={readAloudEnabled} onReadAloudChange={setReadAloudEnabled} />
+        </div>
+        <AnimatePresence mode="wait">
         {game.status === 'lobby' && (
           <motion.div key="lobby" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
             <div className="mb-6 flex justify-center">
@@ -198,7 +227,8 @@ function PlayGamePage() {
             </Button>
           </motion.div>
         )}
-      </AnimatePresence>
+        </AnimatePresence>
+      </div>
     </div>
   )
 }

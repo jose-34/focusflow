@@ -5,7 +5,7 @@
 // audio can play, which every call site here already has — a click).
 
 let audioContext: AudioContext | null = null
-let muted = false
+let muted = typeof window !== 'undefined' && localStorage.getItem('focusflow-sound-muted') === 'true'
 
 function getContext(): AudioContext | null {
   if (typeof window === 'undefined') return null
@@ -20,10 +20,61 @@ function getContext(): AudioContext | null {
 
 export function setSoundMuted(value: boolean) {
   muted = value
+  if (typeof window !== 'undefined') localStorage.setItem('focusflow-sound-muted', String(value))
+  if (value) stopAmbientLoop()
 }
 
 export function isSoundMuted() {
   return muted
+}
+
+let musicEnabled = typeof window !== 'undefined' && localStorage.getItem('focusflow-music-enabled') === 'true'
+let ambientOscillators: Array<{ osc: OscillatorNode; gain: GainNode }> = []
+
+export function isMusicEnabled() {
+  return musicEnabled
+}
+
+export function setMusicEnabled(value: boolean) {
+  musicEnabled = value
+  if (typeof window !== 'undefined') localStorage.setItem('focusflow-music-enabled', String(value))
+  if (value && !muted) startAmbientLoop()
+  else stopAmbientLoop()
+}
+
+// A few slow, quiet detuned drones looping continuously — the honest,
+// license-free substitute for real background music. No audio files or
+// licensed tracks exist anywhere in this codebase, and sourcing/licensing
+// real music is out of scope here — this is deliberately understated
+// ambience, not a real soundtrack, and labeled that way in the UI.
+export function startAmbientLoop() {
+  if (muted || ambientOscillators.length > 0) return
+  const ctx = getContext()
+  if (!ctx) return
+  const frequencies = [130.81, 164.81, 196.0] // C3-E3-G3, a calm major triad drone
+  for (const frequency of frequencies) {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = frequency
+    gain.gain.value = 0
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    gain.gain.linearRampToValueAtTime(0.02, ctx.currentTime + 2)
+    ambientOscillators.push({ osc, gain })
+  }
+}
+
+export function stopAmbientLoop() {
+  const ctx = audioContext
+  if (ctx) {
+    for (const { osc, gain } of ambientOscillators) {
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1)
+      osc.stop(ctx.currentTime + 1.1)
+    }
+  }
+  ambientOscillators = []
 }
 
 interface Tone {

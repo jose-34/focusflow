@@ -162,3 +162,38 @@
     animation: none;
   }
 }
+
+/* Live-game visual themes — scoped to [data-game-theme] on the game
+   route's own root div, never the site-wide light/dark ThemeContext's
+   `.dark` class on <html>. "classic" intentionally matches the app's own
+   background/accent tokens (no override needed) so it's the neutral
+   default. */
+[data-game-theme='synthwave'] {
+  --game-bg: linear-gradient(135deg, #2b0a4e, #5b1a8a 45%, #ff2ea6);
+  --game-accent: #00f0ff;
+  --game-foreground: #f5f0ff;
+}
+
+[data-game-theme='dogsville'] {
+  --game-bg: linear-gradient(135deg, #a5673f, #d9a066);
+  --game-accent: #4a2f18;
+  --game-foreground: #fff8ec;
+}
+
+[data-game-theme='cosmic'] {
+  --game-bg: linear-gradient(135deg, #05070f, #1a1440 55%, #3a2a7a);
+  --game-accent: #b98cff;
+  --game-foreground: #eae6ff;
+}
+
+[data-game-theme='touchdown'] {
+  --game-bg: linear-gradient(135deg, #7a1220, #b8232f 55%, #e0762f);
+  --game-accent: #ffd166;
+  --game-foreground: #fff4e6;
+}
+
+.game-theme-surface {
+  background: var(--game-bg, transparent);
+  color: var(--game-foreground, inherit);
+  transition: background 0.4s ease;
+}
