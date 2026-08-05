@@ -14,6 +14,8 @@ import { PodiumScene } from '@/features/games/components/PodiumScene'
 import { GameCountdown } from '@/features/games/components/GameCountdown'
 import { GameSettingsPanel, speakText } from '@/features/games/components/GameSettingsPanel'
 import { getStoredGameTheme, type GameThemeKey } from '@/features/games/gameThemes'
+import { GameplayWorld } from '@/features/gameplay/components/GameplayWorld'
+import { getStoredGameplayTheme, type GameplayThemeKey } from '@/features/gameplay/gameplayThemes'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,6 +41,7 @@ function PlayGamePage() {
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null)
   const { t, language } = useTranslation()
   const [gameTheme, setGameTheme] = useState<GameThemeKey>(() => getStoredGameTheme())
+  const [gameplayTheme, setGameplayTheme] = useState<GameplayThemeKey>(() => getStoredGameplayTheme())
   const [readAloudEnabled, setReadAloudEnabled] = useState(false)
   const [showCountdown, setShowCountdown] = useState(false)
   const hasShownCountdownRef = useRef(false)
@@ -101,8 +104,32 @@ function PlayGamePage() {
       {showCountdown && <GameCountdown onDone={() => setShowCountdown(false)} />}
       <div className="mx-auto max-w-2xl px-4 py-10">
         <div className="mb-2 flex justify-end">
-          <GameSettingsPanel onThemeChange={setGameTheme} readAloudEnabled={readAloudEnabled} onReadAloudChange={setReadAloudEnabled} />
+          <GameSettingsPanel
+            onThemeChange={setGameTheme}
+            onGameplayThemeChange={setGameplayTheme}
+            readAloudEnabled={readAloudEnabled}
+            onReadAloudChange={setReadAloudEnabled}
+          />
         </div>
+
+        {game.status !== 'lobby' && (
+          <div className="mb-6">
+            <GameplayWorld
+              theme={gameplayTheme}
+              totalSteps={game.totalQuestions}
+              stepsCompleted={
+                game.status === 'finished'
+                  ? game.totalQuestions
+                  : game.status === 'reveal'
+                    ? game.currentQuestionIndex + 1
+                    : game.currentQuestionIndex
+              }
+              lastResult={game.status === 'reveal' && game.myLastAnswer ? (game.myLastAnswer.isCorrect ? 'correct' : 'incorrect') : null}
+              resultKey={`${game.status}-${game.currentQuestionIndex}`}
+            />
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
         {game.status === 'lobby' && (
           <motion.div key="lobby" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">

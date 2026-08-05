@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { CheckCircle2, ListChecks, LoaderCircle, Sparkles, Square, SquareCheck, XCircle } from 'lucide-react'
 import { useQuizTaking } from '@/features/quizzes/hooks/useQuizzes'
@@ -9,6 +9,8 @@ import { ACHIEVEMENT_MAP } from '@/features/achievements/definitions'
 import { useCelebration } from '@/features/celebration/CelebrationContext'
 import { useWellness } from '@/features/wellness/hooks/useWellness'
 import { MoodPicker } from '@/features/wellness/components/MoodPicker'
+import { GameplayWorld } from '@/features/gameplay/components/GameplayWorld'
+import { getStoredGameplayTheme } from '@/features/gameplay/gameplayThemes'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -228,8 +230,28 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
   const [focusHeartbeatError, setFocusHeartbeatError] = useState<string | null>(null)
   const [preMood, setPreMood] = useState<number | null>(null)
   const [postMood, setPostMood] = useState<number | null>(null)
+  const [replayGraded, setReplayGraded] = useState<Array<boolean | null> | null>(null)
+  const [replayStep, setReplayStep] = useState(0)
+  const pendingCelebrationRef = useRef<(() => void) | null>(null)
+  const [gameplayTheme] = useState(() => getStoredGameplayTheme())
 
   const hasSubmitted = !!quiz?.attempt?.submittedAt
+
+  // After submitting, step through each question's real result one at a
+  // time so the GameplayWorld can animate the "journey" before the
+  // celebration overlay fires — same honest per-question data the score
+  // card already shows, just paced out instead of dumped all at once.
+  useEffect(() => {
+    if (!replayGraded) return
+    if (replayStep >= replayGraded.length) {
+      pendingCelebrationRef.current?.()
+      pendingCelebrationRef.current = null
+      setReplayGraded(null)
+      return
+    }
+    const timer = setTimeout(() => setReplayStep((s) => s + 1), 700)
+    return () => clearTimeout(timer)
+  }, [replayGraded, replayStep])
 
   useEffect(() => {
     const savedSessionId = typeof window !== 'undefined' ? sessionStorage.getItem(`focusflow.focusSessionId.${quizId}`) : null
@@ -324,8 +346,6 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
           responseData: answers[q.id]?.responseData as Record<string, unknown> | undefined,
         })),
       })
-      celebrate({ type: 'quiz', title: quiz!.title, score: result.score ?? 0, maxScore: result.maxScore })
-
       const unlockedAchievements = [...result.unlockedAchievements]
       if (focusSessionId) {
         const focusResult = await endFocusSessionFn({ data: { sessionId: focusSessionId } })
@@ -333,12 +353,18 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
           if (!unlockedAchievements.includes(key)) unlockedAchievements.push(key)
         }
       }
-      for (const key of unlockedAchievements) {
-        const definition = ACHIEVEMENT_MAP.get(key)
-        if (definition) {
-          celebrate({ type: 'achievement', title: definition.title, description: definition.description })
+
+      pendingCelebrationRef.current = () => {
+        celebrate({ type: 'quiz', title: quiz!.title, score: result.score ?? 0, maxScore: result.maxScore })
+        for (const key of unlockedAchievements) {
+          const definition = ACHIEVEMENT_MAP.get(key)
+          if (definition) {
+            celebrate({ type: 'achievement', title: definition.title, description: definition.description })
+          }
         }
       }
+      setReplayStep(0)
+      setReplayGraded(result.graded.map((g) => g.isCorrect))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('taking.failedToSubmit'))
     }
@@ -384,6 +410,18 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
           </div>
         </div>
       </div>
+
+      {quiz.attempt && (
+        <div className="mb-6">
+          <GameplayWorld
+            theme={gameplayTheme}
+            totalSteps={quiz.questions.length}
+            stepsCompleted={replayGraded ? replayStep : hasSubmitted ? quiz.questions.length : 0}
+            lastResult={replayGraded && replayStep > 0 ? (replayGraded[replayStep - 1] === true ? 'correct' : replayGraded[replayStep - 1] === false ? 'incorrect' : null) : null}
+            resultKey={`replay-${replayStep}`}
+          />
+        </div>
+      )}
 
       {hasSubmitted && (
         <Card className="mb-6 border-primary/30 bg-primary/5">
