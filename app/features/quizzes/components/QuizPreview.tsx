@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, LoaderCircle, Square, SquareCheck, XCircle } from 'lucide-react'
+import { LoaderCircle, Square, SquareCheck } from 'lucide-react'
 import { getQuizAuthoringFn, type QuizAuthoringDetail } from '@/features/quizzes/hooks/useQuizzes'
 import { isChoiceBasedType, isManualGradingType, type QuestionResponseData } from '@/features/quizzes/questionTypes'
 import { gradeAnswer } from '@/features/quizzes/grading'
 import { ReorderTaker, MatchTaker, CategorizeTaker, TableFillTaker } from '@/features/quizzes/components/QuizTakingView'
+import { PlatformerQuestionScene } from '@/features/gameplay/components/PlatformerQuestionScene'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -93,6 +94,34 @@ export function QuizPreview({ quizId }: { quizId: string }) {
             setAnswers((prev) => ({ ...prev, [question.id]: next }))
           }
           const showCorrectness = submitted && showImmediateFeedback && question.questionType !== 'poll'
+          const isPlatformerType = isChoiceBasedType(question.questionType) && question.questionType !== 'multi_select'
+
+          if (isPlatformerType) {
+            return (
+              <div key={question.id} className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-xs font-medium text-muted-foreground">Question {index + 1}</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    ({question.points} pt{question.points === 1 ? '' : 's'})
+                  </span>
+                </div>
+                <PlatformerQuestionScene
+                  questionText={question.questionText}
+                  choices={question.choices.map((c) => ({ id: c.id, text: c.choiceText }))}
+                  questionNumber={index + 1}
+                  totalQuestions={quiz.questions.length}
+                  history={[]}
+                  selectedChoiceId={current?.selectedChoiceId ?? null}
+                  locked={submitted}
+                  correctChoiceId={showCorrectness ? (question.choices.find((c) => c.isCorrect)?.id ?? null) : undefined}
+                  onSelect={(choiceId) => setAnswer({ selectedChoiceId: choiceId })}
+                />
+                {submitted && showImmediateFeedback && question.questionType === 'poll' && (
+                  <p className="px-1 text-xs text-muted-foreground">Polls have no correct answer.</p>
+                )}
+              </div>
+            )
+          }
 
           return (
             <Card key={question.id}>
@@ -102,34 +131,6 @@ export function QuizPreview({ quizId }: { quizId: string }) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-1">
-                {isChoiceBasedType(question.questionType) && question.questionType !== 'multi_select' && (
-                  <div className="space-y-1">
-                    {question.choices.map((choice) => {
-                      const isSelected = current?.selectedChoiceId === choice.id
-                      return (
-                        <button
-                          key={choice.id}
-                          type="button"
-                          disabled={submitted}
-                          onClick={() => setAnswer({ selectedChoiceId: choice.id })}
-                          className={cn(
-                            'flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors',
-                            isSelected && !submitted && 'border-primary bg-primary/10',
-                            !isSelected && !submitted && 'border-border hover:bg-secondary/50',
-                            showCorrectness && choice.isCorrect && 'border-primary bg-primary/10 text-primary',
-                            showCorrectness && isSelected && !choice.isCorrect && 'border-destructive bg-destructive/10 text-destructive',
-                            showCorrectness && !isSelected && !choice.isCorrect && 'border-border text-muted-foreground',
-                          )}
-                        >
-                          {choice.choiceText}
-                          {showCorrectness && choice.isCorrect && <CheckCircle2 className="size-4 shrink-0" />}
-                          {showCorrectness && isSelected && !choice.isCorrect && <XCircle className="size-4 shrink-0" />}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-
                 {question.questionType === 'multi_select' && (
                   <div className="space-y-1">
                     {question.choices.map((choice) => {
@@ -222,9 +223,6 @@ export function QuizPreview({ quizId }: { quizId: string }) {
                   />
                 )}
 
-                {submitted && showImmediateFeedback && question.questionType === 'poll' && (
-                  <p className="pt-1 text-xs text-muted-foreground">Polls have no correct answer.</p>
-                )}
                 {submitted && showImmediateFeedback && (isManualGradingType(question.questionType) || question.questionType === 'open_ended') && (
                   <p className="pt-1 text-xs text-muted-foreground">This type is graded manually by the teacher.</p>
                 )}

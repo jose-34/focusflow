@@ -950,6 +950,10 @@ export const getQuizForStudentFn = createServerFn({ method: 'POST' })
           })
         : []
 
+      // Same invariant as the live game's PlayerGameState: the answer key
+      // must never reach the client before the attempt is submitted.
+      const revealAnswers = !!existingAttempt?.submittedAt
+
       return {
         id: quiz.id,
         title: quiz.title,
@@ -978,7 +982,7 @@ export const getQuizForStudentFn = createServerFn({ method: 'POST' })
           points: q.points,
           choices: q.choices
             .sort((a, b) => a.position - b.position)
-            .map((c) => ({ id: c.id, choiceText: c.choiceText })),
+            .map((c) => ({ id: c.id, choiceText: c.choiceText, ...(revealAnswers ? { isCorrect: c.isCorrect } : {}) })),
           answerConfig: q.answerConfig,
         })),
       }

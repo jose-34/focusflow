@@ -3,7 +3,6 @@ import { Settings, Square, SquareCheck, Volume2, Music, Speech } from 'lucide-re
 import { isMusicEnabled, isSoundMuted, setMusicEnabled, setSoundMuted } from '@/lib/sound'
 import { SUPPORTED_LANGUAGES, useTranslation, type LanguageCode } from '@/features/i18n/I18nContext'
 import { GAME_THEMES, getStoredGameTheme, setStoredGameTheme, type GameThemeKey } from '../gameThemes'
-import { GAMEPLAY_THEME_LIST, getStoredGameplayTheme, setStoredGameplayTheme, type GameplayThemeKey } from '@/features/gameplay/gameplayThemes'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -35,9 +34,8 @@ export function speakText(text: string, language: LanguageCode) {
   window.speechSynthesis.speak(utterance)
 }
 
-export function GameSettingsPanel({ onThemeChange, onGameplayThemeChange, readAloudEnabled, onReadAloudChange }: {
+export function GameSettingsPanel({ onThemeChange, readAloudEnabled, onReadAloudChange }: {
   onThemeChange?: (theme: GameThemeKey) => void
-  onGameplayThemeChange?: (theme: GameplayThemeKey) => void
   readAloudEnabled: boolean
   onReadAloudChange: (next: boolean) => void
 }) {
@@ -45,18 +43,11 @@ export function GameSettingsPanel({ onThemeChange, onGameplayThemeChange, readAl
   const [soundOn, setSoundOn] = useState(() => !isSoundMuted())
   const [musicOn, setMusicOn] = useState(() => isMusicEnabled())
   const [theme, setTheme] = useState<GameThemeKey>(() => getStoredGameTheme())
-  const [gameplayTheme, setGameplayTheme] = useState<GameplayThemeKey>(() => getStoredGameplayTheme())
 
   function handleThemeChange(next: GameThemeKey) {
     setTheme(next)
     setStoredGameTheme(next)
     onThemeChange?.(next)
-  }
-
-  function handleGameplayThemeChange(next: GameplayThemeKey) {
-    setGameplayTheme(next)
-    setStoredGameplayTheme(next)
-    onGameplayThemeChange?.(next)
   }
 
   return (
@@ -101,25 +92,6 @@ export function GameSettingsPanel({ onThemeChange, onGameplayThemeChange, readAl
                   onClick={() => handleThemeChange(t.key)}
                   className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                     theme === t.key ? 'border-accent bg-accent text-accent-foreground' : 'border-border bg-background text-muted-foreground'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1.5 pt-1">
-            <p className="text-xs font-medium text-muted-foreground">World</p>
-            <div className="flex flex-wrap gap-1.5">
-              {GAMEPLAY_THEME_LIST.map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => handleGameplayThemeChange(t.key)}
-                  title={t.description}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                    gameplayTheme === t.key ? 'border-accent bg-accent text-accent-foreground' : 'border-border bg-background text-muted-foreground'
                   }`}
                 >
                   {t.label}

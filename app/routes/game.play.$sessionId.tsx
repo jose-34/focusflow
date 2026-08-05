@@ -7,15 +7,13 @@ import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { usePlayerGameStateRealtime, useSubmitGameAnswer } from '@/features/games/hooks/useGames'
 import { useTranslation } from '@/features/i18n/I18nContext'
 import { AvatarDisplay } from '@/features/economy/components/AvatarDisplay'
-import { AnswerButton } from '@/features/games/components/AnswerButton'
 import { CountdownTimer } from '@/features/games/components/CountdownTimer'
 import { LiveLeaderboard } from '@/features/games/components/LiveLeaderboard'
 import { PodiumScene } from '@/features/games/components/PodiumScene'
 import { GameCountdown } from '@/features/games/components/GameCountdown'
 import { GameSettingsPanel, speakText } from '@/features/games/components/GameSettingsPanel'
 import { getStoredGameTheme, type GameThemeKey } from '@/features/games/gameThemes'
-import { GameplayWorld } from '@/features/gameplay/components/GameplayWorld'
-import { getStoredGameplayTheme, type GameplayThemeKey } from '@/features/gameplay/gameplayThemes'
+import { PlatformerQuestionScene } from '@/features/gameplay/components/PlatformerQuestionScene'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -41,7 +39,6 @@ function PlayGamePage() {
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null)
   const { t, language } = useTranslation()
   const [gameTheme, setGameTheme] = useState<GameThemeKey>(() => getStoredGameTheme())
-  const [gameplayTheme, setGameplayTheme] = useState<GameplayThemeKey>(() => getStoredGameplayTheme())
   const [readAloudEnabled, setReadAloudEnabled] = useState(false)
   const [showCountdown, setShowCountdown] = useState(false)
   const hasShownCountdownRef = useRef(false)
@@ -104,31 +101,8 @@ function PlayGamePage() {
       {showCountdown && <GameCountdown onDone={() => setShowCountdown(false)} />}
       <div className="mx-auto max-w-2xl px-4 py-10">
         <div className="mb-2 flex justify-end">
-          <GameSettingsPanel
-            onThemeChange={setGameTheme}
-            onGameplayThemeChange={setGameplayTheme}
-            readAloudEnabled={readAloudEnabled}
-            onReadAloudChange={setReadAloudEnabled}
-          />
+          <GameSettingsPanel onThemeChange={setGameTheme} readAloudEnabled={readAloudEnabled} onReadAloudChange={setReadAloudEnabled} />
         </div>
-
-        {game.status !== 'lobby' && (
-          <div className="mb-6">
-            <GameplayWorld
-              theme={gameplayTheme}
-              totalSteps={game.totalQuestions}
-              stepsCompleted={
-                game.status === 'finished'
-                  ? game.totalQuestions
-                  : game.status === 'reveal'
-                    ? game.currentQuestionIndex + 1
-                    : game.currentQuestionIndex
-              }
-              lastResult={game.status === 'reveal' && game.myLastAnswer ? (game.myLastAnswer.isCorrect ? 'correct' : 'incorrect') : null}
-              resultKey={`${game.status}-${game.currentQuestionIndex}`}
-            />
-          </div>
-        )}
 
         <AnimatePresence mode="wait">
         {game.status === 'lobby' && (
@@ -157,39 +131,28 @@ function PlayGamePage() {
 
         {game.status === 'question' && game.currentQuestion && (
           <motion.div key="question" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <div className="mb-4 flex items-center justify-between">
-              <Badge variant="outline">
-                {t('play.question')} {game.currentQuestionIndex + 1} / {game.totalQuestions}
-              </Badge>
+            <div className="mb-3 flex justify-end">
               <CountdownTimer phaseStartedAt={game.phaseStartedAt} durationSeconds={game.questionDurationSeconds} />
             </div>
-            <h2 className="mb-6 text-center font-heading text-xl font-bold text-foreground">{game.currentQuestion.questionText}</h2>
-
-            {game.hasAnsweredCurrent ? (
-              <div className="py-10 text-center">
-                <p className="text-sm text-muted-foreground">{t('play.answerLocked')}</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {game.currentQuestion.choices.map((choice, i) => (
-                  <AnswerButton
-                    key={choice.id}
-                    index={i}
-                    label={choice.choiceText}
-                    selected={selectedChoiceId === choice.id}
-                    onClick={() => handleAnswer(choice.id)}
-                    disabled={submitAnswer.isPending}
-                  />
-                ))}
-              </div>
-            )}
+            <PlatformerQuestionScene
+              questionText={game.currentQuestion.questionText}
+              choices={game.currentQuestion.choices.map((c) => ({ id: c.id, text: c.choiceText }))}
+              questionNumber={game.currentQuestionIndex + 1}
+              totalQuestions={game.totalQuestions}
+              history={[]}
+              selectedChoiceId={selectedChoiceId}
+              locked={game.hasAnsweredCurrent}
+              onSelect={handleAnswer}
+              score={game.myScore}
+            />
+            {game.hasAnsweredCurrent && <p className="mt-3 text-center text-sm text-muted-foreground">{t('play.answerLocked')}</p>}
           </motion.div>
         )}
 
         {game.status === 'reveal' && game.currentQuestion && (
           <motion.div key="reveal" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             {game.myLastAnswer ? (
-              <div className="mb-6 flex flex-col items-center gap-2 text-center">
+              <div className="mb-4 flex flex-col items-center gap-2 text-center">
                 {game.myLastAnswer.isCorrect ? (
                   <>
                     <CheckCircle2 className="size-14 text-primary" />
@@ -203,19 +166,22 @@ function PlayGamePage() {
                 )}
               </div>
             ) : (
-              <p className="mb-6 text-center text-sm text-muted-foreground">{t('play.timeUp')}</p>
+              <p className="mb-4 text-center text-sm text-muted-foreground">{t('play.timeUp')}</p>
             )}
 
-            <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {game.currentQuestion.choices.map((choice, i) => (
-                <AnswerButton
-                  key={choice.id}
-                  index={i}
-                  label={choice.choiceText}
-                  disabled
-                  reveal={choice.isCorrect ? 'correct' : 'neutral'}
-                />
-              ))}
+            <div className="mb-6">
+              <PlatformerQuestionScene
+                questionText={game.currentQuestion.questionText}
+                choices={game.currentQuestion.choices.map((c) => ({ id: c.id, text: c.choiceText }))}
+                questionNumber={game.currentQuestionIndex + 1}
+                totalQuestions={game.totalQuestions}
+                history={[]}
+                selectedChoiceId={selectedChoiceId}
+                locked
+                correctChoiceId={game.currentQuestion.choices.find((c) => c.isCorrect)?.id ?? null}
+                onSelect={() => {}}
+                score={game.myScore}
+              />
             </div>
 
             <Card>

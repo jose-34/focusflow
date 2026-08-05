@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
-import { CheckCircle2, ListChecks, LoaderCircle, Sparkles, Square, SquareCheck, XCircle } from 'lucide-react'
+import { ListChecks, LoaderCircle, Sparkles, Square, SquareCheck } from 'lucide-react'
 import { useQuizTaking } from '@/features/quizzes/hooks/useQuizzes'
 import { isChoiceBasedType, isManualGradingType, type QuestionResponseData } from '@/features/quizzes/questionTypes'
 import { useTranslation } from '@/features/i18n/I18nContext'
@@ -9,8 +9,8 @@ import { ACHIEVEMENT_MAP } from '@/features/achievements/definitions'
 import { useCelebration } from '@/features/celebration/CelebrationContext'
 import { useWellness } from '@/features/wellness/hooks/useWellness'
 import { MoodPicker } from '@/features/wellness/components/MoodPicker'
-import { GameplayWorld } from '@/features/gameplay/components/GameplayWorld'
-import { getStoredGameplayTheme } from '@/features/gameplay/gameplayThemes'
+import { PlatformerQuestionScene } from '@/features/gameplay/components/PlatformerQuestionScene'
+import { isSoundMuted, setSoundMuted } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -233,14 +233,21 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
   const [replayGraded, setReplayGraded] = useState<Array<boolean | null> | null>(null)
   const [replayStep, setReplayStep] = useState(0)
   const pendingCelebrationRef = useRef<(() => void) | null>(null)
-  const [gameplayTheme] = useState(() => getStoredGameplayTheme())
+  const [muted, setMuted] = useState(() => isSoundMuted())
 
   const hasSubmitted = !!quiz?.attempt?.submittedAt
 
+  function toggleMute() {
+    const next = !muted
+    setMuted(next)
+    setSoundMuted(next)
+  }
+
   // After submitting, step through each question's real result one at a
-  // time so the GameplayWorld can animate the "journey" before the
-  // celebration overlay fires — same honest per-question data the score
-  // card already shows, just paced out instead of dumped all at once.
+  // time so each question's platformer scene reveals correct/incorrect in
+  // sequence before the celebration overlay fires — same honest
+  // per-question data the score card already shows, just paced out instead
+  // of dumped all at once.
   useEffect(() => {
     if (!replayGraded) return
     if (replayStep >= replayGraded.length) {
@@ -411,18 +418,6 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
         </div>
       </div>
 
-      {quiz.attempt && (
-        <div className="mb-6">
-          <GameplayWorld
-            theme={gameplayTheme}
-            totalSteps={quiz.questions.length}
-            stepsCompleted={replayGraded ? replayStep : hasSubmitted ? quiz.questions.length : 0}
-            lastResult={replayGraded && replayStep > 0 ? (replayGraded[replayStep - 1] === true ? 'correct' : replayGraded[replayStep - 1] === false ? 'incorrect' : null) : null}
-            resultKey={`replay-${replayStep}`}
-          />
-        </div>
-      )}
-
       {hasSubmitted && (
         <Card className="mb-6 border-primary/30 bg-primary/5">
           <CardContent className="space-y-3 py-4">
@@ -489,6 +484,44 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
               setAnswers((prev) => ({ ...prev, [question.id]: next }))
             }
 
+            const isPlatformerType = isChoiceBasedType(question.questionType) && question.questionType !== 'multi_select'
+            // Once submitted, correctness reveals question-by-question in
+            // step with replayStep's pacing (see the effect above); once
+            // that animation finishes (replayGraded clears), every question
+            // just stays revealed — matches what myAnswers already carries.
+            const isRevealed = hasSubmitted && (!replayGraded || index < replayStep)
+
+            if (isPlatformerType) {
+              return (
+                <div key={question.id} className="space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t('taking.question')} {index + 1}
+                    </span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      ({question.points} {question.points === 1 ? t('taking.pt') : t('taking.pts')})
+                    </span>
+                  </div>
+                  <PlatformerQuestionScene
+                    questionText={question.questionText}
+                    choices={question.choices.map((c) => ({ id: c.id, text: c.choiceText }))}
+                    questionNumber={index + 1}
+                    totalQuestions={quiz.questions.length}
+                    history={[]}
+                    selectedChoiceId={current?.selectedChoiceId ?? null}
+                    locked={isRevealed}
+                    correctChoiceId={isRevealed ? (question.choices.find((c) => c.isCorrect)?.id ?? null) : undefined}
+                    onSelect={(choiceId) => setAnswer({ selectedChoiceId: choiceId })}
+                    muted={muted}
+                    onToggleMute={toggleMute}
+                  />
+                  {isRevealed && question.questionType === 'poll' && (
+                    <p className="px-1 text-xs text-muted-foreground">{t('taking.pollThanks')}</p>
+                  )}
+                </div>
+              )
+            }
+
             return (
               <Card key={question.id}>
                 <CardHeader>
@@ -500,36 +533,6 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1">
-                  {isChoiceBasedType(question.questionType) && question.questionType !== 'multi_select' && (
-                    <div className="space-y-1">
-                      {question.choices.map((choice) => {
-                        const isSelected = current?.selectedChoiceId === choice.id
-                        const showCorrectness = hasSubmitted && choice.isCorrect !== undefined && question.questionType !== 'poll'
-                        return (
-                          <button
-                            key={choice.id}
-                            type="button"
-                            disabled={hasSubmitted}
-                            onClick={() => setAnswer({ selectedChoiceId: choice.id })}
-                            className={cn(
-                              'flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors',
-                              isSelected && !hasSubmitted && 'border-primary bg-primary/10',
-                              !isSelected && !hasSubmitted && 'border-border hover:bg-secondary/50',
-                              showCorrectness && choice.isCorrect && 'border-primary bg-primary/10 text-primary',
-                              showCorrectness && isSelected && !choice.isCorrect && 'border-destructive bg-destructive/10 text-destructive',
-                              showCorrectness && !isSelected && !choice.isCorrect && 'border-border text-muted-foreground',
-                              hasSubmitted && question.questionType === 'poll' && isSelected && 'border-primary bg-primary/10',
-                            )}
-                          >
-                            {choice.choiceText}
-                            {showCorrectness && choice.isCorrect && <CheckCircle2 className="size-4 shrink-0" />}
-                            {showCorrectness && isSelected && !choice.isCorrect && <XCircle className="size-4 shrink-0" />}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-
                   {question.questionType === 'multi_select' && (
                     <div className="space-y-1">
                       {question.choices.map((choice) => {
