@@ -16,16 +16,20 @@ const ADVANCE_DELAY_MS = 1300
 // player advances, rather than resetting to a fixed spot each question, so
 // progress reads as movement through a level instead of a quiz that
 // happens to have a mascot icon next to it.
-const ZONE_WIDTH = 340
-const PLATFORM_X_IN_ZONE = [55, 145, 235, 325]
+// Kept narrow enough that question 1 (avatarTarget.x = 0, no camera scroll
+// yet — see cameraX below) always fits its 4 platforms inside a 320px-wide
+// viewport: zoneStartX(0) + max(PLATFORM_X_IN_ZONE) = 35 + 230 = 265,
+// comfortably under 320 with room for each platform button's own width.
+const ZONE_WIDTH = 250
+const PLATFORM_X_IN_ZONE = [35, 100, 165, 230]
 const PLATFORM_HEIGHTS = [50, 140, 45, 105] // px above ground, deliberately uneven — a real jump, not a flat row
 const GROUND_Y = 0
 const GAME_HEIGHT = 360
-const VIEW_ANCHOR_X = 230
+const VIEW_ANCHOR_X = 150
 const DECORATIONS = ['/assets/roadmap/tree-pine.png', '/assets/roadmap/bush.png', '/assets/roadmap/rock-1.png', '/assets/roadmap/rock-2.png']
 
 function zoneStartX(questionIndex: number) {
-  return questionIndex * ZONE_WIDTH + 50
+  return questionIndex * ZONE_WIDTH + 35
 }
 
 function platformPos(questionIndex: number, choiceIndex: number) {
@@ -131,7 +135,14 @@ export function ArcadeDemoGame() {
     return last ? { x: last.x, y: last.y } : { x: 0, y: GROUND_Y }
   }, [selected, questionIndex, pathTaken])
 
-  const cameraX = Math.min(0, -(avatarTarget.x - VIEW_ANCHOR_X))
+  // Anchored to the CURRENT question's zone center, not avatarTarget.x —
+  // the avatar's own position is wherever the previous question's chosen
+  // platform happened to be, which could be far outside the new zone on a
+  // narrow viewport. Centering the zone itself guarantees all 4 of the new
+  // question's platforms stay on-screen regardless of where the avatar is
+  // walking in from.
+  const zoneCenterX = zoneStartX(questionIndex) + (Math.min(...PLATFORM_X_IN_ZONE) + Math.max(...PLATFORM_X_IN_ZONE)) / 2
+  const cameraX = Math.min(0, -(zoneCenterX - VIEW_ANCHOR_X))
 
   const decorations = useMemo(
     () =>
