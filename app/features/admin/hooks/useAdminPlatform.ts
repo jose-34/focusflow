@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { desc, eq, isNotNull, ne, sql } from 'drizzle-orm'
 import { adminDb } from '@/db/admin'
 import {
@@ -10,10 +10,12 @@ import {
   institutions,
   quizAttempts,
   quizzes,
+  sessions,
   userAchievements,
   users,
 } from '@/db/schema'
 import { requireAdmin } from '@/features/auth/utils'
+import { seedPilotDemo, type SeedPilotDemoResult } from '@/db/seedPilotDemoCore'
 
 // Platform-wide aggregate reads for the admin console. Deliberately uses
 // adminDb (RLS bypass) rather than withRlsContext — every existing RLS
@@ -378,4 +380,57 @@ export function useInstitutions() {
 
 export function useAdminUsers() {
   return useQuery({ queryKey: ['admin', 'users'], queryFn: () => getAdminUsersFn() })
+}
+
+export interface SystemHealth {
+  databaseOk: boolean
+  databaseLatencyMs: number
+  activeSessionCount: number
+  expiredSessionCount: number
+  errorTrackingConfigured: boolean
+}
+
+// Real checks only — no fabricated "99.98% uptime" style numbers. Error
+// tracking genuinely isn't wired up anywhere in this codebase, so that's
+// reported as false rather than invented.
+export const getSystemHealthFn = createServerFn({ method: 'GET' }).handler(async (): Promise<SystemHealth> => {
+  await requireAdmin()
+
+  const dbCheckStart = Date.now()
+  let databaseOk = true
+  try {
+    await adminDb.select({ one: sql<number>`1` }).from(users).limit(1)
+  } catch {
+    databaseOk = false
+  }
+  const databaseLatencyMs = Date.now() - dbCheckStart
+
+  const [[{ count: activeSessionCount }], [{ count: expiredSessionCount }]] = await Promise.all([
+    adminDb.select({ count: sql<number>`count(*)::int` }).from(sessions).where(sql`${sessions.expiresAt} > now()`),
+    adminDb.select({ count: sql<number>`count(*)::int` }).from(sessions).where(sql`${sessions.expiresAt} <= now()`),
+  ])
+
+  return { databaseOk, databaseLatencyMs, activeSessionCount, expiredSessionCount, errorTrackingConfigured: false }
+})
+
+export function useSystemHealth() {
+  return useQuery({ queryKey: ['admin', 'health'], queryFn: () => getSystemHealthFn(), refetchInterval: 30000 })
+}
+
+// Re-runs the exact same seeding logic as `npm run db:seed-pilot-demo`,
+// callable from the admin console instead of requiring shell/CLI access —
+// same function, not a reimplementation, so the two can't drift.
+export const reseedPilotDemoFn = createServerFn({ method: 'POST' }).handler(async (): Promise<SeedPilotDemoResult> => {
+  await requireAdmin()
+  return seedPilotDemo()
+})
+
+export function useReseedPilotDemo() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => reseedPilotDemoFn(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin'] })
+    },
+  })
 }

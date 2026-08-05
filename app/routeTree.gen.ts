@@ -27,6 +27,7 @@ import { Route as AdminActivityRouteImport } from './routes/admin.activity'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminInstitutionsRouteImport } from './routes/admin.institutions'
 import { Route as AdminSessionsRouteImport } from './routes/admin.sessions'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as ClassesIndexRouteImport } from './routes/classes.index'
 import { Route as ClassesClassIdRouteImport } from './routes/classes.$classId'
@@ -133,6 +134,11 @@ const AdminInstitutionsRoute = AdminInstitutionsRouteImport.update({
 const AdminSessionsRoute = AdminSessionsRouteImport.update({
   id: '/admin/sessions',
   path: '/admin/sessions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
@@ -242,6 +248,7 @@ export interface FileRoutesByFullPath {
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/institutions': typeof AdminInstitutionsRoute
   '/admin/sessions': typeof AdminSessionsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRoute
   '/classes/$classId': typeof ClassesClassIdRouteWithChildren
   '/game/join': typeof GameJoinRoute
@@ -279,6 +286,7 @@ export interface FileRoutesByTo {
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/institutions': typeof AdminInstitutionsRoute
   '/admin/sessions': typeof AdminSessionsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRoute
   '/game/join': typeof GameJoinRoute
   '/quizzes/$quizId': typeof QuizzesQuizIdRoute
@@ -316,6 +324,7 @@ export interface FileRoutesById {
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/institutions': typeof AdminInstitutionsRoute
   '/admin/sessions': typeof AdminSessionsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRoute
   '/classes/$classId': typeof ClassesClassIdRouteWithChildren
   '/game/join': typeof GameJoinRoute
@@ -355,6 +364,7 @@ export interface FileRouteTypes {
     | '/admin/analytics'
     | '/admin/institutions'
     | '/admin/sessions'
+    | '/admin/settings'
     | '/admin/users'
     | '/classes/$classId'
     | '/game/join'
@@ -392,6 +402,7 @@ export interface FileRouteTypes {
     | '/admin/analytics'
     | '/admin/institutions'
     | '/admin/sessions'
+    | '/admin/settings'
     | '/admin/users'
     | '/game/join'
     | '/quizzes/$quizId'
@@ -428,6 +439,7 @@ export interface FileRouteTypes {
     | '/admin/analytics'
     | '/admin/institutions'
     | '/admin/sessions'
+    | '/admin/settings'
     | '/admin/users'
     | '/classes/$classId'
     | '/game/join'
@@ -466,6 +478,7 @@ export interface RootRouteChildren {
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminInstitutionsRoute: typeof AdminInstitutionsRoute
   AdminSessionsRoute: typeof AdminSessionsRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   AdminUsersRoute: typeof AdminUsersRoute
   ClassesClassIdRoute: typeof ClassesClassIdRouteWithChildren
   GameJoinRoute: typeof GameJoinRoute
@@ -608,6 +621,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/sessions'
       fullPath: '/admin/sessions'
       preLoaderRoute: typeof AdminSessionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/users': {
@@ -768,6 +788,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminInstitutionsRoute: AdminInstitutionsRoute,
   AdminSessionsRoute: AdminSessionsRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   AdminUsersRoute: AdminUsersRoute,
   ClassesClassIdRoute: ClassesClassIdRouteWithChildren,
   GameJoinRoute: GameJoinRoute,
