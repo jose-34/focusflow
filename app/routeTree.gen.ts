@@ -23,6 +23,9 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as WellnessRouteImport } from './routes/wellness'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminActivityRouteImport } from './routes/admin.activity'
+import { Route as AdminInstitutionsRouteImport } from './routes/admin.institutions'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as ClassesIndexRouteImport } from './routes/classes.index'
 import { Route as ClassesClassIdRouteImport } from './routes/classes.$classId'
 import { Route as GameJoinRouteImport } from './routes/game.join'
@@ -108,6 +111,21 @@ const WellnessRoute = WellnessRouteImport.update({
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminActivityRoute = AdminActivityRouteImport.update({
+  id: '/admin/activity',
+  path: '/admin/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminInstitutionsRoute = AdminInstitutionsRouteImport.update({
+  id: '/admin/institutions',
+  path: '/admin/institutions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClassesIndexRoute = ClassesIndexRouteImport.update({
@@ -208,6 +226,9 @@ export interface FileRoutesByFullPath {
   '/shop': typeof ShopRoute
   '/tasks': typeof TasksRoute
   '/wellness': typeof WellnessRoute
+  '/admin/activity': typeof AdminActivityRoute
+  '/admin/institutions': typeof AdminInstitutionsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/classes/$classId': typeof ClassesClassIdRouteWithChildren
   '/game/join': typeof GameJoinRoute
   '/quizzes/$quizId': typeof QuizzesQuizIdRoute
@@ -240,6 +261,9 @@ export interface FileRoutesByTo {
   '/shop': typeof ShopRoute
   '/tasks': typeof TasksRoute
   '/wellness': typeof WellnessRoute
+  '/admin/activity': typeof AdminActivityRoute
+  '/admin/institutions': typeof AdminInstitutionsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/game/join': typeof GameJoinRoute
   '/quizzes/$quizId': typeof QuizzesQuizIdRoute
   '/reports/$sessionId': typeof ReportsSessionIdRoute
@@ -272,6 +296,9 @@ export interface FileRoutesById {
   '/shop': typeof ShopRoute
   '/tasks': typeof TasksRoute
   '/wellness': typeof WellnessRoute
+  '/admin/activity': typeof AdminActivityRoute
+  '/admin/institutions': typeof AdminInstitutionsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/classes/$classId': typeof ClassesClassIdRouteWithChildren
   '/game/join': typeof GameJoinRoute
   '/quizzes/$quizId': typeof QuizzesQuizIdRoute
@@ -306,6 +333,9 @@ export interface FileRouteTypes {
     | '/shop'
     | '/tasks'
     | '/wellness'
+    | '/admin/activity'
+    | '/admin/institutions'
+    | '/admin/users'
     | '/classes/$classId'
     | '/game/join'
     | '/quizzes/$quizId'
@@ -338,6 +368,9 @@ export interface FileRouteTypes {
     | '/shop'
     | '/tasks'
     | '/wellness'
+    | '/admin/activity'
+    | '/admin/institutions'
+    | '/admin/users'
     | '/game/join'
     | '/quizzes/$quizId'
     | '/reports/$sessionId'
@@ -369,6 +402,9 @@ export interface FileRouteTypes {
     | '/shop'
     | '/tasks'
     | '/wellness'
+    | '/admin/activity'
+    | '/admin/institutions'
+    | '/admin/users'
     | '/classes/$classId'
     | '/game/join'
     | '/quizzes/$quizId'
@@ -402,6 +438,9 @@ export interface RootRouteChildren {
   ShopRoute: typeof ShopRoute
   TasksRoute: typeof TasksRoute
   WellnessRoute: typeof WellnessRoute
+  AdminActivityRoute: typeof AdminActivityRoute
+  AdminInstitutionsRoute: typeof AdminInstitutionsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
   ClassesClassIdRoute: typeof ClassesClassIdRouteWithChildren
   GameJoinRoute: typeof GameJoinRoute
   QuizzesQuizIdRoute: typeof QuizzesQuizIdRoute
@@ -515,6 +554,27 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/activity': {
+      id: '/admin/activity'
+      path: '/admin/activity'
+      fullPath: '/admin/activity'
+      preLoaderRoute: typeof AdminActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/institutions': {
+      id: '/admin/institutions'
+      path: '/admin/institutions'
+      fullPath: '/admin/institutions'
+      preLoaderRoute: typeof AdminInstitutionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/classes/': {
@@ -664,6 +724,9 @@ const rootRouteChildren: RootRouteChildren = {
   ShopRoute: ShopRoute,
   TasksRoute: TasksRoute,
   WellnessRoute: WellnessRoute,
+  AdminActivityRoute: AdminActivityRoute,
+  AdminInstitutionsRoute: AdminInstitutionsRoute,
+  AdminUsersRoute: AdminUsersRoute,
   ClassesClassIdRoute: ClassesClassIdRouteWithChildren,
   GameJoinRoute: GameJoinRoute,
   QuizzesQuizIdRoute: QuizzesQuizIdRoute,

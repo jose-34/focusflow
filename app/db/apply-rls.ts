@@ -557,6 +557,17 @@ const policies: Array<RlsPolicy> = [
   { table: 'curricula', name: 'curricula_select', for: 'select', using: 'true' },
   { table: 'subjects', name: 'subjects_select', for: 'select', using: 'true' },
 
+  // --- Institutions: admin-only reference data, seeded via adminDb. Not
+  // world-readable like curricula — a student/teacher has no reason to
+  // browse other institutions, only the admin platform dashboard does. ---
+  { table: 'institutions', name: 'institutions_select', for: 'select', using: "fn_has_role('admin')" },
+
+  // --- Audit log: admin-only read, per docs/15_Security_Privacy.md — not
+  // even the actor who wrote a row can read it back except as an admin.
+  // Writes only ever happen via adminDb (logAuditEvent()), never through
+  // this policy (no insert/update/delete policy exists — default-deny). ---
+  { table: 'audit_log', name: 'audit_log_select', for: 'select', using: "fn_has_role('admin')" },
+
   // --- Classes: teacher owns; enrolled students can read ---
   {
     table: 'classes',

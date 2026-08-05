@@ -1,8 +1,9 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { BookOpen, CheckCircle2, ListChecks, Plus, Sparkles } from 'lucide-react'
+import { Activity, BookOpen, CheckCircle2, GraduationCap, ListChecks, Plus, Radio, Sparkles, Timer, Users } from 'lucide-react'
 import { getCurrentUserFn, useAuth } from '@/features/auth/hooks/useAuth'
 import { getAdminContentListFn } from '@/features/quizzes/hooks/useQuizzes'
+import { usePlatformOverview, useSystemActivityFeed } from '@/features/admin/hooks/useAdminPlatform'
 import { DashboardShell, StatGrid } from '@/components/dashboard/DashboardShell'
 import { StatCard } from '@/components/dashboard/StatCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,36 +23,76 @@ export const Route = createFileRoute('/admin/')({
   component: AdminOverviewPage,
 })
 
+function timeAgo(iso: string): string {
+  const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000))
+  if (seconds < 60) return 'just now'
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.round(hours / 24)}d ago`
+}
+
 function AdminOverviewPage() {
   const { user } = useAuth()
-  const { data, isLoading } = useQuery({
+  const { data: overview, isLoading: overviewLoading } = usePlatformOverview()
+  const { data: feed, isLoading: feedLoading } = useSystemActivityFeed()
+  const { data: content, isLoading: contentLoading } = useQuery({
     queryKey: ['quizzes', 'admin-content'],
     queryFn: () => getAdminContentListFn(),
   })
 
-  const quizzes = data ?? []
-  const publishedCount = quizzes.filter((q) => q.isPublished).length
-  const questionCount = quizzes.reduce((sum, q) => sum + q.questionCount, 0)
+  const quizzes = content ?? []
 
   return (
     <DashboardShell
       title={`Welcome back, ${user?.firstName}`}
-      subtitle="Manage the public content library shown on the landing page and to every student."
+      subtitle="Platform overview: who's on FocusFlow, what's happening, and whether the system is healthy."
       decorated={false}
     >
-      {isLoading ? (
+      {overviewLoading ? (
         <div className="h-24 animate-pulse rounded-md bg-secondary" />
       ) : (
-        <StatGrid>
-          <StatCard label="Public Quizzes" value={quizzes.length} icon={BookOpen} delay={0} />
-          <StatCard label="Published" value={publishedCount} icon={CheckCircle2} delay={0.05} />
-          <StatCard label="Total Questions" value={questionCount} icon={ListChecks} delay={0.1} />
-        </StatGrid>
+        overview && (
+          <StatGrid>
+            <StatCard label="Students" value={overview.totalStudents} icon={Users} delay={0} />
+            <StatCard label="Teachers" value={overview.totalTeachers} icon={GraduationCap} delay={0.05} />
+            <StatCard label="Institutions" value={overview.totalInstitutions} icon={BookOpen} delay={0.1} />
+            <StatCard label="Classes" value={overview.totalClasses} icon={ListChecks} delay={0.15} />
+            <StatCard label="Activities" value={overview.totalActivities} icon={CheckCircle2} delay={0.2} />
+            <StatCard label="Focus Sessions" value={overview.totalFocusSessions} icon={Timer} delay={0.25} />
+            <StatCard label="Live Sessions Now" value={overview.activeLiveSessions} icon={Radio} delay={0.3} />
+            <StatCard label="Completion Rate" value={`${overview.completionRate}%`} icon={Activity} delay={0.35} />
+          </StatGrid>
+        )
       )}
 
       <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 font-heading text-foreground">
+            <Activity className="size-4" />
+            System Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1.5">
+          {feedLoading ? (
+            <div className="h-24 animate-pulse rounded-md bg-secondary" />
+          ) : !feed || feed.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">No platform activity yet.</p>
+          ) : (
+            feed.map((entry) => (
+              <div key={entry.id} className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                <span className="text-foreground">{entry.summary}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(entry.timestamp)}</span>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="font-heading text-foreground">Recent Content</CardTitle>
+          <CardTitle className="font-heading text-foreground">Content Library</CardTitle>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" className="gap-2" asChild>
               <Link to="/admin/content/new">
@@ -68,7 +109,9 @@ function AdminOverviewPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-2">
-          {quizzes.length === 0 ? (
+          {contentLoading ? (
+            <div className="h-16 animate-pulse rounded-md bg-secondary" />
+          ) : quizzes.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               No public content yet. Create your first quiz for the landing page and student dashboards.
             </p>

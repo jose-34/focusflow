@@ -13,10 +13,14 @@ const adminClient = postgres(process.env.DATABASE_ADMIN_URL, {
 })
 
 /**
- * Bypasses RLS (connects as the Postgres superuser). Reserved for the auth
- * flows that inherently need cross-user access before any user context can
- * exist yet: looking a user up by email at login, validating a session by
- * its token, and creating the initial row for a brand-new registrant. Every
- * other feature query must go through `db` + `withRlsContext` in `app/db/index.ts`.
+ * Bypasses RLS (connects as the Postgres superuser). Two legitimate uses:
+ * (1) the auth flows that inherently need cross-user access before any user
+ * context can exist yet — looking a user up by email at login, validating a
+ * session by its token, creating the initial row for a new registrant; (2)
+ * the admin platform console (`app/features/admin/`), which by design needs
+ * a genuine cross-user view no RLS policy grants (every existing policy
+ * scopes to "your own rows", none carve out a blanket admin bypass) — always
+ * gated by `requireAdmin()` first. Every other feature query must go through
+ * `db` + `withRlsContext` in `app/db/index.ts`.
  */
 export const adminDb = drizzle(adminClient, { schema })

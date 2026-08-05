@@ -5,8 +5,28 @@ import { quizAnswerChoices, quizAnswers, quizAttempts, quizChoices, quizQuestion
 import { gameAnswers, gameParticipants, gameSessions } from './game_sessions'
 import { taskTemplates } from './task_templates'
 import { tasks } from './tasks'
+import { userAchievements } from './user_achievements'
 import { users } from './users'
+import { institutions } from './institutions'
 import { shopItems, userEquippedItems, userOwnedItems } from './economy'
+
+export const institutionsRelations = relations(institutions, ({ many }) => ({
+  users: many(users),
+}))
+
+export const usersRelations = relations(users, ({ one }) => ({
+  institution: one(institutions, {
+    fields: [users.institutionId],
+    references: [institutions.id],
+  }),
+}))
+
+export const userAchievementsRelations = relations(userAchievements, ({ one }) => ({
+  user: one(users, {
+    fields: [userAchievements.userId],
+    references: [users.id],
+  }),
+}))
 
 export const taskTemplatesRelations = relations(taskTemplates, ({ one, many }) => ({
   class: one(classes, {

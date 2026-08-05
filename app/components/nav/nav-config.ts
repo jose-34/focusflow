@@ -1,4 +1,4 @@
-import { BookOpen, ChartColumn, ClipboardList, Coins, Gamepad2, GraduationCap, Heart, LayoutDashboard, Library, ListTodo, Map, Settings, Timer, Trophy } from 'lucide-react'
+import { Activity, BookOpen, Building2, ChartColumn, ClipboardList, Coins, Gamepad2, GraduationCap, Heart, LayoutDashboard, Library, ListTodo, Map, Settings, Timer, Trophy, Users } from 'lucide-react'
 
 export interface NavLink {
   to: string
@@ -32,9 +32,14 @@ export const studentNavLinks: Array<NavLink> = [
 ]
 
 // Deliberately its own short list, not `sharedLinks` — an admin doesn't
-// have tasks/focus sessions/wellness of their own to manage here.
+// have tasks/focus sessions/wellness of their own to manage here. This is
+// a platform-operations console (users, institutions, system activity),
+// distinct in structure from the teacher/student nav, not a relabeled copy.
 export const adminNavLinks: Array<NavLink> = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard },
+  { to: '/admin/users', label: 'Users', icon: Users },
+  { to: '/admin/institutions', label: 'Institutions', icon: Building2 },
+  { to: '/admin/activity', label: 'System Activity', icon: Activity },
   { to: '/admin/content', label: 'Content Library', icon: BookOpen },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]

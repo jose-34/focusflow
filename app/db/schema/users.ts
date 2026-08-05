@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { check, index, integer, pgEnum, pgPolicy, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { institutions } from './institutions'
 
 export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'suspended'])
 // 'admin' is deliberately never selectable on public /register — see
@@ -15,6 +16,9 @@ export const users = pgTable(
     firstName: text('first_name').notNull(),
     lastName: text('last_name').notNull(),
     role: userRoleEnum('role').notNull().default('student'),
+    // Nullable — most accounts (independent teachers/students) have none.
+    // Only used today to scope the admin dashboard's institution drill-down.
+    institutionId: uuid('institution_id').references(() => institutions.id, { onDelete: 'set null' }),
     gradeLevel: integer('grade_level'),
     // Student play-experience language (game/quiz-taking UI strings only —
     // see app/features/i18n). Nullable: falls back to localStorage, then
@@ -38,6 +42,7 @@ export const users = pgTable(
       'users_grade_level_range',
       sql`${table.gradeLevel} IS NULL OR (${table.gradeLevel} >= 4 AND ${table.gradeLevel} <= 12)`,
     ),
+    index('users_institution_id_idx').on(table.institutionId),
     pgPolicy('users_self_access', {
       for: 'all',
       using: sql`nullif(current_setting('app.user_id', true), '')::uuid = ${table.id}`,

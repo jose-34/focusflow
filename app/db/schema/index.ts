@@ -1,3 +1,4 @@
+export * from './institutions'
 export * from './users'
 export * from './curricula'
 export * from './classes'
