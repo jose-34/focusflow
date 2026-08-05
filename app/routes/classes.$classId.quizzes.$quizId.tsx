@@ -1,17 +1,19 @@
 import { useState } from 'react'
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, Gamepad2, LoaderCircle, Plus, Timer, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, Eye, Gamepad2, LoaderCircle, Plus, Timer, Trash2 } from 'lucide-react'
 import { getCurrentUserFn, useAuth } from '@/features/auth/hooks/useAuth'
 import { useAssignmentInsights, useQuizAuthoring } from '@/features/quizzes/hooks/useQuizzes'
 import { QuestionForm } from '@/features/quizzes/components/QuestionForm'
 import { AIQuestionGenerator } from '@/features/quizzes/components/AIQuestionGenerator'
 import { QuizTakingView } from '@/features/quizzes/components/QuizTakingView'
+import { QuizPreview } from '@/features/quizzes/components/QuizPreview'
 import { useCreateGameSession } from '@/features/games/hooks/useGames'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/classes/$classId/quizzes/$quizId')({
@@ -159,6 +161,20 @@ function TeacherQuizView({ classId, quizId }: { classId: string; quizId: string 
               {isTogglingVisibility && <LoaderCircle className="mr-1 size-3.5 animate-spin" />}
               {quiz.visibility === 'public' ? 'Make Private' : 'Publish to Public'}
             </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5" disabled={quiz.questions.length === 0}>
+                  <Eye className="size-3.5" />
+                  Preview
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{quiz.title}</DialogTitle>
+                </DialogHeader>
+                <QuizPreview quizId={quizId} />
+              </DialogContent>
+            </Dialog>
             <Button
               size="sm"
               onClick={handleHostLiveGame}

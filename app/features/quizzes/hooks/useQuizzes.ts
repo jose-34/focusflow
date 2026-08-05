@@ -19,6 +19,7 @@ import {
   generateQuestionsSchema,
   submitQuizSchema,
   toggleVisibilitySchema,
+  updateQuizDueDateSchema,
   type CreateQuestionInput,
   type GenerateAdminQuizFromDocumentInput,
   type GenerateAdminQuizFromTopicInput,
@@ -628,6 +629,25 @@ export const toggleVisibilityFn = createServerFn({ method: 'POST' })
     })
   })
 
+export const updateQuizDueDateFn = createServerFn({ method: 'POST' })
+  .validator(updateQuizDueDateSchema)
+  .handler(async ({ data }) => {
+    const user = await requireUser()
+    if (user.role !== 'teacher' && user.role !== 'admin') {
+      throw new Error('Only teachers and admins can assign quizzes')
+    }
+
+    return withRlsContext(user.id, async (tx) => {
+      const [quiz] = await tx
+        .update(quizzes)
+        .set({ dueDate: data.dueDate ? new Date(data.dueDate) : null, updatedAt: new Date() })
+        .where(eq(quizzes.id, data.quizId))
+        .returning()
+      if (!quiz) throw new Error('Quiz not found')
+      return quiz
+    })
+  })
+
 export interface QuizAuthoringChoice {
   id: string
   choiceText: string
@@ -1092,11 +1112,20 @@ export function useQuizzes(classId: string) {
     },
   })
 
+  const updateDueDateMutation = useMutation({
+    mutationFn: (input: { quizId: string; dueDate: string | null }) => updateQuizDueDateFn({ data: input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quizzes', classId] })
+    },
+  })
+
   return {
     quizzes: quizzes ?? [],
     isLoading,
     createQuiz: createMutation.mutateAsync,
     isCreating: createMutation.isPending,
+    updateDueDate: updateDueDateMutation.mutateAsync,
+    isUpdatingDueDate: updateDueDateMutation.isPending,
   }
 }
 

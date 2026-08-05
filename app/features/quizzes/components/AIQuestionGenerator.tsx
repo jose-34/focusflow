@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { Sparkles, Upload } from 'lucide-react'
 import { useGenerateQuestionsFromDocument } from '@/features/quizzes/hooks/useQuizzes'
 import { ACCEPTED_EXTENSIONS, fileToBase64, validateDocumentFile } from '@/features/quizzes/documentUpload'
+import { AIProcessingScreen } from '@/features/quizzes/components/AIProcessingScreen'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -54,41 +55,24 @@ export function AIQuestionGenerator({ quizId }: { quizId: string }) {
       <p className="text-xs text-muted-foreground">
         Upload a PDF, Word doc, text file, or image — AI reads it and adds multiple-choice questions to this quiz.
       </p>
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex-1 space-y-2" style={{ minWidth: 200 }}>
-          <Label htmlFor="ai-doc-upload">Document</Label>
-          <Input
-            id="ai-doc-upload"
-            ref={fileInputRef}
-            type="file"
-            accept={ACCEPTED_EXTENSIONS}
-            onChange={handleFileChange}
-            disabled={isPending}
-          />
+      {isPending ? (
+        <AIProcessingScreen />
+      ) : (
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 space-y-2" style={{ minWidth: 200 }}>
+            <Label htmlFor="ai-doc-upload">Document</Label>
+            <Input id="ai-doc-upload" ref={fileInputRef} type="file" accept={ACCEPTED_EXTENSIONS} onChange={handleFileChange} />
+          </div>
+          <div className="w-24 space-y-2">
+            <Label htmlFor="ai-question-count">Questions</Label>
+            <Input id="ai-question-count" type="number" min={1} max={20} value={questionCount} onChange={(e) => setQuestionCount(e.target.value)} />
+          </div>
+          <Button size="sm" className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleGenerate} disabled={!file}>
+            <Upload className="size-3.5" />
+            Generate Questions
+          </Button>
         </div>
-        <div className="w-24 space-y-2">
-          <Label htmlFor="ai-question-count">Questions</Label>
-          <Input
-            id="ai-question-count"
-            type="number"
-            min={1}
-            max={20}
-            value={questionCount}
-            onChange={(e) => setQuestionCount(e.target.value)}
-            disabled={isPending}
-          />
-        </div>
-        <Button
-          size="sm"
-          className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
-          onClick={handleGenerate}
-          disabled={!file || isPending}
-        >
-          <Upload className="size-3.5" />
-          {isPending ? 'Generating…' : 'Generate Questions'}
-        </Button>
-      </div>
-      {isPending && <p className="text-xs text-muted-foreground">This can take up to 30 seconds for longer documents.</p>}
+      )}
     </div>
   )
 }

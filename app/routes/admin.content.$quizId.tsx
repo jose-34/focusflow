@@ -1,14 +1,16 @@
 import { useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { ArrowLeft, CheckCircle2, LoaderCircle, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Eye, LoaderCircle, Plus, Trash2 } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
 import { useQuizAuthoring } from '@/features/quizzes/hooks/useQuizzes'
 import { QuestionForm } from '@/features/quizzes/components/QuestionForm'
 import { AIQuestionGenerator } from '@/features/quizzes/components/AIQuestionGenerator'
+import { QuizPreview } from '@/features/quizzes/components/QuizPreview'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/admin/content/$quizId')({
@@ -90,6 +92,20 @@ function AdminQuizDetailPage() {
               <div className="text-lg font-semibold text-foreground">{quiz.questions.length}</div>
               <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Questions</div>
             </div>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5" disabled={quiz.questions.length === 0}>
+                  <Eye className="size-3.5" />
+                  Preview
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{quiz.title}</DialogTitle>
+                </DialogHeader>
+                <QuizPreview quizId={quizId} />
+              </DialogContent>
+            </Dialog>
             <Button
               variant="outline"
               size="sm"

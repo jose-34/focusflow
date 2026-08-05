@@ -67,6 +67,13 @@ export const toggleVisibilitySchema = z.object({
 
 export type ToggleVisibilityInput = z.infer<typeof toggleVisibilitySchema>
 
+export const updateQuizDueDateSchema = z.object({
+  quizId: z.string().uuid(),
+  dueDate: z.string().nullable(),
+})
+
+export type UpdateQuizDueDateInput = z.infer<typeof updateQuizDueDateSchema>
+
 export const ACCEPTED_DOCUMENT_MIME_TYPES = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

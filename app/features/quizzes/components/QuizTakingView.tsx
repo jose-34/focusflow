@@ -40,7 +40,7 @@ function seededShuffle(items: Array<string>): Array<string> {
   return result.join('|') === items.join('|') && result.length > 1 ? [result[1], result[0], ...result.slice(2)] : result
 }
 
-function ReorderTaker({ steps, value, disabled, onChange }: { steps: Array<string>; value: Array<string> | undefined; disabled: boolean; onChange: (order: Array<string>) => void }) {
+export function ReorderTaker({ steps, value, disabled, onChange }: { steps: Array<string>; value: Array<string> | undefined; disabled: boolean; onChange: (order: Array<string>) => void }) {
   // Never display `steps` (the correct order) directly — that would leak
   // the answer. Shuffle once per question, then let the student rearrange
   // from there; record the shuffled starting order as their answer even if
@@ -81,7 +81,7 @@ function ReorderTaker({ steps, value, disabled, onChange }: { steps: Array<strin
   )
 }
 
-function MatchTaker({
+export function MatchTaker({
   pairs,
   value,
   disabled,
@@ -129,7 +129,7 @@ function MatchTaker({
   )
 }
 
-function CategorizeTaker({
+export function CategorizeTaker({
   config,
   value,
   disabled,
@@ -176,7 +176,7 @@ function CategorizeTaker({
   )
 }
 
-function TableFillTaker({
+export function TableFillTaker({
   config,
   value,
   disabled,
