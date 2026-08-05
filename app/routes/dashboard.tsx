@@ -283,7 +283,7 @@ function TeacherDashboard({ data }: { data: TeacherDashboardData }) {
                 key={s.id}
                 to="/game/host/$sessionId"
                 params={{ sessionId: s.id }}
-                className="flex items-center justify-between rounded-md border border-primary/30 bg-background px-3 py-2 transition-colors hover:bg-secondary/50"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/30 bg-background px-3 py-2 transition-colors hover:bg-secondary/50"
               >
                 <span className="text-sm font-medium text-foreground">{s.quizTitle}</span>
                 <span className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -307,7 +307,7 @@ function TeacherDashboard({ data }: { data: TeacherDashboardData }) {
               const notStarted = Math.max(0, a.assignedCount - a.completedCount - a.inProgressCount)
               return (
                 <div key={a.id} className="rounded-md border border-border bg-background px-3 py-2.5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-1">
                     <p className="text-sm font-medium text-foreground">{a.title}</p>
                     <span className="text-xs text-muted-foreground">{a.className}</span>
                   </div>
@@ -337,7 +337,7 @@ function TeacherDashboard({ data }: { data: TeacherDashboardData }) {
                 key={cls.id}
                 to="/classes/$classId"
                 params={{ classId: cls.id }}
-                className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 transition-colors hover:bg-secondary/50"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 transition-colors hover:bg-secondary/50"
               >
                 <div>
                   <p className="text-sm font-medium text-foreground">{cls.name}</p>
@@ -345,7 +345,7 @@ function TeacherDashboard({ data }: { data: TeacherDashboardData }) {
                     <ClassBadges cls={cls} />
                   </div>
                 </div>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
                   <Users className="size-3.5" />
                   {cls.studentCount} students
                 </span>

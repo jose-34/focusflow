@@ -73,7 +73,7 @@ function AdminSessionsPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground sm:flex-nowrap">
                   <span className="flex items-center gap-1">
                     <CalendarClock className="size-3.5" />
                     {formatDate(s.date)}

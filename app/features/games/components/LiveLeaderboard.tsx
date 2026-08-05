@@ -37,19 +37,19 @@ export function LiveLeaderboard({
               entry.id === highlightId && 'border-accent bg-accent/10',
             )}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <span
                 className={cn(
-                  'flex size-6 items-center justify-center rounded-full text-xs font-bold',
+                  'flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold',
                   index === 0 ? 'bg-accent text-accent-foreground' : 'bg-secondary text-muted-foreground',
                 )}
               >
                 {index === 0 ? <Crown className="size-3.5" /> : index + 1}
               </span>
               {entry.sprites && <AvatarDisplay sprites={entry.sprites} size="sm" />}
-              <span className="text-sm font-medium text-foreground">{entry.nickname}</span>
+              <span className="truncate text-sm font-medium text-foreground">{entry.nickname}</span>
             </div>
-            <span className="font-heading text-sm font-bold text-foreground">{entry.score.toLocaleString()}</span>
+            <span className="shrink-0 font-heading text-sm font-bold text-foreground">{entry.score.toLocaleString()}</span>
           </motion.div>
         ))}
       </AnimatePresence>
