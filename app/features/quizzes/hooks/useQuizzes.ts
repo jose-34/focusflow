@@ -924,6 +924,60 @@ export const getAssignmentInsightsFn = createServerFn({ method: 'POST' })
     })
   })
 
+export interface QuizAssignmentSummary {
+  id: string
+  classId: string
+  title: string
+  className: string
+  dueDate: string
+  isPublished: boolean
+  assignedCount: number
+  completedCount: number
+  inProgressCount: number
+}
+
+// Reports needs a unified "everything a teacher assigned" list, not just
+// live-game sessions (usePastGameSessions covers those). Mirrors
+// dashboard.tsx's getDashboardDataFn teacher-branch dueDatedQuizzes query
+// exactly (same shape, same reasoning) but without its limit(5) — this is
+// the full history view, not a dashboard preview widget.
+export const getTeacherQuizAssignmentsFn = createServerFn({ method: 'GET' }).handler(async (): Promise<Array<QuizAssignmentSummary>> => {
+  const user = await requireUser()
+
+  return withRlsContext(user.id, async (tx) => {
+    const teacherClasses = await tx.query.classes.findMany({
+      where: (c, { eq: eqOp }) => eqOp(c.teacherId, user.id),
+    })
+    const classIds = teacherClasses.map((c) => c.id)
+    if (classIds.length === 0) return []
+
+    const dueDatedQuizzes = await tx.query.quizzes.findMany({
+      where: (q, { inArray: inArrayOp, isNotNull, and: andOp }) => andOp(inArrayOp(q.classId, classIds), isNotNull(q.dueDate)),
+      with: { class: { with: { enrollments: true } }, attempts: true },
+      orderBy: (q, { desc: descOp }) => descOp(q.dueDate),
+    })
+
+    return dueDatedQuizzes.map((q) => ({
+      id: q.id,
+      classId: q.classId!,
+      title: q.title,
+      className: q.class?.name ?? '',
+      dueDate: q.dueDate!.toISOString(),
+      isPublished: q.isPublished,
+      assignedCount: q.class?.enrollments.filter((e) => e.status === 'active').length ?? 0,
+      completedCount: q.attempts.filter((a) => a.submittedAt !== null).length,
+      inProgressCount: q.attempts.filter((a) => a.submittedAt === null).length,
+    }))
+  })
+})
+
+export function useTeacherQuizAssignments() {
+  return useQuery({
+    queryKey: ['quizzes', 'teacher-assignments'],
+    queryFn: () => getTeacherQuizAssignmentsFn(),
+  })
+}
+
 export const getQuizForStudentFn = createServerFn({ method: 'POST' })
   .validator(quizIdSchema)
   .handler(async ({ data }) => {

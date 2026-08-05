@@ -837,6 +837,20 @@ const policies: Array<RlsPolicy> = [
     withCheck: `${CU} = user_id`,
   },
   {
+    // Additional permissive INSERT path (OR'd with self_access above): the
+    // live-game finish flow runs under the HOST's RLS context and awards a
+    // flat completion bonus to every participant, not just the host awarding
+    // themselves — self_access alone rejected those inserts (confirmed live:
+    // "Failed query: insert into currency_ledger... " for every non-host
+    // participant). Scoped tightly to metadata.sessionId being a session the
+    // current user actually hosts, mirroring fn_game_session_owned_by_teacher
+    // exactly as used elsewhere for this same relationship.
+    table: 'currency_ledger',
+    name: 'currency_ledger_teacher_award_insert',
+    for: 'insert',
+    withCheck: `fn_game_session_owned_by_teacher((metadata->>'sessionId')::uuid)`,
+  },
+  {
     // World-readable catalog, same pattern as curricula/subjects — no
     // insert/update/delete policy, admin-seeded only via adminDb.
     table: 'shop_items',
