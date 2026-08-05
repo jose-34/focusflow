@@ -49,6 +49,9 @@ const en = {
   'taking.pts': 'pts',
   'taking.focusOn': 'Focus on',
   'taking.reward': 'Reward',
+  'taking.howFeelingBefore': 'How are you feeling? (optional)',
+  'taking.howFeelingAfter': 'How do you feel now?',
+  'taking.moodThanks': 'Thanks for sharing',
 }
 
 export default en

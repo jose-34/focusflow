@@ -49,6 +49,9 @@ const sw: Record<TranslationKey, string> = {
   'taking.pts': 'alama',
   'taking.focusOn': 'Lenga kwenye',
   'taking.reward': 'Zawadi',
+  'taking.howFeelingBefore': 'Unajisikiaje? (hiari)',
+  'taking.howFeelingAfter': 'Sasa unajisikiaje?',
+  'taking.moodThanks': 'Asante kwa kushiriki',
 }
 
 export default sw

@@ -7,6 +7,8 @@ import { useTranslation } from '@/features/i18n/I18nContext'
 import { endFocusSessionFn, reportFocusHeartbeatFn, startAssignmentFn } from '@/features/focusMode'
 import { ACHIEVEMENT_MAP } from '@/features/achievements/definitions'
 import { useCelebration } from '@/features/celebration/CelebrationContext'
+import { useWellness } from '@/features/wellness/hooks/useWellness'
+import { MoodPicker } from '@/features/wellness/components/MoodPicker'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -217,12 +219,15 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
   const { quiz, isLoading, startAttempt, isStarting, submitQuiz, isSubmitting } = useQuizTaking(quizId)
   const { celebrate } = useCelebration()
   const { t } = useTranslation()
+  const { checkIn: logMood } = useWellness()
   const [answers, setAnswers] = useState<Record<string, LocalAnswer>>({})
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
   const [isStartingQuiz, setIsStartingQuiz] = useState(false)
   const [focusSessionId, setFocusSessionId] = useState<string | null>(null)
   const [verifiedMinutes, setVerifiedMinutes] = useState<number | null>(null)
   const [focusHeartbeatError, setFocusHeartbeatError] = useState<string | null>(null)
+  const [preMood, setPreMood] = useState<number | null>(null)
+  const [postMood, setPostMood] = useState<number | null>(null)
 
   const hasSubmitted = !!quiz?.attempt?.submittedAt
 
@@ -277,6 +282,8 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
 
   async function handleStart() {
     setIsStartingQuiz(true)
+    // Best-effort — an optional mood check should never block starting the quiz.
+    if (preMood) logMood({ mood: preMood }).catch(() => {})
     try {
       const startResult = await startAssignmentFn({ data: { quizId, startMethod: 'web' } })
       setFocusSessionId(startResult.sessionId)
@@ -380,11 +387,23 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
 
       {hasSubmitted && (
         <Card className="mb-6 border-primary/30 bg-primary/5">
-          <CardContent className="flex items-center justify-between py-4">
-            <span className="text-sm font-medium text-foreground">{t('taking.yourScore')}</span>
-            <Badge className="text-sm">
-              {quiz.attempt!.score}/{quiz.attempt!.maxScore}
-            </Badge>
+          <CardContent className="space-y-3 py-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">{t('taking.yourScore')}</span>
+              <Badge className="text-sm">
+                {quiz.attempt!.score}/{quiz.attempt!.maxScore}
+              </Badge>
+            </div>
+            <div className="flex flex-col items-center gap-2 border-t border-primary/20 pt-3">
+              <p className="text-xs text-muted-foreground">{postMood ? t('taking.moodThanks') : t('taking.howFeelingAfter')}</p>
+              <MoodPicker
+                value={postMood}
+                onChange={(mood) => {
+                  setPostMood(mood)
+                  logMood({ mood }).catch(() => {})
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
       )}
@@ -404,6 +423,10 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
                 <Sparkles className="size-3.5" />
                 {t('taking.reward')} +{quiz.questions.reduce((sum, q) => sum + q.points, 0)} XP
               </span>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-xs text-muted-foreground">{t('taking.howFeelingBefore')}</p>
+              <MoodPicker value={preMood} onChange={setPreMood} />
             </div>
             <Button onClick={handleStart} disabled={isStarting || isStartingQuiz} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
               {(isStarting || isStartingQuiz) && <LoaderCircle className="size-4 animate-spin" />}
