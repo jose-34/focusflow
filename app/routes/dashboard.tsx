@@ -12,6 +12,7 @@ import { usePublicQuizzes } from '@/features/quizzes/hooks/usePublicQuizzes'
 import { useMyEquippedSprites } from '@/features/economy/hooks/useEconomy'
 import { AvatarDisplay } from '@/features/economy/components/AvatarDisplay'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DashboardShell, StatGrid } from '@/components/dashboard/DashboardShell'
 import { StatCard } from '@/components/dashboard/StatCard'
@@ -162,8 +163,13 @@ const getDashboardDataFn = createServerFn({ method: 'GET' }).handler(async (): P
       } satisfies TeacherDashboardData
     }
 
+    // Only active enrollments: a dropped enrollment's class is invisible
+    // under RLS to this student (fn_is_class_student requires status =
+    // 'active'), so e.class would come back null here and crash the map
+    // below — filtering at the query keeps that invariant from ever being
+    // violated, and matches what "My Classes" should show anyway.
     const myEnrollments = await tx.query.enrollments.findMany({
-      where: (e, { eq: eqOp }) => eqOp(e.studentId, user.id),
+      where: (e, { eq: eqOp, and: andOp }) => andOp(eqOp(e.studentId, user.id), eqOp(e.status, 'active')),
       with: { class: { with: { curriculum: true, subject: true } } },
     })
 
@@ -208,12 +214,23 @@ export const Route = createFileRoute('/dashboard')({
 
 function DashboardPage() {
   const { user } = useAuth()
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboard', user?.id],
     queryFn: () => getDashboardDataFn(),
     enabled: !!user,
   })
   const { data: equippedSprites } = useMyEquippedSprites()
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-10 text-center">
+        <p className="text-sm text-muted-foreground">Something went wrong loading your dashboard.</p>
+        <Button variant="outline" className="mt-4" onClick={() => refetch()}>
+          Try again
+        </Button>
+      </div>
+    )
+  }
 
   if (isLoading || !data) {
     return (
