@@ -3,7 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { getCookie } from '@tanstack/react-start/server'
 import { useQuery } from '@tanstack/react-query'
 import { and, count, countDistinct, desc, eq, gte, inArray, sql } from 'drizzle-orm'
-import { Compass, GraduationCap, ListChecks, Timer, Trophy, Users } from 'lucide-react'
+import { Compass, GraduationCap, ListChecks, Radio, Timer, Trophy, Users } from 'lucide-react'
 import { withRlsContext } from '@/db'
 import { enrollments, focusSessions, quizAttempts, quizzes, userAchievements, users } from '@/db/schema'
 import { authService } from '@/features/auth/services/auth.service'
@@ -38,6 +38,20 @@ interface TeacherDashboardData {
     quizTitle: string
     score: number | null
     maxScore: number
+  }>
+  activeSessions: Array<{
+    id: string
+    quizTitle: string
+    status: 'lobby' | 'question' | 'reveal'
+    participantCount: number
+  }>
+  todaysActivities: Array<{
+    id: string
+    title: string
+    className: string
+    assignedCount: number
+    completedCount: number
+    inProgressCount: number
   }>
 }
 
@@ -97,6 +111,22 @@ const getDashboardDataFn = createServerFn({ method: 'GET' }).handler(async (): P
               .orderBy(desc(quizAttempts.startedAt))
               .limit(10)
 
+      const activeSessionRows = await tx.query.gameSessions.findMany({
+        where: (gs, { eq: eqOp, and: andOp, ne: neOp }) => andOp(eqOp(gs.hostId, user.id), neOp(gs.status, 'finished')),
+        with: { quiz: true, participants: true },
+        orderBy: (gs, { desc: descOp }) => descOp(gs.createdAt),
+      })
+
+      const dueDatedQuizzes =
+        classIds.length === 0
+          ? []
+          : await tx.query.quizzes.findMany({
+              where: (q, { inArray: inArrayOp, isNotNull, and: andOp }) => andOp(inArrayOp(q.classId, classIds), isNotNull(q.dueDate)),
+              with: { class: { with: { enrollments: true } }, attempts: true },
+              orderBy: (q, { desc: descOp }) => descOp(q.dueDate),
+              limit: 5,
+            })
+
       return {
         role: 'teacher',
         classes: teacherClasses.map((cls) => ({
@@ -117,6 +147,18 @@ const getDashboardDataFn = createServerFn({ method: 'GET' }).handler(async (): P
           score: row.score,
           maxScore: row.maxScore,
         })),
+        activeSessions: activeSessionRows.map((s) => ({
+          id: s.id,
+          quizTitle: s.quiz.title,
+          status: s.status as 'lobby' | 'question' | 'reveal',
+          participantCount: s.participants.length,
+        })),
+        todaysActivities: dueDatedQuizzes.map((q) => {
+          const assignedCount = q.class?.enrollments.filter((e) => e.status === 'active').length ?? 0
+          const completedCount = q.attempts.filter((a) => a.submittedAt !== null).length
+          const inProgressCount = q.attempts.filter((a) => a.submittedAt === null).length
+          return { id: q.id, title: q.title, className: q.class?.name ?? '', assignedCount, completedCount, inProgressCount }
+        }),
       } satisfies TeacherDashboardData
     }
 
@@ -225,6 +267,62 @@ function TeacherDashboard({ data }: { data: TeacherDashboardData }) {
         <StatCard label="Total Students" value={data.totalStudentCount} icon={Users} delay={0.05} />
         <StatCard label="Quizzes Created" value={data.totalQuizCount} icon={ListChecks} delay={0.1} />
       </StatGrid>
+
+      {data.activeSessions.length > 0 && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-heading text-foreground">
+              <Radio className="size-4 text-primary" />
+              Active Sessions
+            </CardTitle>
+            <CardDescription>Live games you're currently hosting</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data.activeSessions.map((s) => (
+              <Link
+                key={s.id}
+                to="/game/host/$sessionId"
+                params={{ sessionId: s.id }}
+                className="flex items-center justify-between rounded-md border border-primary/30 bg-background px-3 py-2 transition-colors hover:bg-secondary/50"
+              >
+                <span className="text-sm font-medium text-foreground">{s.quizTitle}</span>
+                <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Badge className="text-[10px] capitalize">{s.status}</Badge>
+                  {s.participantCount} joined
+                </span>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {data.todaysActivities.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-heading text-foreground">Today&apos;s Activities</CardTitle>
+            <CardDescription>Assigned work across your classes and how it&apos;s going</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data.todaysActivities.map((a) => {
+              const notStarted = Math.max(0, a.assignedCount - a.completedCount - a.inProgressCount)
+              return (
+                <div key={a.id} className="rounded-md border border-border bg-background px-3 py-2.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-foreground">{a.title}</p>
+                    <span className="text-xs text-muted-foreground">{a.className}</span>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    <span>{a.assignedCount} assigned</span>
+                    <span className="text-primary">{a.completedCount} completed</span>
+                    <span>{a.inProgressCount} in progress</span>
+                    <span>{notStarted} not started</span>
+                  </div>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
