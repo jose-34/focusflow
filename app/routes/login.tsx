@@ -11,16 +11,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 
 export const Route = createFileRoute('/login')({
+  // Optional prefill for the Admin Demo Center's "Log in as…" shortcuts —
+  // these only set the form's initial values, so the real login form and
+  // its normal submit/auth flow still run exactly as if the fields were
+  // typed by hand. No session is created here.
+  validateSearch: (search: Record<string, unknown>): { email?: string; password?: string } => ({
+    ...(typeof search.email === 'string' ? { email: search.email } : {}),
+    ...(typeof search.password === 'string' ? { password: search.password } : {}),
+  }),
   component: LoginPage,
 })
 
 function LoginPage() {
   const navigate = useNavigate()
   const { login, isLoggingIn } = useAuth()
+  const { email, password } = Route.useSearch()
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: email ?? '', password: password ?? '' },
   })
 
   async function onSubmit(values: LoginInput) {

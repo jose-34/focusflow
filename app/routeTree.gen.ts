@@ -25,7 +25,9 @@ import { Route as WellnessRouteImport } from './routes/wellness'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminActivityRouteImport } from './routes/admin.activity'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
+import { Route as AdminDemoCenterRouteImport } from './routes/admin.demo-center'
 import { Route as AdminInstitutionsRouteImport } from './routes/admin.institutions'
+import { Route as AdminPilotEvidenceRouteImport } from './routes/admin.pilot-evidence'
 import { Route as AdminSessionsRouteImport } from './routes/admin.sessions'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
@@ -126,9 +128,19 @@ const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
   path: '/admin/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminDemoCenterRoute = AdminDemoCenterRouteImport.update({
+  id: '/admin/demo-center',
+  path: '/admin/demo-center',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminInstitutionsRoute = AdminInstitutionsRouteImport.update({
   id: '/admin/institutions',
   path: '/admin/institutions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPilotEvidenceRoute = AdminPilotEvidenceRouteImport.update({
+  id: '/admin/pilot-evidence',
+  path: '/admin/pilot-evidence',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminSessionsRoute = AdminSessionsRouteImport.update({
@@ -246,7 +258,9 @@ export interface FileRoutesByFullPath {
   '/wellness': typeof WellnessRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/demo-center': typeof AdminDemoCenterRoute
   '/admin/institutions': typeof AdminInstitutionsRoute
+  '/admin/pilot-evidence': typeof AdminPilotEvidenceRoute
   '/admin/sessions': typeof AdminSessionsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -284,7 +298,9 @@ export interface FileRoutesByTo {
   '/wellness': typeof WellnessRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/demo-center': typeof AdminDemoCenterRoute
   '/admin/institutions': typeof AdminInstitutionsRoute
+  '/admin/pilot-evidence': typeof AdminPilotEvidenceRoute
   '/admin/sessions': typeof AdminSessionsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -322,7 +338,9 @@ export interface FileRoutesById {
   '/wellness': typeof WellnessRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/demo-center': typeof AdminDemoCenterRoute
   '/admin/institutions': typeof AdminInstitutionsRoute
+  '/admin/pilot-evidence': typeof AdminPilotEvidenceRoute
   '/admin/sessions': typeof AdminSessionsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -362,7 +380,9 @@ export interface FileRouteTypes {
     | '/wellness'
     | '/admin/activity'
     | '/admin/analytics'
+    | '/admin/demo-center'
     | '/admin/institutions'
+    | '/admin/pilot-evidence'
     | '/admin/sessions'
     | '/admin/settings'
     | '/admin/users'
@@ -400,7 +420,9 @@ export interface FileRouteTypes {
     | '/wellness'
     | '/admin/activity'
     | '/admin/analytics'
+    | '/admin/demo-center'
     | '/admin/institutions'
+    | '/admin/pilot-evidence'
     | '/admin/sessions'
     | '/admin/settings'
     | '/admin/users'
@@ -437,7 +459,9 @@ export interface FileRouteTypes {
     | '/wellness'
     | '/admin/activity'
     | '/admin/analytics'
+    | '/admin/demo-center'
     | '/admin/institutions'
+    | '/admin/pilot-evidence'
     | '/admin/sessions'
     | '/admin/settings'
     | '/admin/users'
@@ -476,7 +500,9 @@ export interface RootRouteChildren {
   WellnessRoute: typeof WellnessRoute
   AdminActivityRoute: typeof AdminActivityRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
+  AdminDemoCenterRoute: typeof AdminDemoCenterRoute
   AdminInstitutionsRoute: typeof AdminInstitutionsRoute
+  AdminPilotEvidenceRoute: typeof AdminPilotEvidenceRoute
   AdminSessionsRoute: typeof AdminSessionsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminUsersRoute: typeof AdminUsersRoute
@@ -609,11 +635,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/demo-center': {
+      id: '/admin/demo-center'
+      path: '/admin/demo-center'
+      fullPath: '/admin/demo-center'
+      preLoaderRoute: typeof AdminDemoCenterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/institutions': {
       id: '/admin/institutions'
       path: '/admin/institutions'
       fullPath: '/admin/institutions'
       preLoaderRoute: typeof AdminInstitutionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/pilot-evidence': {
+      id: '/admin/pilot-evidence'
+      path: '/admin/pilot-evidence'
+      fullPath: '/admin/pilot-evidence'
+      preLoaderRoute: typeof AdminPilotEvidenceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/sessions': {
@@ -786,7 +826,9 @@ const rootRouteChildren: RootRouteChildren = {
   WellnessRoute: WellnessRoute,
   AdminActivityRoute: AdminActivityRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
+  AdminDemoCenterRoute: AdminDemoCenterRoute,
   AdminInstitutionsRoute: AdminInstitutionsRoute,
+  AdminPilotEvidenceRoute: AdminPilotEvidenceRoute,
   AdminSessionsRoute: AdminSessionsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminUsersRoute: AdminUsersRoute,

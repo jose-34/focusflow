@@ -6,7 +6,7 @@ import { getNavLinks } from '@/components/nav/nav-config'
 import { cn } from '@/lib/utils'
 
 export function Sidebar() {
-  const { isAuthenticated, isAdmin, user } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const { data: progress } = useProgress()
   const links = getNavLinks(user?.role === 'admin' ? 'admin' : user?.role === 'teacher' ? 'teacher' : 'student')
 
@@ -29,7 +29,7 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {isAuthenticated && !isAdmin && (
+      {isAuthenticated && user?.role === 'student' && (
         <div className="flex items-center gap-2 rounded-lg border border-border bg-background p-3">
           <Flame className={cn('size-4', (progress?.currentStreak ?? 0) > 0 ? 'text-accent' : 'text-muted-foreground')} />
           <div className="text-xs text-muted-foreground">

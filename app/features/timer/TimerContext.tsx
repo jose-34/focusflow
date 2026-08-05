@@ -6,7 +6,7 @@ import { useFocusSession } from './hooks/useFocusSession'
 
 export type TimerMode = 'focus' | 'short_break' | 'long_break'
 
-export const FOCUS_DURATION_OPTIONS = [15, 25, 30, 45] as const
+export const FOCUS_DURATION_OPTIONS = [10, 15, 20, 25, 30, 45, 60] as const
 
 const SHORT_BREAK_MINUTES = 5
 const LONG_BREAK_MINUTES = 15

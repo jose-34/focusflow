@@ -1,4 +1,4 @@
-import { Activity, BarChart3, BookOpen, Building2, CalendarClock, ChartColumn, ClipboardList, Cog, Coins, Gamepad2, GraduationCap, Heart, LayoutDashboard, Library, ListTodo, Map, Settings, Timer, Trophy, Users } from 'lucide-react'
+import { Activity, Award, BarChart3, BookOpen, Building2, CalendarClock, ChartColumn, ClipboardList, Cog, Coins, Gamepad2, GraduationCap, Heart, LayoutDashboard, Library, ListTodo, Map, PlayCircle, Settings, Timer, Trophy, Users } from 'lucide-react'
 
 export interface NavLink {
   to: string
@@ -17,9 +17,17 @@ const sharedLinks: Array<NavLink> = [
   { to: '/classes', label: 'My Classes', icon: GraduationCap },
 ]
 
+// Deliberately its own list, not `sharedLinks` — a teacher's primary
+// experience is classroom operations (classes, activities, results), not
+// the student's personal productivity loop (tasks/focus timer/wellness/
+// achievements/journey). Every route below already exists and is reachable
+// today: My Classes covers class management, quiz authoring, and hosting a
+// live game (via the "Host Live Game" action on a class's quiz detail page)
+// — there is no separate standalone live-challenge route to link to here.
 export const teacherNavLinks: Array<NavLink> = [
-  ...sharedLinks,
-  { to: '/reports', label: 'Reports', icon: ClipboardList },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/classes', label: 'My Classes', icon: GraduationCap },
+  { to: '/reports', label: 'Results & Reports', icon: ClipboardList },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -43,6 +51,8 @@ export const adminNavLinks: Array<NavLink> = [
   { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/admin/activity', label: 'System Activity', icon: Activity },
   { to: '/admin/content', label: 'Content Library', icon: BookOpen },
+  { to: '/admin/demo-center', label: 'Demo Center', icon: PlayCircle },
+  { to: '/admin/pilot-evidence', label: 'Pilot Evidence', icon: Award },
   { to: '/admin/settings', label: 'System Settings', icon: Cog },
   { to: '/settings', label: 'My Account', icon: Settings },
 ]

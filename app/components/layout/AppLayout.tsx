@@ -20,7 +20,7 @@ function MiniTimerGate() {
 }
 
 export function AppLayout({ children }: { children: ReactNode }) {
-  const { isLoading, isAuthenticated } = useAuth()
+  const { isLoading, isAuthenticated, user } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
   const { data: progress } = useProgress()
 
@@ -72,7 +72,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </button>
               </div>
               <nav className="flex flex-col gap-1">
-                {isAuthenticated && (
+                {isAuthenticated && user?.role === 'student' && (
                   <div className="flex items-center gap-2 rounded-lg border border-border bg-background p-3 mb-2">
                     <span className={cn('size-4', (progress?.currentStreak ?? 0) > 0 ? 'text-accent' : 'text-muted-foreground')}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4"><path d="M12 2c0 0-8 10-8 18h16c0-8-8-18-8-18z"/></svg>
