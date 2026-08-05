@@ -47,6 +47,8 @@ const sw: Record<TranslationKey, string> = {
   'taking.left': 'zimebaki',
   'taking.pt': 'alama',
   'taking.pts': 'alama',
+  'taking.focusOn': 'Lenga kwenye',
+  'taking.reward': 'Zawadi',
 }
 
 export default sw

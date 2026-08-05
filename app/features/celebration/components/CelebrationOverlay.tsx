@@ -67,12 +67,13 @@ export function CelebrationOverlay({
               ) : (
                 <>
                   <span className="text-xs font-semibold tracking-wide text-accent uppercase">
-                    {payload.score === payload.maxScore ? 'Perfect Score!' : 'Quiz Complete'}
+                    {payload.score === payload.maxScore ? 'Perfect Score!' : 'Mission Complete'}
                   </span>
                   <h2 className="font-heading text-2xl font-bold text-white">{payload.title}</h2>
                   <p className="text-lg font-semibold text-white/90">
                     {payload.score}/{payload.maxScore} correct
                   </p>
+                  {payload.score > 0 && <p className="text-sm font-medium text-accent">+{payload.score} XP earned</p>}
                 </>
               )}
               <button

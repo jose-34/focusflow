@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
-import { CheckCircle2, LoaderCircle, Square, SquareCheck, XCircle } from 'lucide-react'
+import { CheckCircle2, ListChecks, LoaderCircle, Sparkles, Square, SquareCheck, XCircle } from 'lucide-react'
 import { useQuizTaking } from '@/features/quizzes/hooks/useQuizzes'
 import { isChoiceBasedType, isManualGradingType, type QuestionResponseData } from '@/features/quizzes/questionTypes'
 import { useTranslation } from '@/features/i18n/I18nContext'
@@ -391,10 +391,20 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
 
       {!quiz.attempt ? (
         <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
-            <p className="text-sm text-muted-foreground">
-              {quiz.questions.length} {quiz.questions.length === 1 ? t('taking.question') : t('taking.questions')} — {t('taking.readyWhenYouAre')}
+          <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {t('taking.focusOn')} {quiz.title}
             </p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <span className="flex items-center gap-1.5 rounded-full border border-border bg-secondary/50 px-3 py-1 text-xs font-medium text-foreground">
+                <ListChecks className="size-3.5 text-muted-foreground" />
+                {quiz.questions.length} {quiz.questions.length === 1 ? t('taking.question') : t('taking.questions')}
+              </span>
+              <span className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                <Sparkles className="size-3.5" />
+                {t('taking.reward')} +{quiz.questions.reduce((sum, q) => sum + q.points, 0)} XP
+              </span>
+            </div>
             <Button onClick={handleStart} disabled={isStarting || isStartingQuiz} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
               {(isStarting || isStartingQuiz) && <LoaderCircle className="size-4 animate-spin" />}
               {t('taking.startQuiz')}

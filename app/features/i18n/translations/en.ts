@@ -47,6 +47,8 @@ const en = {
   'taking.left': 'left',
   'taking.pt': 'pt',
   'taking.pts': 'pts',
+  'taking.focusOn': 'Focus on',
+  'taking.reward': 'Reward',
 }
 
 export default en
