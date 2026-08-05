@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Outlet, createRootRoute, HeadContent, Scripts } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MotionConfig } from 'framer-motion'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Toaster } from '@/components/ui/sonner'
@@ -37,21 +38,27 @@ function RootComponent() {
 
   return (
     <RootDocument>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <I18nProvider>
-            <CelebrationProvider>
-              <ErrorBoundary>
-                <AppLayout>
-                  <Outlet />
-                </AppLayout>
-              </ErrorBoundary>
-              <Toaster position="top-right" richColors />
-              {process.env.NODE_ENV === 'development' && <TanStackRouterDevtools position="bottom-right" />}
-            </CelebrationProvider>
-          </I18nProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
+      {/* "user" (not "always") — respects the OS-level prefers-reduced-motion
+          setting for every framer-motion animation in the app (celebration
+          overlay, game countdown, gameplay world, dashboard fade-ins) from
+          one place, rather than each component checking it individually. */}
+      <MotionConfig reducedMotion="user">
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <I18nProvider>
+              <CelebrationProvider>
+                <ErrorBoundary>
+                  <AppLayout>
+                    <Outlet />
+                  </AppLayout>
+                </ErrorBoundary>
+                <Toaster position="top-right" richColors />
+                {process.env.NODE_ENV === 'development' && <TanStackRouterDevtools position="bottom-right" />}
+              </CelebrationProvider>
+            </I18nProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </MotionConfig>
     </RootDocument>
   )
 }

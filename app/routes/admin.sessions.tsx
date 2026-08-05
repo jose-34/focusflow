@@ -43,7 +43,7 @@ function AdminSessionsPage() {
             key={t}
             type="button"
             onClick={() => setTab(t)}
-            className={`rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
               tab === t ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-secondary'
             }`}
           >

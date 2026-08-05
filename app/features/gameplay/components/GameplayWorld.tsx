@@ -22,10 +22,16 @@ export function GameplayWorld({ theme, totalSteps, stepsCompleted, lastResult, r
   const progressPct = (clampedCompleted / safeTotalSteps) * 100
   const steps = Array.from({ length: safeTotalSteps }, (_, i) => i)
 
+  const progressLabel = `${skin.label}: ${clampedCompleted} of ${safeTotalSteps} steps complete${
+    lastResult === 'correct' ? ', last answer correct' : lastResult === 'incorrect' ? ', last answer incorrect, still moving forward' : ''
+  }`
+
   return (
     <div
       className="relative overflow-hidden rounded-2xl border border-border/60 px-5 pt-10 pb-6"
       style={{ background: skin.gradient }}
+      role="img"
+      aria-label={progressLabel}
     >
       <div className="mb-1 flex items-center justify-between text-xs font-medium" style={{ color: skin.accent }}>
         <span>{skin.label}</span>
@@ -34,7 +40,7 @@ export function GameplayWorld({ theme, totalSteps, stepsCompleted, lastResult, r
         </span>
       </div>
 
-      <div className="relative mt-6 h-8">
+      <div className="relative mt-6 h-8" aria-hidden="true">
         {/* Track */}
         <div className="absolute top-1/2 right-0 left-0 h-1 -translate-y-1/2 rounded-full bg-black/10" />
         <div

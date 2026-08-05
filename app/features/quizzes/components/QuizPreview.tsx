@@ -63,14 +63,14 @@ export function QuizPreview({ quizId }: { quizId: string }) {
           <button
             type="button"
             onClick={() => setShowImmediateFeedback(true)}
-            className={cn('rounded px-2.5 py-1 text-xs font-medium transition-colors', showImmediateFeedback ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
+            className={cn('rounded px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2', showImmediateFeedback ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
           >
             Classic Mode
           </button>
           <button
             type="button"
             onClick={() => setShowImmediateFeedback(false)}
-            className={cn('rounded px-2.5 py-1 text-xs font-medium transition-colors', !showImmediateFeedback ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
+            className={cn('rounded px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2', !showImmediateFeedback ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
           >
             Test Mode
           </button>

@@ -20,8 +20,10 @@ export function MoodPicker({ value, onChange }: { value: number | null; onChange
           type="button"
           onClick={() => onChange(mood.value)}
           title={mood.label}
+          aria-label={mood.label}
+          aria-pressed={value === mood.value}
           className={cn(
-            'flex size-9 items-center justify-center rounded-full border text-lg transition-colors',
+            'flex size-9 items-center justify-center rounded-full border text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
             value === mood.value ? 'border-primary bg-primary/10' : 'border-border bg-background hover:bg-secondary',
           )}
         >
