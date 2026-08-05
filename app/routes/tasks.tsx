@@ -195,8 +195,8 @@ function TasksPage() {
       ) : (
         <div className="space-y-6">
           <TaskGroup title="Personal" tasks={personalTasks} onToggle={handleToggle} onDelete={setTaskPendingDelete} />
-          <TaskGroup title="Assigned — Practice" tasks={practiceTasks} onToggle={handleToggle} onDelete={setTaskPendingDelete} deletable={false} />
-          <TaskGroup title="Assigned — Quiz" tasks={quizTasks} onToggle={handleToggle} onDelete={setTaskPendingDelete} deletable={false} />
+          <TaskGroup title="Assigned: Practice" tasks={practiceTasks} onToggle={handleToggle} onDelete={setTaskPendingDelete} deletable={false} />
+          <TaskGroup title="Assigned: Quiz" tasks={quizTasks} onToggle={handleToggle} onDelete={setTaskPendingDelete} deletable={false} />
         </div>
       )}
 

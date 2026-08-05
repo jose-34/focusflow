@@ -23,7 +23,7 @@ export function StartDelayTrendCard() {
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
         <div>
-          <CardTitle className="font-heading text-base text-foreground">Start Delay — Last 30 Days</CardTitle>
+          <CardTitle className="font-heading text-base text-foreground">Start Delay, Last 30 Days</CardTitle>
           <CardDescription>Time between logging in and starting your first focus session that day</CardDescription>
         </div>
         {data.procrastinationReduced && (
@@ -68,7 +68,7 @@ export function ConsistencyStreakCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-heading text-base text-foreground">Consistency — Last 30 Days</CardTitle>
+        <CardTitle className="font-heading text-base text-foreground">Consistency, Last 30 Days</CardTitle>
         <CardDescription>
           {data.consistency.current}-day current streak · {skippedDays} day{skippedDays === 1 ? '' : 's'} skipped
         </CardDescription>

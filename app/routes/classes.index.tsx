@@ -99,7 +99,7 @@ function ClassesPage() {
               <DialogTitle>{isTeacher ? 'Create a new class' : 'Join a class'}</DialogTitle>
               <DialogDescription>
                 {isTeacher
-                  ? 'Give your class a name, curriculum, and subject — students will join with a 6-character code we generate for you.'
+                  ? 'Give your class a name, curriculum, and subject. Students will join with a 6-character code we generate for you.'
                   : 'Enter the 6-character code your teacher shared with you.'}
               </DialogDescription>
             </DialogHeader>

@@ -51,7 +51,7 @@ function AdminQuizDetailPage() {
   async function handleTogglePublish() {
     try {
       await togglePublish(!quiz!.isPublished)
-      toast.success(quiz!.isPublished ? 'Quiz unpublished' : 'Quiz published — now visible on the landing page and to students')
+      toast.success(quiz!.isPublished ? 'Quiz unpublished' : 'Quiz published. Now visible on the landing page and to students')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update quiz')
     }
@@ -143,7 +143,7 @@ function AdminQuizDetailPage() {
           )}
 
           {quiz.questions.length === 0 && !showForm ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">No questions yet — add your first one above.</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">No questions yet. Add your first one above.</p>
           ) : (
             quiz.questions.map((question, index) => (
               <div key={question.id} className="rounded-md border border-border bg-background p-3">

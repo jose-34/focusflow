@@ -24,7 +24,7 @@ const TEACHER_STATS: Array<MockStat> = [
 
 const STUDENT_ROWS = [
   { title: 'Form 3 Chemistry', meta: 'CBC · Grade 9' },
-  { title: 'Mathematics — Algebra II', meta: 'Cambridge · Year 9' },
+  { title: 'Mathematics: Algebra II', meta: 'Cambridge · Year 9' },
 ]
 
 const TEACHER_ROWS = [

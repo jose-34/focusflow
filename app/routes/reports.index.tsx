@@ -32,7 +32,7 @@ function ReportsPage() {
           <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
             <ClipboardList className="size-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              No finished live games yet — host one from a quiz to see its report here.
+              No finished live games yet. Host one from a quiz to see its report here.
             </p>
           </CardContent>
         </Card>

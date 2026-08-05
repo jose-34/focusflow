@@ -53,7 +53,7 @@ export function AIQuestionGenerator({ quizId }: { quizId: string }) {
         Generate questions from a document
       </div>
       <p className="text-xs text-muted-foreground">
-        Upload a PDF, Word doc, text file, or image — AI reads it and adds multiple-choice questions to this quiz.
+        Upload a PDF, Word doc, text file, or image, and AI reads it and adds multiple-choice questions to this quiz.
       </p>
       {isPending ? (
         <AIProcessingScreen />

@@ -133,7 +133,7 @@ function ClassDetailPage() {
             <div className="h-16 animate-pulse rounded-md bg-secondary" />
           ) : !quizzes || quizzes.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
-              {classDetail.isTeacher ? 'No quizzes yet — create one to get started.' : 'No quizzes have been published yet.'}
+              {classDetail.isTeacher ? 'No quizzes yet. Create one to get started.' : 'No quizzes have been published yet.'}
             </p>
           ) : (
             quizzes.map((quiz) => (
@@ -184,7 +184,7 @@ function ClassDetailPage() {
           <CardContent className="space-y-2">
             {classDetail.roster.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                No students yet — share the code <span className="font-mono font-semibold">{classDetail.code}</span> with your class.
+                No students yet. Share the code <span className="font-mono font-semibold">{classDetail.code}</span> with your class.
               </p>
             ) : (
               classDetail.roster.map((student) => (

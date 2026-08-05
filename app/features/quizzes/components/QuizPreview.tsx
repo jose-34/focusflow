@@ -57,7 +57,7 @@ export function QuizPreview({ quizId }: { quizId: string }) {
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-secondary/40 p-3">
         <div>
           <p className="text-sm font-medium text-foreground">Preview mode</p>
-          <p className="text-xs text-muted-foreground">Nothing here is saved — no attempt, XP, or coins are recorded.</p>
+          <p className="text-xs text-muted-foreground">Nothing here is saved. No attempt, XP, or coins are recorded.</p>
         </div>
         <div className="flex gap-1 rounded-md border border-border bg-background p-0.5">
           <button
@@ -218,7 +218,7 @@ export function QuizPreview({ quizId }: { quizId: string }) {
                     value={(current?.responseData?.kind === 'manual' ? current.responseData.text : '') ?? ''}
                     onChange={(e) => setAnswer({ responseData: { kind: 'manual', text: e.target.value } })}
                     rows={3}
-                    placeholder="Sample response — graded manually"
+                    placeholder="Sample response, graded manually"
                   />
                 )}
 

@@ -33,7 +33,7 @@ const MOODS = [
 
 const TIPS = [
   'Taking a 5-minute break every 25 minutes helps your brain consolidate what you just learned.',
-  'Drinking water before a study session improves concentration — dehydration shows up as fatigue first.',
+  'Drinking water before a study session improves concentration. Dehydration shows up as fatigue first.',
   'Writing down tomorrow\'s top 3 tasks tonight reduces the mental load of remembering them.',
   'A short walk between study sessions can boost creative thinking more than staying seated.',
   'Naming how you feel (even just to yourself) measurably reduces the intensity of stress.',
@@ -71,7 +71,7 @@ function WellnessPage() {
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="font-heading text-base text-foreground">How are you feeling today?</CardTitle>
-          {todaysLog && <CardDescription>You already checked in today — you can update it below.</CardDescription>}
+          {todaysLog && <CardDescription>You already checked in today. You can update it below.</CardDescription>}
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex justify-between gap-2">
@@ -139,7 +139,7 @@ function WellnessPage() {
             If you need to talk to someone
           </CardTitle>
           <CardDescription>
-            Your check-ins here are private — not even your teacher sees them. If something is seriously wrong, please reach out directly:
+            Your check-ins here are private. Not even your teacher sees them, but if something is seriously wrong, please reach out directly:
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">

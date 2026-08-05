@@ -62,7 +62,7 @@ function NewAdminQuizPage() {
     if (!canSubmit) return
     try {
       const quiz = await createMutation.mutateAsync()
-      toast.success('Quiz created — now add some questions')
+      toast.success('Quiz created. Now add some questions')
       navigate({ to: '/admin/content/$quizId', params: { quizId: quiz.id } })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create quiz')

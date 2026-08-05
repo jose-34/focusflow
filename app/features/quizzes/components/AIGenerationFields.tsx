@@ -142,9 +142,9 @@ export function AIGenerationFields({
               <SelectValue placeholder="Automatic" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">Level 1 — Recall</SelectItem>
-              <SelectItem value="2">Level 2 — Application</SelectItem>
-              <SelectItem value="3">Level 3 — Strategic thinking</SelectItem>
+              <SelectItem value="1">Level 1: Recall</SelectItem>
+              <SelectItem value="2">Level 2: Application</SelectItem>
+              <SelectItem value="3">Level 3: Strategic thinking</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -166,7 +166,7 @@ export function AIGenerationFields({
         </Select>
         {values.language !== 'en' && (
           <p className="text-xs text-muted-foreground">
-            AI-generated non-English content can have translation quirks — review the questions before publishing.
+            AI-generated non-English content can have translation quirks, so review the questions before publishing.
           </p>
         )}
       </div>

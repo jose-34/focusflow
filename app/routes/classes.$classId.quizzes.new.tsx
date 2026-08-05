@@ -51,7 +51,7 @@ function NewQuizPage() {
     if (!title.trim()) return
     try {
       const quiz = await createMutation.mutateAsync()
-      toast.success('Quiz created — now add some questions')
+      toast.success('Quiz created. Now add some questions')
       navigate({ to: '/classes/$classId/quizzes/$quizId', params: { classId, quizId: quiz.id } })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create quiz')
@@ -107,7 +107,7 @@ function NewQuizPage() {
               <Label htmlFor="dueDate">Due date (optional)</Label>
               <Input id="dueDate" type="datetime-local" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
               <p className="text-xs text-muted-foreground">
-                Setting a due date turns this into an assignment — it will automatically appear as a task in each
+                Setting a due date turns this into an assignment. It will automatically appear as a task in each
                 enrolled student&apos;s task list.
               </p>
             </div>

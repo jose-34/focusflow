@@ -26,53 +26,53 @@ const features: Array<Feature> = [
     title: 'Pomodoro Focus Timer',
     description: 'Adjustable focus intervals with short and long breaks.',
     detail:
-      'Set a specific commitment before every session starts, then work in focused Pomodoro intervals — 15, 25, 30, or 45 minutes — with automatic short and long breaks in between.',
+      'Set a specific commitment before every session starts, then work in focused Pomodoro intervals of 15, 25, 30, or 45 minutes, with automatic short and long breaks in between.',
   },
   {
     icon: ListTodo,
     title: 'Prioritised Tasks',
     description: 'Capture, prioritise, and complete your work.',
     detail:
-      'Personal to-dos live alongside teacher-assigned practice tasks and quiz deadlines — grouped separately, so you always know what\'s yours and what\'s assigned.',
+      'Personal to-dos live alongside teacher-assigned practice tasks and quiz deadlines, grouped separately so you always know what\'s yours and what\'s assigned.',
   },
   {
     icon: GraduationCap,
     title: 'Classes & Quizzes',
     description: 'Curriculum-aware classes with auto-graded quizzes.',
     detail:
-      'Teachers create CBC or Cambridge classes and quizzes; students join with a code and get instantly graded results — plus a live, Kahoot-style game mode for whole-class review.',
+      'Teachers create CBC or Cambridge classes and quizzes; students join with a code and get instantly graded results, plus a live, Kahoot-style game mode for whole-class review.',
   },
   {
     icon: ChartColumn,
     title: 'Progress & Streaks',
     description: 'Daily and weekly focus totals, and a streak to keep alive.',
     detail:
-      'A 14-day focus chart, current and longest streaks, and weekly totals give you (and your teacher) a real picture of consistency — not just a single test score.',
+      'A 14-day focus chart, current and longest streaks, and weekly totals give you (and your teacher) a real picture of consistency, not just a single test score.',
   },
   {
     icon: Heart,
     title: 'Wellness Check-ins',
     description: 'Quick mood check-ins and guided breathing.',
     detail:
-      'A short, private mood check-in and a guided breathing exercise are built right into the study flow — never visible to a teacher, by design.',
+      'A short, private mood check-in and a guided breathing exercise are built right into the study flow, never visible to a teacher, by design.',
   },
   {
     icon: Trophy,
     title: 'Real Achievements',
     description: 'Badges for streaks, focus milestones, and quiz performance.',
     detail:
-      'Achievements unlock for real behavior — a genuine focus streak, a milestone number of sessions, strong quiz performance — never for empty grinding.',
+      'Achievements unlock for real behavior: a genuine focus streak, a milestone number of sessions, strong quiz performance. Never for empty grinding.',
   },
 ]
 
 const ROLE_COPY: Record<PreviewRole, { headline: string; sub: string }> = {
   student: {
     headline: 'Master Your Focus. Achieve Your Goals.',
-    sub: 'FocusFlow is a free productivity and wellness companion for students — Pomodoro timer, tasks, classes, quizzes, and real gamification, all in one place.',
+    sub: 'FocusFlow is a free productivity and wellness companion for students: Pomodoro timer, tasks, classes, quizzes, and real gamification, all in one place.',
   },
   teacher: {
     headline: 'Master Your Classroom. Reach Every Student.',
-    sub: 'FocusFlow gives teachers curriculum-aware classes, auto-graded quizzes, a live game mode, and an early, supportive signal for who needs a nudge — all in one place.',
+    sub: 'FocusFlow gives teachers curriculum-aware classes, auto-graded quizzes, a live game mode, and an early, supportive signal for who needs a nudge, all in one place.',
   },
 }
 
@@ -173,7 +173,7 @@ function Index() {
 
       <section className="mx-auto max-w-6xl px-4 pb-24">
         <div className="mb-10 text-center">
-          <h2 className="font-heading text-3xl font-bold tracking-tight text-foreground">Try it right now — no sign-up needed</h2>
+          <h2 className="font-heading text-3xl font-bold tracking-tight text-foreground">Try it right now, no sign-up needed</h2>
           <p className="mt-3 text-muted-foreground">A quick taste of how FocusFlow turns real learning into a game.</p>
         </div>
         <ArcadeDemoGame />

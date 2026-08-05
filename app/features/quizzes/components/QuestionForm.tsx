@@ -442,12 +442,12 @@ export function QuestionForm({
       )}
       {questionType === 'dropdown' && (
         <p className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-          Dropdown authoring isn't available yet in the manual editor — use AI generation for this type, or pick a different question type.
+          Dropdown authoring isn't available yet in the manual editor. Use AI generation for this type, or pick a different question type.
         </p>
       )}
       {isManualGradingType(questionType) && (
         <p className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-          Students submit a {TYPE_LABELS[questionType].toLowerCase()} response — you'll grade it yourself from the quiz's grading queue after they submit.
+          Students submit a {TYPE_LABELS[questionType].toLowerCase()} response. You'll grade it yourself from the quiz's grading queue after they submit.
         </p>
       )}
 

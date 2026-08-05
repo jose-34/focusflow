@@ -191,7 +191,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         const session = await startSession({ durationMinutes: focusMinutes, taskId: selectedTaskId, commitment: trimmedCommitment })
         sessionIdRef.current = session.id
       } catch {
-        toast.error('Could not start your session — check your connection and try again.')
+        toast.error('Could not start your session. Check your connection and try again.')
         return
       }
     }

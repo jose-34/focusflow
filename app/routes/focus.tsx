@@ -97,7 +97,7 @@ function FocusPage() {
         hiddenAtRef.current = null
         if (awaySeconds >= 2) {
           recordDistraction(awaySeconds)
-          toast.warning(`Welcome back — you were away for ${awaySeconds}s during your focus session.`)
+          toast.warning(`Welcome back. You were away for ${awaySeconds}s during your focus session.`)
         }
       }
     }
@@ -188,7 +188,7 @@ function FocusPage() {
               placeholder="e.g. Finish the first five algebra problems"
             />
             <p className="mt-2 text-xs text-muted-foreground">
-              Say exactly what you'll get done — required before starting. You'll see this again when the session ends.
+              Say exactly what you'll get done. Required before starting, and you'll see this again when the session ends.
             </p>
           </CardContent>
         </Card>
@@ -289,7 +289,7 @@ function FocusPage() {
               </SelectContent>
             </Select>
             <p className="mt-2 text-xs text-muted-foreground">
-              Linking a task logs this focus time against it — assignment tasks show your teacher when you actually
+              Linking a task logs this focus time against it. Assignment tasks show your teacher when you actually
               worked on it.
             </p>
           </CardContent>

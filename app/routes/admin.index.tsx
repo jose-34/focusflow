@@ -70,7 +70,7 @@ function AdminOverviewPage() {
         <CardContent className="space-y-2">
           {quizzes.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              No public content yet — create your first quiz for the landing page and student dashboards.
+              No public content yet. Create your first quiz for the landing page and student dashboards.
             </p>
           ) : (
             quizzes.slice(0, 5).map((quiz) => (

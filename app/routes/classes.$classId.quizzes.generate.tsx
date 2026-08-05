@@ -60,7 +60,7 @@ function GenerateQuizPage() {
         values.mode === 'document'
           ? await generateFromDocument({ mimeType: values.file!.type as 'application/pdf', fileBase64: await fileToBase64(values.file!), ...shared })
           : await generateFromTopic({ topic: values.topic.trim(), ...shared })
-      toast.success('Quiz generated — review the questions below')
+      toast.success('Quiz generated. Review the questions below')
       navigate({ to: '/classes/$classId/quizzes/$quizId', params: { classId, quizId: quiz.id } })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to generate quiz')
@@ -86,7 +86,7 @@ function GenerateQuizPage() {
         <CardContent>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Upload a document or describe a topic — AI writes a title and generates the questions in one step.
+              Upload a document or describe a topic, and AI writes a title and generates the questions in one step.
             </p>
 
             {isPending ? (

@@ -42,7 +42,7 @@ function SetupScreen({ onStart }: { onStart: (subject: DemoSubject, grade: strin
     <div className="flex h-full flex-col items-center justify-center gap-6 bg-linear-to-b from-accent/10 via-background to-role-teacher/10 px-6 text-center">
       <div>
         <p className="font-heading text-xl font-semibold text-foreground md:text-2xl">Choose what to play</p>
-        <p className="mt-1 text-sm text-muted-foreground">Pick a subject and grade — the questions match.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Pick a subject and grade, and the questions match.</p>
       </div>
 
       <div className="grid w-full max-w-md grid-cols-2 gap-2">
@@ -375,7 +375,7 @@ export function ArcadeDemoGame() {
                 <p className="font-heading text-3xl font-bold text-foreground">
                   {score} / {questions.length} correct
                 </p>
-                <p className="max-w-xs text-sm text-muted-foreground">That's just a taste — sign up free to track real progress, streaks, and achievements.</p>
+                <p className="max-w-xs text-sm text-muted-foreground">That's just a taste. Sign up free to track real progress, streaks, and achievements.</p>
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
                   <Button size="lg" asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
                     <Link to="/register">Sign Up Free to Save Progress</Link>

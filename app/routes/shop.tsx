@@ -121,7 +121,7 @@ function ShopPage() {
           <AvatarDisplay sprites={equippedSprites} size="lg" />
           <div>
             <h1 className="font-heading text-xl font-semibold text-foreground">Avatar Shop</h1>
-            <p className="text-sm text-muted-foreground">Cosmetic only — never affects scores or grading.</p>
+            <p className="text-sm text-muted-foreground">Cosmetic only. Never affects scores or grading.</p>
           </div>
         </div>
         <Badge variant="secondary" className="gap-1.5 self-center px-3 py-1.5 text-sm">

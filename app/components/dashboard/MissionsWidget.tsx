@@ -50,12 +50,12 @@ export function MissionsWidget() {
           <Target className="size-4 text-accent" />
           This Week's Missions
         </CardTitle>
-        <CardDescription>Short goals pointing at your real assigned work — never busywork</CardDescription>
+        <CardDescription>Short goals pointing at your real assigned work, never busywork</CardDescription>
       </CardHeader>
       <CardContent>
         {!missions || missions.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            No missions right now — assigned work with a due date will show up here.
+            No missions right now. Assigned work with a due date will show up here.
           </p>
         ) : (
           <div className="space-y-2">

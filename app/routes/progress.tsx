@@ -55,7 +55,7 @@ function ProgressPage() {
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle className="font-heading text-base text-foreground">Focus Minutes — Last 14 Days</CardTitle>
+          <CardTitle className="font-heading text-base text-foreground">Focus Minutes, Last 14 Days</CardTitle>
           <CardDescription>This week: {data.weekMinutes} minutes</CardDescription>
         </CardHeader>
         <CardContent>

@@ -151,7 +151,7 @@ function LibraryPage() {
         <Card>
           <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
             <BookOpen className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">No public content yet — check back soon.</p>
+            <p className="text-sm text-muted-foreground">No public content yet. Check back soon.</p>
           </CardContent>
         </Card>
       ) : (

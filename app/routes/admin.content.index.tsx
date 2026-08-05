@@ -136,7 +136,7 @@ function AdminContentPage() {
           <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
             <BookOpen className="size-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              No public content yet — create your first quiz for the landing page and student dashboards.
+              No public content yet. Create your first quiz for the landing page and student dashboards.
             </p>
           </CardContent>
         </Card>
