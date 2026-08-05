@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { ListTodo, Pause, Play, RotateCcw, SkipForward, Target, Wind } from 'lucide-react'
@@ -63,6 +63,19 @@ function FocusPage() {
 
   const { tasks } = useTasks()
   const openTasks = tasks.filter((t) => !t.completed)
+
+  const isPreset = (FOCUS_DURATION_OPTIONS as readonly number[]).includes(focusMinutes)
+  const [showCustom, setShowCustom] = useState(false)
+  const [customInput, setCustomInput] = useState(String(focusMinutes))
+
+  function applyCustomMinutes() {
+    const parsed = Math.round(Number(customInput))
+    if (Number.isFinite(parsed) && parsed >= 5 && parsed <= 180) {
+      setFocusMinutes(parsed)
+    } else {
+      setCustomInput(String(focusMinutes))
+    }
+  }
 
   const hiddenAtRef = useRef<number | null>(null)
 
@@ -192,10 +205,13 @@ function FocusPage() {
                 key={minutes}
                 type="button"
                 disabled={isRunning}
-                onClick={() => setFocusMinutes(minutes)}
+                onClick={() => {
+                  setFocusMinutes(minutes)
+                  setShowCustom(false)
+                }}
                 className={cn(
                   'flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                  focusMinutes === minutes
+                  !showCustom && focusMinutes === minutes
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border bg-background text-muted-foreground hover:bg-secondary',
                 )}
@@ -203,7 +219,39 @@ function FocusPage() {
                 {minutes} min
               </button>
             ))}
+            <button
+              type="button"
+              disabled={isRunning}
+              onClick={() => {
+                setCustomInput(String(focusMinutes))
+                setShowCustom(true)
+              }}
+              className={cn(
+                'flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                showCustom || !isPreset
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border bg-background text-muted-foreground hover:bg-secondary',
+              )}
+            >
+              Custom
+            </button>
           </div>
+          {(showCustom || !isPreset) && (
+            <div className="mt-3 flex items-center gap-2">
+              <Input
+                type="number"
+                min={5}
+                max={180}
+                value={customInput}
+                disabled={isRunning}
+                onChange={(e) => setCustomInput(e.target.value)}
+                onBlur={applyCustomMinutes}
+                onKeyDown={(e) => e.key === 'Enter' && applyCustomMinutes()}
+                className="w-24"
+              />
+              <span className="text-sm text-muted-foreground">minutes (5–180)</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
