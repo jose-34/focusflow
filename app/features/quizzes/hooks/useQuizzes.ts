@@ -602,7 +602,11 @@ export const togglePublishFn = createServerFn({ method: 'POST' })
     return withRlsContext(user.id, async (tx) => {
       const [quiz] = await tx
         .update(quizzes)
-        .set({ isPublished: data.isPublished, updatedAt: new Date() })
+        .set({
+          isPublished: data.isPublished,
+          unpublishedAt: data.isPublished ? null : new Date(),
+          updatedAt: new Date(),
+        })
         .where(eq(quizzes.id, data.quizId))
         .returning()
       if (!quiz) throw new Error('Quiz not found')

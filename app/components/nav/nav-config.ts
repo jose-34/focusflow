@@ -1,4 +1,4 @@
-import { Activity, BookOpen, Building2, ChartColumn, ClipboardList, Coins, Gamepad2, GraduationCap, Heart, LayoutDashboard, Library, ListTodo, Map, Settings, Timer, Trophy, Users } from 'lucide-react'
+import { Activity, BarChart3, BookOpen, Building2, CalendarClock, ChartColumn, ClipboardList, Coins, Gamepad2, GraduationCap, Heart, LayoutDashboard, Library, ListTodo, Map, Settings, Timer, Trophy, Users } from 'lucide-react'
 
 export interface NavLink {
   to: string
@@ -39,6 +39,8 @@ export const adminNavLinks: Array<NavLink> = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard },
   { to: '/admin/users', label: 'Users', icon: Users },
   { to: '/admin/institutions', label: 'Institutions', icon: Building2 },
+  { to: '/admin/sessions', label: 'Sessions', icon: CalendarClock },
+  { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/admin/activity', label: 'System Activity', icon: Activity },
   { to: '/admin/content', label: 'Content Library', icon: BookOpen },
   { to: '/settings', label: 'Settings', icon: Settings },

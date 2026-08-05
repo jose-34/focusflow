@@ -56,6 +56,10 @@ export const quizzes = pgTable(
     // gates auto-creation of a linked task in each enrolled student's list.
     dueDate: timestamp('due_date', { withTimezone: true }),
     isPublished: boolean('is_published').notNull().default(false),
+    // Set when a previously-published quiz is unpublished, cleared when
+    // (re)published — lets the admin/reports Sessions status model tell
+    // "was live, now paused" apart from "still a draft, never published".
+    unpublishedAt: timestamp('unpublished_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
