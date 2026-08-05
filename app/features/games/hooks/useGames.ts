@@ -95,9 +95,23 @@ export const joinGameFn = createServerFn({ method: 'POST' })
     // would never let them find the row to join in the first place.
     const targetSession = await adminDb.query.gameSessions.findFirst({
       where: (gs, { eq: eqOp, and: andOp }) => andOp(eqOp(gs.pin, normalizedPin), eqOp(gs.status, 'lobby')),
+      with: { quiz: true },
     })
     if (!targetSession) {
       throw new Error('No game found with that PIN — it may not have started yet or has already begun')
+    }
+
+    // Mirrors game_participants_insert's RLS check (fn_can_join_game_session,
+    // via fn_is_class_student — requires an ACTIVE enrollment) exactly, so a
+    // student who isn't enrolled (or was dropped) gets a clear message here
+    // instead of a raw Postgres RLS-violation error from the insert below.
+    if (targetSession.quiz.classId) {
+      const enrollment = await adminDb.query.enrollments.findFirst({
+        where: (e, { eq: eqOp, and: andOp }) => andOp(eqOp(e.classId, targetSession.quiz.classId!), eqOp(e.studentId, user.id), eqOp(e.status, 'active')),
+      })
+      if (!enrollment) {
+        throw new Error("You're not enrolled in the class this game belongs to")
+      }
     }
 
     return withRlsContext(user.id, async (tx) => {
