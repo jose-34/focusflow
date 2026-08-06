@@ -34,6 +34,12 @@ export const users = pgTable(
     // indexed by user_id.
     status: userStatusEnum('status').notNull().default('active'),
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+    // Brute-force lockout — distinct from `status` above, which is an
+    // admin-controlled permanent flag. This is temporary and self-clears:
+    // 10 wrong passwords in a row locks the account for 2 hours; any
+    // successful login resets failedLoginAttempts back to 0.
+    failedLoginAttempts: integer('failed_login_attempts').notNull().default(0),
+    lockedUntil: timestamp('locked_until', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

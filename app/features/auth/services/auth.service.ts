@@ -6,6 +6,8 @@ import { loginEvents, sessions, users, type Session, type User } from '@/db/sche
 
 const SALT_ROUNDS = 12
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000
+const MAX_FAILED_LOGIN_ATTEMPTS = 10
+const LOCKOUT_DURATION_MS = 2 * 60 * 60 * 1000
 
 export type SanitizedUser = Omit<User, 'passwordHash'>
 
@@ -84,14 +86,32 @@ class AuthService {
       throw new Error('Invalid credentials')
     }
 
+    if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60_000)
+      throw new Error(`Too many failed attempts. Try again in ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'}.`)
+    }
+
     const isValidPassword = await bcrypt.compare(password, user.passwordHash)
     if (!isValidPassword) {
+      const attempts = user.failedLoginAttempts + 1
+      const lockingNow = attempts >= MAX_FAILED_LOGIN_ATTEMPTS
+      await adminDb
+        .update(users)
+        .set({
+          failedLoginAttempts: lockingNow ? 0 : attempts,
+          lockedUntil: lockingNow ? new Date(Date.now() + LOCKOUT_DURATION_MS) : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, user.id))
+      if (lockingNow) {
+        throw new Error('Too many failed attempts. Your account is locked for 2 hours.')
+      }
       throw new Error('Invalid credentials')
     }
 
     const [updated] = await adminDb
       .update(users)
-      .set({ lastLoginAt: new Date(), updatedAt: new Date() })
+      .set({ lastLoginAt: new Date(), updatedAt: new Date(), failedLoginAttempts: 0, lockedUntil: null })
       .where(eq(users.id, user.id))
       .returning()
 
