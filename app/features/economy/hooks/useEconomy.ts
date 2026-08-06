@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { withRlsContext, type Tx } from '@/db'
+import { withRlsContext, type QueryDb, type Tx } from '@/db'
 import { currencyLedger, userEquippedItems, userOwnedItems } from '@/db/schema'
 import { requireUser } from '@/features/auth/utils'
 
@@ -169,7 +169,7 @@ export async function getEquippedSprites(tx: Tx, userId: string): Promise<Record
 // avatar in one query instead of N+1 — relies on
 // user_equipped_items_visible_to_co_participants (RLS) to only surface
 // rows for students who actually share an active session with the caller.
-export async function getBulkEquippedSprites(tx: Tx, userIds: Array<string>): Promise<Record<string, Record<string, string>>> {
+export async function getBulkEquippedSprites(tx: QueryDb, userIds: Array<string>): Promise<Record<string, Record<string, string>>> {
   if (userIds.length === 0) return {}
   const rows = await tx.query.userEquippedItems.findMany({
     where: (e, { inArray }) => inArray(e.userId, userIds),

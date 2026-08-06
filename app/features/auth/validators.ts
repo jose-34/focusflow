@@ -64,6 +64,7 @@ export const sessionIdSchema = z.object({
 export const createGameSessionSchema = z.object({
   quizId: z.string().uuid(),
   questionDurationSeconds: z.coerce.number().int().min(5).max(120).default(20),
+  accessMode: z.enum(['class', 'public']).default('class'),
 })
 
 export type CreateGameSessionInput = z.infer<typeof createGameSessionSchema>
@@ -73,6 +74,27 @@ export const joinGameSchema = z.object({
 })
 
 export type JoinGameInput = z.infer<typeof joinGameSchema>
+
+export const joinGameAsGuestSchema = z.object({
+  pin: z.string().min(6, 'PIN must be 6 digits').max(6, 'PIN must be 6 digits'),
+  officialName: z.string().trim().min(1, 'Please enter your name').max(80),
+})
+
+export const gameSessionPinSchema = z.object({
+  pin: z.string().min(6, 'PIN must be 6 digits').max(6, 'PIN must be 6 digits'),
+})
+
+export const guestParticipantSchema = z.object({
+  sessionId: z.string().uuid(),
+  participantId: z.string().uuid(),
+})
+
+export const guestSubmitGameAnswerSchema = z.object({
+  sessionId: z.string().uuid(),
+  participantId: z.string().uuid(),
+  questionId: z.string().uuid(),
+  selectedChoiceId: z.string().uuid().nullable(),
+})
 
 export const submitGameAnswerSchema = z.object({
   sessionId: z.string().uuid(),

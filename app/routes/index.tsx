@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChartColumn, GraduationCap, Heart, ListTodo, Timer, Trophy, type LucideIcon } from 'lucide-react'
+import { ChartColumn, GraduationCap, Gamepad2, Heart, ListTodo, Timer, Trophy, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BrowserFrame } from '@/components/marketing/BrowserFrame'
 import { DashboardPreviewMockup, type PreviewRole } from '@/components/marketing/DashboardPreviewMockup'
@@ -146,6 +146,12 @@ function Index() {
               </Button>
               <Button size="lg" variant="outline" asChild>
                 <Link to="/login">Log In</Link>
+              </Button>
+              <Button size="lg" variant="ghost" asChild className="gap-2">
+                <Link to="/game/join">
+                  <Gamepad2 className="size-4" />
+                  Join a Game
+                </Link>
               </Button>
             </div>
           </div>

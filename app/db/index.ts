@@ -24,6 +24,12 @@ export const db = drizzle(queryClient, { schema })
 
 export type Tx = Parameters<Parameters<(typeof db)['transaction']>[0]>[0]
 
+// A handful of read/write helpers (guest live-game access, sprite lookups)
+// need to run identically whether called from inside withRlsContext's `Tx`
+// or from `adminDb` directly (guests have no RLS context at all) — this is
+// the shared type for those, rather than duplicating each helper per caller.
+export type QueryDb = Tx | typeof db
+
 /**
  * Runs `callback` inside a transaction with the Postgres session variable
  * `app.user_id` set via `set_config(..., true)` (transaction-local). RLS

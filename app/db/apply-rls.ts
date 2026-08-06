@@ -267,6 +267,10 @@ const functions = [
     // access gate, independent of whether the quiz is published for async
     // take-anytime play. A teacher can host a draft quiz live; a student who
     // is enrolled in that quiz's class and has the PIN can join either way.
+    // A 'public' session additionally admits any authenticated student
+    // regardless of enrollment (guests, who have no account at all, join
+    // through joinGameAsGuestFn's adminDb path instead — never through this
+    // RLS-gated insert).
     name: 'fn_can_join_game_session',
     sql: `
       create or replace function fn_can_join_game_session(p_session_id uuid)
@@ -279,7 +283,7 @@ const functions = [
         select exists (
           select 1 from game_sessions gs
           join quizzes q on q.id = gs.quiz_id
-          where gs.id = p_session_id and fn_is_class_student(q.class_id)
+          where gs.id = p_session_id and (fn_is_class_student(q.class_id) or gs.access_mode = 'public')
         )
       $$;
     `,
@@ -884,6 +888,16 @@ const policies: Array<RlsPolicy> = [
 ]
 
 async function main() {
+  // drizzle-kit push doesn't reliably apply a partial-index WHERE clause
+  // change on an already-existing index (confirmed: schema.ts declares
+  // .where(sql`student_id is not null`) but push left the plain unique
+  // index in place) — this script already runs after every push, so it's
+  // the natural place to compensate. Idempotent: safe to run every deploy.
+  await adminDb.execute(sql.raw(`drop index if exists game_participants_session_student_idx`))
+  await adminDb.execute(
+    sql.raw(`create unique index if not exists game_participants_session_student_idx on game_participants (session_id, student_id) where student_id is not null`),
+  )
+
   for (const fn of functions) {
     await adminDb.execute(sql.raw(fn.sql))
     await adminDb.execute(sql.raw(`grant execute on function ${fn.name} to focusflow_app`))

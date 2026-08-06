@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/classes/$classId/quizzes/$quizId')({
@@ -48,6 +48,8 @@ function TeacherQuizView({ classId, quizId }: { classId: string; quizId: string 
     isTogglingVisibility,
   } = useQuizAuthoring(quizId)
   const [showForm, setShowForm] = useState(false)
+  const [hostDialogOpen, setHostDialogOpen] = useState(false)
+  const [accessMode, setAccessMode] = useState<'class' | 'public'>('class')
   const navigate = useNavigate()
   const createGameSession = useCreateGameSession()
 
@@ -99,8 +101,9 @@ function TeacherQuizView({ classId, quizId }: { classId: string; quizId: string 
   }
 
   async function handleHostLiveGame() {
+    setHostDialogOpen(false)
     try {
-      const session = await createGameSession.mutateAsync({ quizId }) as { id: string }
+      const session = await createGameSession.mutateAsync({ quizId, accessMode }) as { id: string }
       navigate({ to: '/game/host/$sessionId', params: { sessionId: session.id } })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to start live game')
@@ -175,19 +178,58 @@ function TeacherQuizView({ classId, quizId }: { classId: string; quizId: string 
                 <QuizPreview quizId={quizId} />
               </DialogContent>
             </Dialog>
-            <Button
-              size="sm"
-              onClick={handleHostLiveGame}
-              disabled={quiz.questions.length === 0 || createGameSession.isPending}
-              className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              {createGameSession.isPending ? (
-                <LoaderCircle className="size-3.5 animate-spin" />
-              ) : (
-                <Gamepad2 className="size-3.5" />
-              )}
-              Host Live Game
-            </Button>
+            <Dialog open={hostDialogOpen} onOpenChange={setHostDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  size="sm"
+                  disabled={quiz.questions.length === 0 || createGameSession.isPending}
+                  className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  {createGameSession.isPending ? (
+                    <LoaderCircle className="size-3.5 animate-spin" />
+                  ) : (
+                    <Gamepad2 className="size-3.5" />
+                  )}
+                  Host Live Game
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Who can play?</DialogTitle>
+                  <DialogDescription>Choose who can join with the PIN before starting.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setAccessMode('class')}
+                    className={cn(
+                      'rounded-lg border-2 p-3 text-left text-sm transition-colors',
+                      accessMode === 'class' ? 'border-primary bg-primary/10' : 'border-border hover:bg-secondary/50',
+                    )}
+                  >
+                    <p className="font-medium text-foreground">Students in my class</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Only students enrolled in this class can join.</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAccessMode('public')}
+                    className={cn(
+                      'rounded-lg border-2 p-3 text-left text-sm transition-colors',
+                      accessMode === 'public' ? 'border-primary bg-primary/10' : 'border-border hover:bg-secondary/50',
+                    )}
+                  >
+                    <p className="font-medium text-foreground">Public — anyone with the code</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Anyone can join and enter their name, no account needed.</p>
+                  </button>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleHostLiveGame} disabled={createGameSession.isPending} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+                    {createGameSession.isPending && <LoaderCircle className="size-4 animate-spin" />}
+                    Start Game
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>

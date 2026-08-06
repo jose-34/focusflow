@@ -2,11 +2,20 @@ import { createServerFn } from '@tanstack/react-start'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { eq, sql } from 'drizzle-orm'
 import { useState, useRef, useEffect } from 'react'
-import { withRlsContext } from '@/db'
+import { withRlsContext, type QueryDb } from '@/db'
 import { adminDb } from '@/db/admin'
 import { gameAnswers, gameParticipants, gameSessions } from '@/db/schema'
 import { requireUser } from '@/features/auth/utils'
-import { createGameSessionSchema, joinGameSchema, sessionIdSchema, submitGameAnswerSchema } from '@/features/auth/validators'
+import {
+  createGameSessionSchema,
+  gameSessionPinSchema,
+  guestParticipantSchema,
+  guestSubmitGameAnswerSchema,
+  joinGameAsGuestSchema,
+  joinGameSchema,
+  sessionIdSchema,
+  submitGameAnswerSchema,
+} from '@/features/auth/validators'
 import { broadcastGameState } from '@/lib/ws-server'
 import { rateLimit } from '@/lib/rateLimit'
 import { awardCoins, getBulkEquippedSprites } from '@/features/economy/hooks/useEconomy'
@@ -64,6 +73,7 @@ export const createGameSessionFn = createServerFn({ method: 'POST' })
               hostId: user.id,
               pin: generatePin(),
               questionDurationSeconds: data.questionDurationSeconds,
+              accessMode: data.accessMode,
             })
             .returning()
           return session
@@ -105,7 +115,9 @@ export const joinGameFn = createServerFn({ method: 'POST' })
     // via fn_is_class_student — requires an ACTIVE enrollment) exactly, so a
     // student who isn't enrolled (or was dropped) gets a clear message here
     // instead of a raw Postgres RLS-violation error from the insert below.
-    if (targetSession.quiz.classId) {
+    // A 'public' session skips this — fn_can_join_game_session admits any
+    // authenticated student there regardless of enrollment.
+    if (targetSession.accessMode !== 'public' && targetSession.quiz.classId) {
       const enrollment = await adminDb.query.enrollments.findFirst({
         where: (e, { eq: eqOp, and: andOp }) => andOp(eqOp(e.classId, targetSession.quiz.classId!), eqOp(e.studentId, user.id), eqOp(e.status, 'active')),
       })
@@ -157,6 +169,72 @@ export const joinGameFn = createServerFn({ method: 'POST' })
 
       return { sessionId: targetSession.id, participantId: participant.id }
     })
+  })
+
+// Anonymous-safe: called from /game/join before any account exists, so it
+// must never require auth. Leaks nothing beyond "does this PIN currently
+// resolve to a lobby, and can a guest join it" — same visibility rule an
+// attacker could already infer by trying joinGameFn and reading its error.
+export const getGameSessionAccessModeFn = createServerFn({ method: 'POST' })
+  .validator(gameSessionPinSchema)
+  .handler(async ({ data }): Promise<{ exists: boolean; accessMode: 'class' | 'public' | null }> => {
+    const session = await adminDb.query.gameSessions.findFirst({
+      where: (gs, { eq: eqOp, and: andOp }) => andOp(eqOp(gs.pin, data.pin.trim()), eqOp(gs.status, 'lobby')),
+    })
+    if (!session) return { exists: false, accessMode: null }
+    return { exists: true, accessMode: session.accessMode }
+  })
+
+// Guest join: no requireUser() at all — a public-session participant has no
+// FocusFlow account. Entirely adminDb-backed (RLS never applies here, same
+// as the PIN discovery lookup above), with authorization enforced in code:
+// the session must be status='lobby' AND accessMode='public'. A guest can
+// never land in a class-only session even with a valid PIN.
+export const joinGameAsGuestFn = createServerFn({ method: 'POST' })
+  .validator(joinGameAsGuestSchema)
+  .handler(async ({ data }) => {
+    rateLimit('join-game', { max: 15, windowMs: 60_000 })
+
+    const targetSession = await adminDb.query.gameSessions.findFirst({
+      where: (gs, { eq: eqOp, and: andOp }) => andOp(eqOp(gs.pin, data.pin.trim()), eqOp(gs.status, 'lobby')),
+    })
+    if (!targetSession) {
+      throw new Error('No game found with that PIN — it may not have started yet or has already begun')
+    }
+    if (targetSession.accessMode !== 'public') {
+      throw new Error('This game requires a FocusFlow account — log in, or ask your teacher for a public join code')
+    }
+
+    const [participant] = await adminDb
+      .insert(gameParticipants)
+      .values({
+        sessionId: targetSession.id,
+        studentId: null,
+        nickname: data.officialName.trim(),
+      })
+      .returning()
+
+    const participants = await adminDb.query.gameParticipants.findMany({
+      where: (gp, { eq: eqOp }) => eqOp(gp.sessionId, targetSession.id),
+    })
+    const questions = await adminDb.query.quizQuestions.findMany({
+      where: (q, { eq: eqOp }) => eqOp(q.quizId, targetSession.quizId),
+    })
+    void broadcastGameState(targetSession.id, {
+      id: targetSession.id,
+      status: targetSession.status,
+      pin: targetSession.pin,
+      currentQuestionIndex: targetSession.currentQuestionIndex,
+      questionDurationSeconds: targetSession.questionDurationSeconds,
+      phaseStartedAt: targetSession.phaseStartedAt.toISOString(),
+      totalQuestions: questions.length,
+      currentQuestion: null,
+      answeredCount: 0,
+      choiceCounts: {},
+      participants: participants.map((p) => ({ id: p.id, nickname: p.nickname, score: p.score })),
+    })
+
+    return { sessionId: targetSession.id, participantId: participant.id }
   })
 
 export const startGameFn = createServerFn({ method: 'POST' })
@@ -295,7 +373,10 @@ export const advancePhaseFn = createServerFn({ method: 'POST' })
             where: (gp, { eq: eqOp }) => eqOp(gp.sessionId, data.sessionId),
           })
           for (const participant of finishedParticipants) {
-            await awardCoins(tx, participant.studentId, 5, 'game_completion', { sessionId: data.sessionId })
+            // Guests (studentId null) have no users row, so no ledger to credit.
+            if (participant.studentId) {
+              await awardCoins(tx, participant.studentId, 5, 'game_completion', { sessionId: data.sessionId })
+            }
           }
         }
 
@@ -336,6 +417,64 @@ export const advancePhaseFn = createServerFn({ method: 'POST' })
     })
   })
 
+// Shared by submitGameAnswerFn (registered) and submitGameAnswerAsGuestFn
+// (guest) — grading/scoring is identical either way; only how the coin
+// award happens afterward differs (guests have no ledger to credit).
+async function submitGameAnswerCore(
+  tx: QueryDb,
+  session: { id: string; status: string; phaseStartedAt: Date; questionDurationSeconds: number },
+  participant: { id: string },
+  questionId: string,
+  selectedChoiceId: string | null,
+): Promise<{ isCorrect: boolean; pointsAwarded: number }> {
+  if (session.status !== 'question') {
+    throw new Error('This question is no longer accepting answers')
+  }
+
+  const existingAnswer = await tx.query.gameAnswers.findFirst({
+    where: (a, { eq: eqOp, and: andOp }) => andOp(eqOp(a.participantId, participant.id), eqOp(a.questionId, questionId)),
+  })
+  if (existingAnswer) {
+    return { isCorrect: existingAnswer.isCorrect, pointsAwarded: existingAnswer.pointsAwarded }
+  }
+
+  const question = await tx.query.quizQuestions.findFirst({
+    where: (q, { eq: eqOp }) => eqOp(q.id, questionId),
+    with: { choices: true },
+  })
+  if (!question) throw new Error('Question not found')
+
+  // Response time and correctness are always computed here from
+  // server-held state (phaseStartedAt, the real answer key) — never
+  // trusted from client-supplied values, so nothing can be gamed.
+  const responseTimeMs = Math.max(0, Date.now() - session.phaseStartedAt.getTime())
+  const correctChoice = question.choices.find((c) => c.isCorrect)
+  const isCorrect = !!selectedChoiceId && selectedChoiceId === correctChoice?.id
+
+  let pointsAwarded = 0
+  if (isCorrect) {
+    const durationMs = session.questionDurationSeconds * 1000
+    const remainingRatio = Math.min(1, Math.max(0, (durationMs - responseTimeMs) / durationMs))
+    pointsAwarded = Math.round(MIN_POINTS + (MAX_POINTS - MIN_POINTS) * remainingRatio)
+  }
+
+  await tx.insert(gameAnswers).values({
+    participantId: participant.id,
+    questionId,
+    selectedChoiceId,
+    isCorrect,
+    pointsAwarded,
+    responseTimeMs,
+  })
+
+  await tx
+    .update(gameParticipants)
+    .set({ score: sql`${gameParticipants.score} + ${pointsAwarded}` })
+    .where(eq(gameParticipants.id, participant.id))
+
+  return { isCorrect, pointsAwarded }
+}
+
 export const submitGameAnswerFn = createServerFn({ method: 'POST' })
   .validator(submitGameAnswerSchema)
   .handler(async ({ data }) => {
@@ -346,67 +485,46 @@ export const submitGameAnswerFn = createServerFn({ method: 'POST' })
         where: (gs, { eq: eqOp }) => eqOp(gs.id, data.sessionId),
       })
       if (!session) throw new Error('Game session not found')
-      if (session.status !== 'question') {
-        throw new Error('This question is no longer accepting answers')
-      }
 
       const participant = await tx.query.gameParticipants.findFirst({
         where: (gp, { eq: eqOp, and: andOp }) => andOp(eqOp(gp.sessionId, data.sessionId), eqOp(gp.studentId, user.id)),
       })
       if (!participant) throw new Error('You are not in this game')
 
-      const existingAnswer = await tx.query.gameAnswers.findFirst({
-        where: (a, { eq: eqOp, and: andOp }) => andOp(eqOp(a.participantId, participant.id), eqOp(a.questionId, data.questionId)),
-      })
-      if (existingAnswer) {
-        return { isCorrect: existingAnswer.isCorrect, pointsAwarded: existingAnswer.pointsAwarded }
-      }
-
-      const question = await tx.query.quizQuestions.findFirst({
-        where: (q, { eq: eqOp }) => eqOp(q.id, data.questionId),
-        with: { choices: true },
-      })
-      if (!question) throw new Error('Question not found')
-
-      // Response time and correctness are always computed here from
-      // server-held state (phaseStartedAt, the real answer key) — never
-      // trusted from client-supplied values, so nothing can be gamed.
-      const responseTimeMs = Math.max(0, Date.now() - session.phaseStartedAt.getTime())
-      const correctChoice = question.choices.find((c) => c.isCorrect)
-      const isCorrect = !!data.selectedChoiceId && data.selectedChoiceId === correctChoice?.id
-
-      let pointsAwarded = 0
-      if (isCorrect) {
-        const durationMs = session.questionDurationSeconds * 1000
-        const remainingRatio = Math.min(1, Math.max(0, (durationMs - responseTimeMs) / durationMs))
-        pointsAwarded = Math.round(MIN_POINTS + (MAX_POINTS - MIN_POINTS) * remainingRatio)
-      }
-
-      await tx.insert(gameAnswers).values({
-        participantId: participant.id,
-        questionId: data.questionId,
-        selectedChoiceId: data.selectedChoiceId,
-        isCorrect,
-        pointsAwarded,
-        responseTimeMs,
-      })
-
-      await tx
-        .update(gameParticipants)
-        .set({ score: sql`${gameParticipants.score} + ${pointsAwarded}` })
-        .where(eq(gameParticipants.id, participant.id))
+      const result = await submitGameAnswerCore(tx, session, participant, data.questionId, data.selectedChoiceId)
 
       // Live-game scoring (100-1000/question) is on a different scale than
       // quiz points — a flat small award per correct answer, not tied to
       // the speed-bonus score, keeps this roughly in line with the async
       // quiz path's coin rate rather than paying out hundreds of coins for
       // one fast answer.
-      if (isCorrect) {
+      if (result.isCorrect) {
         await awardCoins(tx, user.id, 2, 'game_answer', { sessionId: data.sessionId, questionId: data.questionId })
       }
 
-      return { isCorrect, pointsAwarded }
+      return result
     })
+  })
+
+// Guest submission: no requireUser(), authorized purely by participantId
+// ownership of a guest (studentId null) row in this exact session — same
+// bearer-token reasoning as getGuestPlayerStateFn. No coin award: guests
+// have no users row to credit.
+export const submitGameAnswerAsGuestFn = createServerFn({ method: 'POST' })
+  .validator(guestSubmitGameAnswerSchema)
+  .handler(async ({ data }) => {
+    const session = await adminDb.query.gameSessions.findFirst({
+      where: (gs, { eq: eqOp }) => eqOp(gs.id, data.sessionId),
+    })
+    if (!session) throw new Error('Game session not found')
+
+    const participant = await adminDb.query.gameParticipants.findFirst({
+      where: (gp, { eq: eqOp, and: andOp, isNull }) =>
+        andOp(eqOp(gp.id, data.participantId), eqOp(gp.sessionId, data.sessionId), isNull(gp.studentId)),
+    })
+    if (!participant) throw new Error('You are not in this game')
+
+    return submitGameAnswerCore(adminDb, session, participant, data.questionId, data.selectedChoiceId)
   })
 
 export interface HostGameQuestion {
@@ -516,6 +634,83 @@ export interface PlayerGameState {
   lobbyParticipants: Array<{ id: string; nickname: string; sprites: Record<string, string> }>
 }
 
+// Shared by getPlayerStateFn (registered student, withRlsContext) and
+// getGuestPlayerStateFn (public-session guest, adminDb) — the ONE place
+// the "never leak is_correct before reveal" invariant lives, so both
+// paths can never drift apart on that guarantee.
+async function buildPlayerGameState(
+  tx: QueryDb,
+  session: { id: string; quizId: string; status: 'lobby' | 'question' | 'reveal' | 'finished'; currentQuestionIndex: number; questionDurationSeconds: number; phaseStartedAt: Date },
+  participant: { id: string; score: number; studentId: string | null },
+): Promise<PlayerGameState> {
+  const questions = await tx.query.quizQuestions.findMany({
+    where: (q, { eq: eqOp }) => eqOp(q.quizId, session.quizId),
+    with: { choices: true },
+    orderBy: (q, { asc }) => asc(q.position),
+  })
+  const currentQuestionRow = questions[session.currentQuestionIndex] ?? null
+
+  let hasAnsweredCurrent = false
+  let myLastAnswer: { isCorrect: boolean; pointsAwarded: number } | null = null
+  if (currentQuestionRow) {
+    const answer = await tx.query.gameAnswers.findFirst({
+      where: (a, { eq: eqOp, and: andOp }) =>
+        andOp(eqOp(a.participantId, participant.id), eqOp(a.questionId, currentQuestionRow.id)),
+    })
+    if (answer) {
+      hasAnsweredCurrent = true
+      myLastAnswer = { isCorrect: answer.isCorrect, pointsAwarded: answer.pointsAwarded }
+    }
+  }
+
+  // Reveal is safe to send the answer key for (the round is over); during
+  // the live "question" phase the choices must never carry is_correct.
+  const revealAnswers = session.status === 'reveal' || session.status === 'finished'
+  const currentQuestion: PlayerGameQuestion | null = currentQuestionRow
+    ? {
+        id: currentQuestionRow.id,
+        questionText: currentQuestionRow.questionText,
+        choices: currentQuestionRow.choices
+          .sort((a, b) => a.position - b.position)
+          .map((c) => ({
+            id: c.id,
+            choiceText: c.choiceText,
+            ...(revealAnswers ? { isCorrect: c.isCorrect } : {}),
+          })),
+      }
+    : null
+
+  let leaderboard: Array<{ id: string; nickname: string; score: number; sprites: Record<string, string> }> = []
+  let lobbyParticipants: Array<{ id: string; nickname: string; sprites: Record<string, string> }> = []
+  if (session.status === 'lobby') {
+    const all = await tx.query.gameParticipants.findMany({ where: (gp, { eq: eqOp }) => eqOp(gp.sessionId, session.id) })
+    const spritesByStudent = await getBulkEquippedSprites(tx, all.flatMap((p) => (p.studentId ? [p.studentId] : [])))
+    lobbyParticipants = all.map((p) => ({ id: p.id, nickname: p.nickname, sprites: p.studentId ? (spritesByStudent[p.studentId] ?? {}) : {} }))
+  } else {
+    const all = await tx.query.gameParticipants.findMany({
+      where: (gp, { eq: eqOp }) => eqOp(gp.sessionId, session.id),
+      orderBy: (gp, { desc }) => desc(gp.score),
+    })
+    const spritesByStudent = await getBulkEquippedSprites(tx, all.flatMap((p) => (p.studentId ? [p.studentId] : [])))
+    leaderboard = all.map((p) => ({ id: p.id, nickname: p.nickname, score: p.score, sprites: p.studentId ? (spritesByStudent[p.studentId] ?? {}) : {} }))
+  }
+
+  return {
+    status: session.status,
+    currentQuestionIndex: session.currentQuestionIndex,
+    questionDurationSeconds: session.questionDurationSeconds,
+    phaseStartedAt: session.phaseStartedAt.toISOString(),
+    totalQuestions: questions.length,
+    myParticipantId: participant.id,
+    myScore: participant.score,
+    hasAnsweredCurrent,
+    myLastAnswer,
+    currentQuestion,
+    leaderboard,
+    lobbyParticipants,
+  }
+}
+
 export const getPlayerStateFn = createServerFn({ method: 'POST' })
   .validator(sessionIdSchema)
   .handler(async ({ data }): Promise<PlayerGameState> => {
@@ -532,73 +727,29 @@ export const getPlayerStateFn = createServerFn({ method: 'POST' })
       })
       if (!participant) throw new Error('You are not in this game')
 
-      const questions = await tx.query.quizQuestions.findMany({
-        where: (q, { eq: eqOp }) => eqOp(q.quizId, session.quizId),
-        with: { choices: true },
-        orderBy: (q, { asc }) => asc(q.position),
-      })
-      const currentQuestionRow = questions[session.currentQuestionIndex] ?? null
-
-      let hasAnsweredCurrent = false
-      let myLastAnswer: { isCorrect: boolean; pointsAwarded: number } | null = null
-      if (currentQuestionRow) {
-        const answer = await tx.query.gameAnswers.findFirst({
-          where: (a, { eq: eqOp, and: andOp }) =>
-            andOp(eqOp(a.participantId, participant.id), eqOp(a.questionId, currentQuestionRow.id)),
-        })
-        if (answer) {
-          hasAnsweredCurrent = true
-          myLastAnswer = { isCorrect: answer.isCorrect, pointsAwarded: answer.pointsAwarded }
-        }
-      }
-
-      // Reveal is safe to send the answer key for (the round is over); during
-      // the live "question" phase the choices must never carry is_correct.
-      const revealAnswers = session.status === 'reveal' || session.status === 'finished'
-      const currentQuestion: PlayerGameQuestion | null = currentQuestionRow
-        ? {
-            id: currentQuestionRow.id,
-            questionText: currentQuestionRow.questionText,
-            choices: currentQuestionRow.choices
-              .sort((a, b) => a.position - b.position)
-              .map((c) => ({
-                id: c.id,
-                choiceText: c.choiceText,
-                ...(revealAnswers ? { isCorrect: c.isCorrect } : {}),
-              })),
-          }
-        : null
-
-      let leaderboard: Array<{ id: string; nickname: string; score: number; sprites: Record<string, string> }> = []
-      let lobbyParticipants: Array<{ id: string; nickname: string; sprites: Record<string, string> }> = []
-      if (session.status === 'lobby') {
-        const all = await tx.query.gameParticipants.findMany({ where: (gp, { eq: eqOp }) => eqOp(gp.sessionId, data.sessionId) })
-        const spritesByStudent = await getBulkEquippedSprites(tx, all.map((p) => p.studentId))
-        lobbyParticipants = all.map((p) => ({ id: p.id, nickname: p.nickname, sprites: spritesByStudent[p.studentId] ?? {} }))
-      } else {
-        const all = await tx.query.gameParticipants.findMany({
-          where: (gp, { eq: eqOp }) => eqOp(gp.sessionId, data.sessionId),
-          orderBy: (gp, { desc }) => desc(gp.score),
-        })
-        const spritesByStudent = await getBulkEquippedSprites(tx, all.map((p) => p.studentId))
-        leaderboard = all.map((p) => ({ id: p.id, nickname: p.nickname, score: p.score, sprites: spritesByStudent[p.studentId] ?? {} }))
-      }
-
-      return {
-        status: session.status,
-        currentQuestionIndex: session.currentQuestionIndex,
-        questionDurationSeconds: session.questionDurationSeconds,
-        phaseStartedAt: session.phaseStartedAt.toISOString(),
-        totalQuestions: questions.length,
-        myParticipantId: participant.id,
-        myScore: participant.score,
-        hasAnsweredCurrent,
-        myLastAnswer,
-        currentQuestion,
-        leaderboard,
-        lobbyParticipants,
-      }
+      return buildPlayerGameState(tx, session, participant)
     })
+  })
+
+// Guest read path: no requireUser() — authorized purely by presenting the
+// exact participantId issued at join time (an unguessable uuid, never
+// broadcast to other clients), scoped to a row that's actually a guest
+// (studentId is null) in this exact session.
+export const getGuestPlayerStateFn = createServerFn({ method: 'POST' })
+  .validator(guestParticipantSchema)
+  .handler(async ({ data }): Promise<PlayerGameState> => {
+    const session = await adminDb.query.gameSessions.findFirst({
+      where: (gs, { eq: eqOp }) => eqOp(gs.id, data.sessionId),
+    })
+    if (!session) throw new Error('Game session not found')
+
+    const participant = await adminDb.query.gameParticipants.findFirst({
+      where: (gp, { eq: eqOp, and: andOp, isNull }) =>
+        andOp(eqOp(gp.id, data.participantId), eqOp(gp.sessionId, data.sessionId), isNull(gp.studentId)),
+    })
+    if (!participant) throw new Error('You are not in this game')
+
+    return buildPlayerGameState(adminDb, session, participant)
   })
 
 export interface PastGameSessionSummary {
@@ -751,8 +902,10 @@ export function useGameReport(sessionId: string) {
 
 export function useCreateGameSession() {
   return useMutation({
-    mutationFn: (input: { quizId: string; questionDurationSeconds?: number }) =>
-      createGameSessionFn({ data: { quizId: input.quizId, questionDurationSeconds: input.questionDurationSeconds ?? 20 } }),
+    mutationFn: (input: { quizId: string; questionDurationSeconds?: number; accessMode?: 'class' | 'public' }) =>
+      createGameSessionFn({
+        data: { quizId: input.quizId, questionDurationSeconds: input.questionDurationSeconds ?? 20, accessMode: input.accessMode ?? 'class' },
+      }),
   })
 }
 
@@ -760,6 +913,18 @@ export function useJoinGame() {
   return useMutation({
     mutationFn: (pin: string) => joinGameFn({ data: { pin } }),
     // joinGameFn returns { sessionId, participantId }
+  })
+}
+
+export function useGameSessionAccessMode() {
+  return useMutation({
+    mutationFn: (pin: string) => getGameSessionAccessModeFn({ data: { pin } }),
+  })
+}
+
+export function useJoinGameAsGuest() {
+  return useMutation({
+    mutationFn: (input: { pin: string; officialName: string }) => joinGameAsGuestFn({ data: input }),
   })
 }
 
@@ -772,12 +937,13 @@ export function useHostGameState(sessionId: string) {
   })
 }
 
-export function usePlayerGameState(sessionId: string) {
+export function usePlayerGameState(sessionId: string, enabled = true) {
   return useQuery({
     queryKey: ['games', 'play', sessionId],
     queryFn: () => getPlayerStateFn({ data: { sessionId } }),
     refetchInterval: 1200,
     retry: false,
+    enabled,
   })
 }
 
@@ -803,6 +969,15 @@ export function useSubmitGameAnswer() {
     mutationFn: (input: { sessionId: string; questionId: string; selectedChoiceId: string | null }) =>
       submitGameAnswerFn({ data: input }),
     onSuccess: (_data, variables) => queryClient.invalidateQueries({ queryKey: ['games', 'play', variables.sessionId] }),
+  })
+}
+
+export function useSubmitGameAnswerAsGuest() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { sessionId: string; participantId: string; questionId: string; selectedChoiceId: string | null }) =>
+      submitGameAnswerAsGuestFn({ data: input }),
+    onSuccess: (_data, variables) => queryClient.invalidateQueries({ queryKey: ['games', 'play-guest', variables.sessionId] }),
   })
 }
 
@@ -879,16 +1054,39 @@ export function useHostGameStateRealtime(sessionId: string) {
 // answer key hidden until reveal) can only be computed per-player by
 // getPlayerStateFn. The socket's only job here is to trigger an immediate
 // refetch instead of waiting out the polling interval.
-export function usePlayerGameStateRealtime(sessionId: string, participantId: string) {
+// Guests skip the WebSocket entirely — the WS layer is cookie-session-auth
+// only (see app/lib/ws-server.ts) and player state is already fully
+// correct via polling alone (usePlayerGameStateRealtime itself only ever
+// treats WS messages as a "refetch now" nudge, never a data source). A
+// guest gets ~1.2s of extra latency instead of an instant push; same
+// shape as usePlayerGameStateRealtime so callers don't need to branch.
+export function useGuestPlayerState(sessionId: string, participantId: string) {
+  const query = useQuery({
+    queryKey: ['games', 'play-guest', sessionId, participantId],
+    queryFn: () => getGuestPlayerStateFn({ data: { sessionId, participantId } }),
+    refetchInterval: 1200,
+    retry: false,
+    enabled: !!sessionId && !!participantId,
+  })
+  return {
+    data: query.data,
+    isLoading: query.isLoading,
+    error: query.error,
+    connected: true,
+    refetch: query.refetch,
+  }
+}
+
+export function usePlayerGameStateRealtime(sessionId: string, participantId: string, enabled = true) {
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
-  const fallbackQuery = usePlayerGameState(sessionId)
+  const fallbackQuery = usePlayerGameState(sessionId, enabled)
   const refetchRef = useRef(fallbackQuery.refetch)
   refetchRef.current = fallbackQuery.refetch
 
   useEffect(() => {
-    if (!sessionId || !participantId) return
+    if (!enabled || !sessionId || !participantId) return
     let ws: WebSocket | null = null
     let retries = 0
     const maxRetries = 3
@@ -935,7 +1133,7 @@ export function usePlayerGameStateRealtime(sessionId: string, participantId: str
       ws?.close()
       wsRef.current = null
     }
-  }, [sessionId, participantId])
+  }, [sessionId, participantId, enabled])
 
   return {
     data: fallbackQuery.data,

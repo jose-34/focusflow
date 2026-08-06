@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { ArrowLeft, CheckCircle2, Trophy, XCircle } from 'lucide-react'
-import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
-import { usePlayerGameStateRealtime, useSubmitGameAnswer } from '@/features/games/hooks/useGames'
+import { useAuth } from '@/features/auth/hooks/useAuth'
+import { useGuestPlayerState, usePlayerGameStateRealtime, useSubmitGameAnswer, useSubmitGameAnswerAsGuest } from '@/features/games/hooks/useGames'
 import { useTranslation } from '@/features/i18n/I18nContext'
 import { AvatarDisplay } from '@/features/economy/components/AvatarDisplay'
 import { CountdownTimer } from '@/features/games/components/CountdownTimer'
@@ -19,23 +19,35 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export const Route = createFileRoute('/game/play/$sessionId')({
+  // Deliberately no beforeLoad auth gate — a public-session guest has no
+  // account at all. Authorization instead happens per-request: registered
+  // students via the normal cookie session, guests via participantId
+  // ownership of a guest row (see getGuestPlayerStateFn/
+  // submitGameAnswerAsGuestFn in useGames.ts).
   validateSearch: (search: Record<string, unknown>) => ({
     participantId: typeof search.participantId === 'string' ? search.participantId : undefined,
   }),
-  beforeLoad: async () => {
-    const user = await getCurrentUserFn()
-    if (!user) {
-      throw redirect({ to: '/login' })
-    }
-  },
   component: PlayGamePage,
 })
 
 function PlayGamePage() {
   const { sessionId } = Route.useParams()
   const { participantId } = Route.useSearch()
-  const { data: game, isLoading, error } = usePlayerGameStateRealtime(sessionId, participantId ?? '')
+  const navigate = useNavigate()
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated && !participantId) {
+      navigate({ to: '/game/join' })
+    }
+  }, [authLoading, isAuthenticated, participantId, navigate])
+
+  const registeredState = usePlayerGameStateRealtime(sessionId, participantId ?? '', !authLoading && isAuthenticated)
+  const guestState = useGuestPlayerState(sessionId, !authLoading && !isAuthenticated ? (participantId ?? '') : '')
+  const { data: game, isLoading: dataLoading, error } = isAuthenticated ? registeredState : guestState
+  const isLoading = authLoading || dataLoading
   const submitAnswer = useSubmitGameAnswer()
+  const submitAnswerAsGuest = useSubmitGameAnswerAsGuest()
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null)
   const { t, language } = useTranslation()
   const [gameTheme, setGameTheme] = useState<GameThemeKey>(() => getStoredGameTheme())
@@ -90,7 +102,11 @@ function PlayGamePage() {
     if (!game || game.hasAnsweredCurrent || !game.currentQuestion) return
     setSelectedChoiceId(choiceId)
     try {
-      await submitAnswer.mutateAsync({ sessionId, questionId: game.currentQuestion.id, selectedChoiceId: choiceId })
+      if (isAuthenticated) {
+        await submitAnswer.mutateAsync({ sessionId, questionId: game.currentQuestion.id, selectedChoiceId: choiceId })
+      } else {
+        await submitAnswerAsGuest.mutateAsync({ sessionId, participantId: participantId ?? '', questionId: game.currentQuestion.id, selectedChoiceId: choiceId })
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('taking.failedToSubmit'))
     }
@@ -213,9 +229,9 @@ function PlayGamePage() {
               </CardContent>
             </Card>
             <Button variant="outline" className="mt-6 w-full gap-2" asChild>
-              <Link to="/classes">
+              <Link to={isAuthenticated ? '/classes' : '/'}>
                 <ArrowLeft className="size-4" />
-                {t('play.backToClasses')}
+                {isAuthenticated ? t('play.backToClasses') : 'Back to Home'}
               </Link>
             </Button>
           </motion.div>
