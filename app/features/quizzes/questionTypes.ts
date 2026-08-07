@@ -33,6 +33,14 @@ export function isManualGradingType(type: string): boolean {
   return (TIER_C_MANUAL_TYPES as readonly string[]).includes(type)
 }
 
+// Choice-based types that render as the jump-to-a-platform arcade scene
+// (PlatformerQuestionScene) rather than a plain list of buttons —
+// multi_select needs checkboxes for several correct answers at once, which
+// doesn't fit the "land on one platform" mechanic.
+export function isPlatformerQuestionType(type: string): boolean {
+  return isChoiceBasedType(type) && type !== 'multi_select'
+}
+
 export type QuestionAnswerConfig =
   | { kind: 'fill_blank'; acceptedAnswers: Array<string>; caseSensitive?: boolean }
   | { kind: 'open_ended'; sampleAnswer?: string }

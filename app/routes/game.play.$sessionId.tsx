@@ -49,6 +49,11 @@ function PlayGamePage() {
   const submitAnswer = useSubmitGameAnswer()
   const submitAnswerAsGuest = useSubmitGameAnswerAsGuest()
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null)
+  // student_led has no shared 'reveal' phase — the server already advanced
+  // this participant to their next question by the time the mutation
+  // resolves, so the reveal (green/red) has to be held locally for a beat
+  // before letting the next poll's already-advanced question take over.
+  const [studentLedReveal, setStudentLedReveal] = useState<{ correctChoiceId: string | null } | null>(null)
   const { t, language } = useTranslation()
   const [gameTheme, setGameTheme] = useState<GameThemeKey>(() => getStoredGameTheme())
   const [readAloudEnabled, setReadAloudEnabled] = useState(false)
@@ -99,13 +104,19 @@ function PlayGamePage() {
   }
 
   async function handleAnswer(choiceId: string) {
-    if (!game || game.hasAnsweredCurrent || !game.currentQuestion) return
+    if (!game || game.hasAnsweredCurrent || !game.currentQuestion || studentLedReveal) return
     setSelectedChoiceId(choiceId)
     try {
-      if (isAuthenticated) {
-        await submitAnswer.mutateAsync({ sessionId, questionId: game.currentQuestion.id, selectedChoiceId: choiceId })
-      } else {
-        await submitAnswerAsGuest.mutateAsync({ sessionId, participantId: participantId ?? '', questionId: game.currentQuestion.id, selectedChoiceId: choiceId })
+      const result = isAuthenticated
+        ? await submitAnswer.mutateAsync({ sessionId, questionId: game.currentQuestion.id, selectedChoiceId: choiceId })
+        : await submitAnswerAsGuest.mutateAsync({ sessionId, participantId: participantId ?? '', questionId: game.currentQuestion.id, selectedChoiceId: choiceId })
+
+      if (game.pacingMode === 'student_led') {
+        setStudentLedReveal({ correctChoiceId: result.correctChoiceId })
+        setTimeout(() => {
+          setStudentLedReveal(null)
+          setSelectedChoiceId(null)
+        }, 1300)
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('taking.failedToSubmit'))
@@ -145,7 +156,24 @@ function PlayGamePage() {
           </motion.div>
         )}
 
-        {game.status === 'question' && game.currentQuestion && (
+        {game.status === 'question' && game.pacingMode === 'student_led' && game.currentQuestion && (
+          <motion.div key="student-led-question" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <PlatformerQuestionScene
+              questionText={game.currentQuestion.questionText}
+              choices={game.currentQuestion.choices.map((c) => ({ id: c.id, text: c.choiceText }))}
+              questionNumber={game.currentQuestionIndex + 1}
+              totalQuestions={game.totalQuestions}
+              history={[]}
+              selectedChoiceId={selectedChoiceId}
+              locked={!!studentLedReveal}
+              correctChoiceId={studentLedReveal?.correctChoiceId}
+              onSelect={handleAnswer}
+              score={game.myScore}
+            />
+          </motion.div>
+        )}
+
+        {game.status === 'question' && game.pacingMode === 'teacher_led' && game.currentQuestion && (
           <motion.div key="question" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <div className="mb-3 flex justify-end">
               <CountdownTimer phaseStartedAt={game.phaseStartedAt} durationSeconds={game.questionDurationSeconds} />
@@ -215,7 +243,7 @@ function PlayGamePage() {
           <motion.div key="finished" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <h2 className="mb-4 text-center font-heading text-2xl font-bold text-foreground">{t('play.gameOver')}</h2>
             <div className="mx-auto mb-6 h-56 w-full max-w-md">
-              <PodiumScene />
+              <PodiumScene topThree={game.leaderboard.slice(0, 3)} />
             </div>
             <p className="mb-4 text-center text-sm text-muted-foreground">
               {t('play.finalScore')} <span className="font-semibold text-foreground">{game.myScore.toLocaleString()}</span>

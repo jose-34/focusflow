@@ -50,6 +50,7 @@ function TeacherQuizView({ classId, quizId }: { classId: string; quizId: string 
   const [showForm, setShowForm] = useState(false)
   const [hostDialogOpen, setHostDialogOpen] = useState(false)
   const [accessMode, setAccessMode] = useState<'class' | 'public'>('class')
+  const [pacingMode, setPacingMode] = useState<'teacher_led' | 'student_led'>('teacher_led')
   const navigate = useNavigate()
   const createGameSession = useCreateGameSession()
 
@@ -103,7 +104,7 @@ function TeacherQuizView({ classId, quizId }: { classId: string; quizId: string 
   async function handleHostLiveGame() {
     setHostDialogOpen(false)
     try {
-      const session = await createGameSession.mutateAsync({ quizId, accessMode }) as { id: string }
+      const session = await createGameSession.mutateAsync({ quizId, accessMode, pacingMode }) as { id: string }
       navigate({ to: '/game/host/$sessionId', params: { sessionId: session.id } })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to start live game')
@@ -220,6 +221,31 @@ function TeacherQuizView({ classId, quizId }: { classId: string; quizId: string 
                   >
                     <p className="font-medium text-foreground">Public — anyone with the code</p>
                     <p className="mt-1 text-xs text-muted-foreground">Anyone can join and enter their name, no account needed.</p>
+                  </button>
+                </div>
+                <DialogDescription className="pt-2">Who sets the pace?</DialogDescription>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setPacingMode('teacher_led')}
+                    className={cn(
+                      'rounded-lg border-2 p-3 text-left text-sm transition-colors',
+                      pacingMode === 'teacher_led' ? 'border-primary bg-primary/10' : 'border-border hover:bg-secondary/50',
+                    )}
+                  >
+                    <p className="font-medium text-foreground">Teacher-led</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Everyone sees the same question; you control when it moves on.</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPacingMode('student_led')}
+                    className={cn(
+                      'rounded-lg border-2 p-3 text-left text-sm transition-colors',
+                      pacingMode === 'student_led' ? 'border-primary bg-primary/10' : 'border-border hover:bg-secondary/50',
+                    )}
+                  >
+                    <p className="font-medium text-foreground">Student-led</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Each student moves on the moment they answer — no waiting.</p>
                   </button>
                 </div>
                 <DialogFooter>

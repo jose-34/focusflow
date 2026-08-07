@@ -74,6 +74,7 @@ export const createGameSessionFn = createServerFn({ method: 'POST' })
               pin: generatePin(),
               questionDurationSeconds: data.questionDurationSeconds,
               accessMode: data.accessMode,
+              pacingMode: data.pacingMode,
             })
             .returning()
           return session
@@ -258,6 +259,7 @@ export const startGameFn = createServerFn({ method: 'POST' })
       const gameState = {
         id: session.id,
         status: session.status,
+        pacingMode: session.pacingMode,
         pin: session.pin,
         currentQuestionIndex: session.currentQuestionIndex,
         questionDurationSeconds: session.questionDurationSeconds,
@@ -275,6 +277,7 @@ export const startGameFn = createServerFn({ method: 'POST' })
         answeredCount: 0,
         choiceCounts: {},
         participants: [],
+        participantProgress: [],
       }
       void broadcastGameState(session.id, gameState)
 
@@ -422,20 +425,16 @@ export const advancePhaseFn = createServerFn({ method: 'POST' })
 // award happens afterward differs (guests have no ledger to credit).
 async function submitGameAnswerCore(
   tx: QueryDb,
-  session: { id: string; status: string; phaseStartedAt: Date; questionDurationSeconds: number },
-  participant: { id: string },
+  session: { id: string; quizId: string; status: string; pacingMode: 'teacher_led' | 'student_led'; phaseStartedAt: Date; questionDurationSeconds: number },
+  participant: { id: string; studentId: string | null; currentQuestionIndex: number; questionStartedAt: Date; finishedAt: Date | null },
   questionId: string,
   selectedChoiceId: string | null,
-): Promise<{ isCorrect: boolean; pointsAwarded: number }> {
+): Promise<{ isCorrect: boolean; pointsAwarded: number; correctChoiceId: string | null }> {
   if (session.status !== 'question') {
     throw new Error('This question is no longer accepting answers')
   }
-
-  const existingAnswer = await tx.query.gameAnswers.findFirst({
-    where: (a, { eq: eqOp, and: andOp }) => andOp(eqOp(a.participantId, participant.id), eqOp(a.questionId, questionId)),
-  })
-  if (existingAnswer) {
-    return { isCorrect: existingAnswer.isCorrect, pointsAwarded: existingAnswer.pointsAwarded }
+  if (session.pacingMode === 'student_led' && participant.finishedAt) {
+    throw new Error('You have already finished this game')
   }
 
   const question = await tx.query.quizQuestions.findFirst({
@@ -443,12 +442,34 @@ async function submitGameAnswerCore(
     with: { choices: true },
   })
   if (!question) throw new Error('Question not found')
+  const correctChoice = question.choices.find((c) => c.isCorrect)
+
+  const existingAnswer = await tx.query.gameAnswers.findFirst({
+    where: (a, { eq: eqOp, and: andOp }) => andOp(eqOp(a.participantId, participant.id), eqOp(a.questionId, questionId)),
+  })
+  if (existingAnswer) {
+    return { isCorrect: existingAnswer.isCorrect, pointsAwarded: existingAnswer.pointsAwarded, correctChoiceId: correctChoice?.id ?? null }
+  }
+
+  // student_led: each participant has their own cursor through the quiz —
+  // reject an answer for anything but their actual current question,
+  // rather than silently grading a stale/out-of-order client.
+  let totalQuestions: number | null = null
+  if (session.pacingMode === 'student_led') {
+    const questions = await tx.query.quizQuestions.findMany({ where: (q, { eq: eqOp }) => eqOp(q.quizId, session.quizId) })
+    totalQuestions = questions.length
+    const expected = questions[participant.currentQuestionIndex]
+    if (!expected || expected.id !== questionId) {
+      throw new Error('This is not your current question')
+    }
+  }
 
   // Response time and correctness are always computed here from
-  // server-held state (phaseStartedAt, the real answer key) — never
-  // trusted from client-supplied values, so nothing can be gamed.
-  const responseTimeMs = Math.max(0, Date.now() - session.phaseStartedAt.getTime())
-  const correctChoice = question.choices.find((c) => c.isCorrect)
+  // server-held state (phaseStartedAt / the participant's own
+  // questionStartedAt, and the real answer key) — never trusted from
+  // client-supplied values, so nothing can be gamed.
+  const responseStartedAt = session.pacingMode === 'student_led' ? participant.questionStartedAt : session.phaseStartedAt
+  const responseTimeMs = Math.max(0, Date.now() - responseStartedAt.getTime())
   const isCorrect = !!selectedChoiceId && selectedChoiceId === correctChoice?.id
 
   let pointsAwarded = 0
@@ -472,7 +493,39 @@ async function submitGameAnswerCore(
     .set({ score: sql`${gameParticipants.score} + ${pointsAwarded}` })
     .where(eq(gameParticipants.id, participant.id))
 
-  return { isCorrect, pointsAwarded }
+  if (session.pacingMode === 'student_led' && totalQuestions !== null) {
+    const isLastQuestion = participant.currentQuestionIndex + 1 >= totalQuestions
+    if (isLastQuestion) {
+      await tx.update(gameParticipants).set({ finishedAt: new Date() }).where(eq(gameParticipants.id, participant.id))
+      // Guests (studentId null) have no users row, so no ledger to credit.
+      if (participant.studentId) {
+        await awardCoins(tx, participant.studentId, 5, 'game_completion', { sessionId: session.id })
+      }
+
+      // Auto-finish the whole session once every participant is done —
+      // via adminDb, not `tx`: a student's own RLS context can never
+      // update gameSessions (only the host's fn_quiz_owned_by_teacher
+      // check does), and this is a legitimate system-triggered side
+      // effect, not the student claiming arbitrary state. This
+      // participant's own just-set finishedAt may not be visible yet on
+      // a separate connection if `tx` is still an open transaction, so
+      // it's treated as finished by id rather than re-reading it.
+      const allParticipants = await adminDb.query.gameParticipants.findMany({
+        where: (gp, { eq: eqOp }) => eqOp(gp.sessionId, session.id),
+      })
+      const allFinished = allParticipants.every((p) => p.id === participant.id || p.finishedAt !== null)
+      if (allFinished) {
+        await adminDb.update(gameSessions).set({ status: 'finished', endedAt: new Date() }).where(eq(gameSessions.id, session.id))
+      }
+    } else {
+      await tx
+        .update(gameParticipants)
+        .set({ currentQuestionIndex: participant.currentQuestionIndex + 1, questionStartedAt: new Date() })
+        .where(eq(gameParticipants.id, participant.id))
+    }
+  }
+
+  return { isCorrect, pointsAwarded, correctChoiceId: correctChoice?.id ?? null }
 }
 
 export const submitGameAnswerFn = createServerFn({ method: 'POST' })
@@ -536,6 +589,7 @@ export interface HostGameQuestion {
 export interface HostGameState {
   id: string
   status: 'lobby' | 'question' | 'reveal' | 'finished'
+  pacingMode: 'teacher_led' | 'student_led'
   pin: string
   currentQuestionIndex: number
   questionDurationSeconds: number
@@ -545,6 +599,9 @@ export interface HostGameState {
   answeredCount: number
   choiceCounts: Record<string, number>
   participants: Array<{ id: string; nickname: string; score: number }>
+  // Only populated for student_led — one shared "current question" doesn't
+  // exist, each participant has their own.
+  participantProgress: Array<{ id: string; nickname: string; currentQuestionIndex: number; totalQuestions: number; score: number; finished: boolean }>
 }
 
 export const getHostStateFn = createServerFn({ method: 'POST' })
@@ -564,6 +621,36 @@ export const getHostStateFn = createServerFn({ method: 'POST' })
         orderBy: (q, { asc }) => asc(q.position),
       })
 
+      const participants = await tx.query.gameParticipants.findMany({
+        where: (gp, { eq: eqOp }) => eqOp(gp.sessionId, data.sessionId),
+        orderBy: (gp, { desc }) => desc(gp.score),
+      })
+
+      if (session.pacingMode === 'student_led') {
+        return {
+          id: session.id,
+          status: session.status,
+          pacingMode: session.pacingMode,
+          pin: session.pin,
+          currentQuestionIndex: session.currentQuestionIndex,
+          questionDurationSeconds: session.questionDurationSeconds,
+          phaseStartedAt: session.phaseStartedAt.toISOString(),
+          totalQuestions: questions.length,
+          currentQuestion: null,
+          answeredCount: 0,
+          choiceCounts: {},
+          participants: participants.map((p) => ({ id: p.id, nickname: p.nickname, score: p.score })),
+          participantProgress: participants.map((p) => ({
+            id: p.id,
+            nickname: p.nickname,
+            currentQuestionIndex: p.currentQuestionIndex,
+            totalQuestions: questions.length,
+            score: p.score,
+            finished: !!p.finishedAt,
+          })),
+        }
+      }
+
       const currentQuestionRow = questions[session.currentQuestionIndex] ?? null
       const currentQuestion: HostGameQuestion | null = currentQuestionRow
         ? {
@@ -574,11 +661,6 @@ export const getHostStateFn = createServerFn({ method: 'POST' })
               .map((c) => ({ id: c.id, choiceText: c.choiceText, isCorrect: c.isCorrect })),
           }
         : null
-
-      const participants = await tx.query.gameParticipants.findMany({
-        where: (gp, { eq: eqOp }) => eqOp(gp.sessionId, data.sessionId),
-        orderBy: (gp, { desc }) => desc(gp.score),
-      })
 
       let answeredCount = 0
       const choiceCounts: Record<string, number> = {}
@@ -600,6 +682,7 @@ export const getHostStateFn = createServerFn({ method: 'POST' })
       return {
         id: session.id,
         status: session.status,
+        pacingMode: session.pacingMode,
         pin: session.pin,
         currentQuestionIndex: session.currentQuestionIndex,
         questionDurationSeconds: session.questionDurationSeconds,
@@ -609,7 +692,28 @@ export const getHostStateFn = createServerFn({ method: 'POST' })
         answeredCount,
         choiceCounts,
         participants: participants.map((p) => ({ id: p.id, nickname: p.nickname, score: p.score })),
+        participantProgress: [],
       }
+    })
+  })
+
+// Host-only explicit "end it now" — covers "OR the teacher ends the game"
+// for student_led sessions (their own progress-driven auto-finish in
+// submitGameAnswerCore already covers "once everyone's done"). Harmless
+// if used on a teacher_led session too, though that mode already ends
+// naturally via the last advancePhaseFn call.
+export const endGameFn = createServerFn({ method: 'POST' })
+  .validator(sessionIdSchema)
+  .handler(async ({ data }) => {
+    const user = await requireUser()
+    return withRlsContext(user.id, async (tx) => {
+      const [session] = await tx
+        .update(gameSessions)
+        .set({ status: 'finished', endedAt: new Date() })
+        .where(eq(gameSessions.id, data.sessionId))
+        .returning()
+      if (!session) throw new Error('Game session not found')
+      return session
     })
   })
 
@@ -621,6 +725,7 @@ export interface PlayerGameQuestion {
 
 export interface PlayerGameState {
   status: 'lobby' | 'question' | 'reveal' | 'finished'
+  pacingMode: 'teacher_led' | 'student_led'
   currentQuestionIndex: number
   questionDurationSeconds: number
   phaseStartedAt: string
@@ -640,19 +745,47 @@ export interface PlayerGameState {
 // paths can never drift apart on that guarantee.
 async function buildPlayerGameState(
   tx: QueryDb,
-  session: { id: string; quizId: string; status: 'lobby' | 'question' | 'reveal' | 'finished'; currentQuestionIndex: number; questionDurationSeconds: number; phaseStartedAt: Date },
-  participant: { id: string; score: number; studentId: string | null },
+  session: {
+    id: string
+    quizId: string
+    status: 'lobby' | 'question' | 'reveal' | 'finished'
+    pacingMode: 'teacher_led' | 'student_led'
+    currentQuestionIndex: number
+    questionDurationSeconds: number
+    phaseStartedAt: Date
+  },
+  participant: { id: string; score: number; studentId: string | null; currentQuestionIndex: number; finishedAt: Date | null },
 ): Promise<PlayerGameState> {
   const questions = await tx.query.quizQuestions.findMany({
     where: (q, { eq: eqOp }) => eqOp(q.quizId, session.quizId),
     with: { choices: true },
     orderBy: (q, { asc }) => asc(q.position),
   })
-  const currentQuestionRow = questions[session.currentQuestionIndex] ?? null
+
+  const isStudentLed = session.pacingMode === 'student_led'
+  // student_led has no per-participant 'reveal' phase — reveal happens
+  // client-side from the submit-answer response, never from polling here,
+  // so this path must never carry is_correct through currentQuestion.
+  const myQuestionIndex = isStudentLed ? participant.currentQuestionIndex : session.currentQuestionIndex
+  const currentQuestionRow = questions[myQuestionIndex] ?? null
+  // student_led normally derives its own pace from participant.finishedAt,
+  // but the host's "End Game" button (or the natural all-finished
+  // auto-transition) sets session.status='finished' directly — a
+  // participant who hasn't answered their last question yet has no other
+  // signal that the session ended, so session.status='finished' must win
+  // here even though nothing else in this branch reads it.
+  const myStatus: PlayerGameState['status'] =
+    session.status === 'lobby'
+      ? 'lobby'
+      : isStudentLed
+        ? participant.finishedAt || session.status === 'finished'
+          ? 'finished'
+          : 'question'
+        : session.status
 
   let hasAnsweredCurrent = false
   let myLastAnswer: { isCorrect: boolean; pointsAwarded: number } | null = null
-  if (currentQuestionRow) {
+  if (currentQuestionRow && !isStudentLed) {
     const answer = await tx.query.gameAnswers.findFirst({
       where: (a, { eq: eqOp, and: andOp }) =>
         andOp(eqOp(a.participantId, participant.id), eqOp(a.questionId, currentQuestionRow.id)),
@@ -665,7 +798,7 @@ async function buildPlayerGameState(
 
   // Reveal is safe to send the answer key for (the round is over); during
   // the live "question" phase the choices must never carry is_correct.
-  const revealAnswers = session.status === 'reveal' || session.status === 'finished'
+  const revealAnswers = !isStudentLed && (session.status === 'reveal' || session.status === 'finished')
   const currentQuestion: PlayerGameQuestion | null = currentQuestionRow
     ? {
         id: currentQuestionRow.id,
@@ -696,8 +829,9 @@ async function buildPlayerGameState(
   }
 
   return {
-    status: session.status,
-    currentQuestionIndex: session.currentQuestionIndex,
+    status: myStatus,
+    pacingMode: session.pacingMode,
+    currentQuestionIndex: myQuestionIndex,
     questionDurationSeconds: session.questionDurationSeconds,
     phaseStartedAt: session.phaseStartedAt.toISOString(),
     totalQuestions: questions.length,
@@ -902,9 +1036,19 @@ export function useGameReport(sessionId: string) {
 
 export function useCreateGameSession() {
   return useMutation({
-    mutationFn: (input: { quizId: string; questionDurationSeconds?: number; accessMode?: 'class' | 'public' }) =>
+    mutationFn: (input: {
+      quizId: string
+      questionDurationSeconds?: number
+      accessMode?: 'class' | 'public'
+      pacingMode?: 'teacher_led' | 'student_led'
+    }) =>
       createGameSessionFn({
-        data: { quizId: input.quizId, questionDurationSeconds: input.questionDurationSeconds ?? 20, accessMode: input.accessMode ?? 'class' },
+        data: {
+          quizId: input.quizId,
+          questionDurationSeconds: input.questionDurationSeconds ?? 20,
+          accessMode: input.accessMode ?? 'class',
+          pacingMode: input.pacingMode ?? 'teacher_led',
+        },
       }),
   })
 }
@@ -963,6 +1107,14 @@ export function useAdvancePhase() {
   })
 }
 
+export function useEndGame() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (sessionId: string) => endGameFn({ data: { sessionId } }),
+    onSuccess: (_data, sessionId) => queryClient.invalidateQueries({ queryKey: ['games', 'host', sessionId] }),
+  })
+}
+
 export function useSubmitGameAnswer() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -981,12 +1133,24 @@ export function useSubmitGameAnswerAsGuest() {
   })
 }
 
+// Historically this consumed the WS broadcast payload directly (setState
+// from the raw message) instead of refetching — worked while every
+// host-visible change (start/advance/join) reliably called
+// broadcastGameState, but student_led's per-participant progress changes
+// on every answer, not on any host action, so nothing ever re-broadcast
+// and the host's view froze on its very first snapshot forever (state,
+// once non-null, permanently shadowed the polling fallback below — there
+// was no path back to polling). Fixed to match usePlayerGameStateRealtime's
+// already-correct pattern: WS is purely a "refetch now" nudge, polling
+// (1200ms) is the only source of truth, so a missed broadcast just means
+// a slightly slower update instead of a permanently stale one.
 export function useHostGameStateRealtime(sessionId: string) {
-  const [state, setState] = useState<HostGameState | null>(null)
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const fallbackQuery = useHostGameState(sessionId)
+  const refetchRef = useRef(fallbackQuery.refetch)
+  refetchRef.current = fallbackQuery.refetch
 
   useEffect(() => {
     if (!sessionId) return
@@ -1020,7 +1184,7 @@ export function useHostGameStateRealtime(sessionId: string) {
           try {
             const message = JSON.parse(event.data)
             if (message.type === 'init' || message.type === 'state:update') {
-              setState(message.state as HostGameState)
+              void refetchRef.current()
             }
           } catch {
             // ignore
@@ -1039,15 +1203,15 @@ export function useHostGameStateRealtime(sessionId: string) {
   }, [sessionId])
 
   return {
-    data: state ?? fallbackQuery.data,
-    isLoading: !state && fallbackQuery.isLoading,
-    error: state ? null : (error ?? fallbackQuery.error),
+    data: fallbackQuery.data,
+    isLoading: fallbackQuery.isLoading,
+    error: error ?? fallbackQuery.error,
     connected,
     refetch: fallbackQuery.refetch,
   }
 }
 
-// Unlike the host hook, this never accepts a raw state payload over the
+// This never accepts a raw state payload over the
 // socket — the server only ever sends a player {type: 'state:changed'}
 // notification (see ws-server.ts), never the host-shaped broadcast state,
 // because a player's correct view (myScore, hasAnsweredCurrent, the

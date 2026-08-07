@@ -2,14 +2,14 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { ListChecks, LoaderCircle, Sparkles, Square, SquareCheck } from 'lucide-react'
 import { useQuizTaking } from '@/features/quizzes/hooks/useQuizzes'
-import { isChoiceBasedType, isManualGradingType, type QuestionResponseData } from '@/features/quizzes/questionTypes'
+import { isManualGradingType, isPlatformerQuestionType, type QuestionResponseData } from '@/features/quizzes/questionTypes'
 import { useTranslation } from '@/features/i18n/I18nContext'
 import { endFocusSessionFn, reportFocusHeartbeatFn, startAssignmentFn } from '@/features/focusMode'
 import { ACHIEVEMENT_MAP } from '@/features/achievements/definitions'
 import { useCelebration } from '@/features/celebration/CelebrationContext'
 import { useWellness } from '@/features/wellness/hooks/useWellness'
 import { MoodPicker } from '@/features/wellness/components/MoodPicker'
-import { PlatformerQuestionScene } from '@/features/gameplay/components/PlatformerQuestionScene'
+import { PlatformerQuestionGroup } from '@/features/gameplay/components/PlatformerQuestionGroup'
 import { isSoundMuted, setSoundMuted } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -230,8 +230,9 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
   const [focusHeartbeatError, setFocusHeartbeatError] = useState<string | null>(null)
   const [preMood, setPreMood] = useState<number | null>(null)
   const [postMood, setPostMood] = useState<number | null>(null)
-  const [replayGraded, setReplayGraded] = useState<Array<boolean | null> | null>(null)
+  const [replayGraded, setReplayGraded] = useState<Array<boolean> | null>(null)
   const [replayStep, setReplayStep] = useState(0)
+  const [activeStep, setActiveStep] = useState(0)
   const pendingCelebrationRef = useRef<(() => void) | null>(null)
   const [muted, setMuted] = useState(() => isSoundMuted())
 
@@ -370,12 +371,34 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
           }
         }
       }
+      const platformerQuestionIds = new Set(quiz!.questions.filter((q) => isPlatformerQuestionType(q.questionType)).map((q) => q.id))
+      setActiveStep(0)
       setReplayStep(0)
-      setReplayGraded(result.graded.map((g) => g.isCorrect))
+      setReplayGraded(result.graded.filter((g) => platformerQuestionIds.has(g.questionId)).map((g) => g.isCorrect ?? false))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('taking.failedToSubmit'))
     }
   }
+
+  const platformerQuestions = quiz.questions.filter((q) => isPlatformerQuestionType(q.questionType))
+  const platformerEntries = platformerQuestions.map((question, platformerIndex) => {
+    const myStoredAnswer = quiz.myAnswers.find((a) => a.questionId === question.id)
+    const isRevealed = hasSubmitted && (!replayGraded || platformerIndex < replayStep)
+    return {
+      id: question.id,
+      questionText: question.questionText,
+      choices: question.choices.map((c) => ({ id: c.id, text: c.choiceText })),
+      points: question.points,
+      selectedChoiceId: hasSubmitted ? (myStoredAnswer?.selectedChoiceId ?? null) : (answers[question.id]?.selectedChoiceId ?? null),
+      locked: isRevealed,
+      correctChoiceId: isRevealed ? (question.choices.find((c) => c.isCorrect)?.id ?? null) : undefined,
+    }
+  })
+  // While the post-submit reveal animation is playing, the group's visible
+  // step is driven by replayStep (auto-advancing, nav disabled); otherwise
+  // the student freely browses via activeStep.
+  const groupActiveStep = replayGraded ? Math.max(Math.min(replayStep, platformerEntries.length - 1), 0) : activeStep
+  const activePlatformerType = platformerQuestions[groupActiveStep]?.questionType
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
@@ -474,56 +497,41 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
         </Card>
       ) : (
         <div className="space-y-4">
-          {quiz.questions.map((question, index) => {
-            const myStoredAnswer = quiz.myAnswers.find((a) => a.questionId === question.id)
-            const current = hasSubmitted
-              ? { selectedChoiceId: myStoredAnswer?.selectedChoiceId ?? undefined, selectedChoiceIds: myStoredAnswer?.selectedChoiceIds, responseData: myStoredAnswer?.responseData ?? undefined }
-              : answers[question.id]
+          {(() => {
+            let platformerGroupRendered = false
+            return quiz.questions.map((question, index) => {
+              const myStoredAnswer = quiz.myAnswers.find((a) => a.questionId === question.id)
+              const current = hasSubmitted
+                ? { selectedChoiceId: myStoredAnswer?.selectedChoiceId ?? undefined, selectedChoiceIds: myStoredAnswer?.selectedChoiceIds, responseData: myStoredAnswer?.responseData ?? undefined }
+                : answers[question.id]
 
-            function setAnswer(next: LocalAnswer) {
-              setAnswers((prev) => ({ ...prev, [question.id]: next }))
-            }
+              function setAnswer(next: LocalAnswer) {
+                setAnswers((prev) => ({ ...prev, [question.id]: next }))
+              }
 
-            const isPlatformerType = isChoiceBasedType(question.questionType) && question.questionType !== 'multi_select'
-            // Once submitted, correctness reveals question-by-question in
-            // step with replayStep's pacing (see the effect above); once
-            // that animation finishes (replayGraded clears), every question
-            // just stays revealed — matches what myAnswers already carries.
-            const isRevealed = hasSubmitted && (!replayGraded || index < replayStep)
-
-            if (isPlatformerType) {
-              return (
-                <div key={question.id} className="space-y-2">
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {t('taking.question')} {index + 1}
-                    </span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      ({question.points} {question.points === 1 ? t('taking.pt') : t('taking.pts')})
-                    </span>
+              if (isPlatformerQuestionType(question.questionType)) {
+                if (platformerGroupRendered) return null
+                platformerGroupRendered = true
+                return (
+                  <div key="platformer-group" className="space-y-2">
+                    <PlatformerQuestionGroup
+                      entries={platformerEntries}
+                      activeStep={groupActiveStep}
+                      onStepChange={setActiveStep}
+                      onSelect={(entryId, choiceId) => setAnswers((prev) => ({ ...prev, [entryId]: { selectedChoiceId: choiceId } }))}
+                      navDisabled={!!replayGraded}
+                      muted={muted}
+                      onToggleMute={toggleMute}
+                    />
+                    {hasSubmitted && activePlatformerType === 'poll' && (
+                      <p className="px-1 text-xs text-muted-foreground">{t('taking.pollThanks')}</p>
+                    )}
                   </div>
-                  <PlatformerQuestionScene
-                    questionText={question.questionText}
-                    choices={question.choices.map((c) => ({ id: c.id, text: c.choiceText }))}
-                    questionNumber={index + 1}
-                    totalQuestions={quiz.questions.length}
-                    history={[]}
-                    selectedChoiceId={current?.selectedChoiceId ?? null}
-                    locked={isRevealed}
-                    correctChoiceId={isRevealed ? (question.choices.find((c) => c.isCorrect)?.id ?? null) : undefined}
-                    onSelect={(choiceId) => setAnswer({ selectedChoiceId: choiceId })}
-                    muted={muted}
-                    onToggleMute={toggleMute}
-                  />
-                  {isRevealed && question.questionType === 'poll' && (
-                    <p className="px-1 text-xs text-muted-foreground">{t('taking.pollThanks')}</p>
-                  )}
-                </div>
-              )
-            }
+                )
+              }
 
-            return (
-              <Card key={question.id}>
+              return (
+                <Card key={question.id}>
                 <CardHeader>
                   <CardTitle className="text-sm font-medium text-foreground">
                     {index + 1}. {question.questionText}{' '}
@@ -639,8 +647,9 @@ export function QuizTakingView({ quizId, backLink }: { quizId: string; backLink:
                   )}
                 </CardContent>
               </Card>
-            )
-          })}
+              )
+            })
+          })()}
 
           {!hasSubmitted && (
             <Button

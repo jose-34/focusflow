@@ -18,6 +18,7 @@
     "db:seed-admin": "tsx --env-file=.env app/db/seed-admin.ts",
     "db:backfill-quiz-authors": "tsx --env-file=.env app/db/backfill-quiz-authors.ts",
     "db:seed-pilot-demo": "tsx --env-file=.env app/db/seed-pilot-demo.ts",
+    "db:seed-public-content": "tsx --env-file=.env app/db/seed-public-content.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:unit": "vitest run",

@@ -20,7 +20,7 @@ export async function getCoinBalance(tx: Tx, userId: string): Promise<number> {
 // Shared by every coin-earning call site (quiz submission, game scoring/
 // completion, achievement unlocks) — same shape as the existing xpLedger
 // inserts elsewhere, just its own table.
-export async function awardCoins(tx: Tx, userId: string, amount: number, source: string, metadata?: Record<string, unknown>): Promise<void> {
+export async function awardCoins(tx: QueryDb, userId: string, amount: number, source: string, metadata?: Record<string, unknown>): Promise<void> {
   if (amount <= 0) return
   await tx.insert(currencyLedger).values({ userId, amount, source, metadata })
 }

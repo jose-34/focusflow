@@ -7,6 +7,12 @@ export const gameSessionStatusEnum = pgEnum('game_session_status', ['lobby', 'qu
 // 'class' = today's behavior, enrolled students only. 'public' = anyone
 // with the PIN may join as a guest (see gameParticipants.studentId below).
 export const gameAccessModeEnum = pgEnum('game_access_mode', ['class', 'public'])
+// 'teacher_led' = today's behavior: one shared current question, the host
+// advances everyone via "Skip to Reveal"/"Next Question". 'student_led' =
+// each participant answers and moves to their own next question
+// immediately (see gameParticipants.currentQuestionIndex below) — no one
+// waits on the host or on each other.
+export const gamePacingModeEnum = pgEnum('game_pacing_mode', ['teacher_led', 'student_led'])
 
 export const gameSessions = pgTable(
   'game_sessions',
@@ -21,6 +27,7 @@ export const gameSessions = pgTable(
     pin: text('pin').notNull().unique(),
     status: gameSessionStatusEnum('status').notNull().default('lobby'),
     accessMode: gameAccessModeEnum('access_mode').notNull().default('class'),
+    pacingMode: gamePacingModeEnum('pacing_mode').notNull().default('teacher_led'),
     currentQuestionIndex: integer('current_question_index').notNull().default(0),
     questionDurationSeconds: integer('question_duration_seconds').notNull().default(20),
     phaseStartedAt: timestamp('phase_started_at', { withTimezone: true }).notNull().defaultNow(),
@@ -51,6 +58,14 @@ export const gameParticipants = pgTable(
     nickname: text('nickname').notNull(),
     score: integer('score').notNull().default(0),
     joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+    // Only meaningful in a 'student_led' session — each participant's own
+    // cursor through the quiz, independent of the session-level fields
+    // teacher_led uses. questionStartedAt resets every time this
+    // participant advances, so their own response-time scoring is fair
+    // regardless of how far ahead/behind everyone else is.
+    currentQuestionIndex: integer('current_question_index').notNull().default(0),
+    questionStartedAt: timestamp('question_started_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
   },
   (table) => [
     // Partial: only prevents a registered student from double-joining.

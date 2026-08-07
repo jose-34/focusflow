@@ -65,6 +65,7 @@ export const createGameSessionSchema = z.object({
   quizId: z.string().uuid(),
   questionDurationSeconds: z.coerce.number().int().min(5).max(120).default(20),
   accessMode: z.enum(['class', 'public']).default('class'),
+  pacingMode: z.enum(['teacher_led', 'student_led']).default('teacher_led'),
 })
 
 export type CreateGameSessionInput = z.infer<typeof createGameSessionSchema>

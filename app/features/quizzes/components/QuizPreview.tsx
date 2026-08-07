@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { LoaderCircle, Square, SquareCheck } from 'lucide-react'
 import { getQuizAuthoringFn, type QuizAuthoringDetail } from '@/features/quizzes/hooks/useQuizzes'
-import { isChoiceBasedType, isManualGradingType, type QuestionResponseData } from '@/features/quizzes/questionTypes'
+import { isManualGradingType, isPlatformerQuestionType, type QuestionResponseData } from '@/features/quizzes/questionTypes'
 import { gradeAnswer } from '@/features/quizzes/grading'
 import { ReorderTaker, MatchTaker, CategorizeTaker, TableFillTaker } from '@/features/quizzes/components/QuizTakingView'
-import { PlatformerQuestionScene } from '@/features/gameplay/components/PlatformerQuestionScene'
+import { PlatformerQuestionGroup } from '@/features/gameplay/components/PlatformerQuestionGroup'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,6 +32,7 @@ export function QuizPreview({ quizId }: { quizId: string }) {
   const [answers, setAnswers] = useState<Record<string, LocalAnswer>>({})
   const [submitted, setSubmitted] = useState(false)
   const [showImmediateFeedback, setShowImmediateFeedback] = useState(true)
+  const [activeStep, setActiveStep] = useState(0)
 
   if (isLoading) {
     return (
@@ -52,6 +53,22 @@ export function QuizPreview({ quizId }: { quizId: string }) {
       scored += pointsEarned
     }
   }
+
+  const platformerEntries = quiz.questions.filter((q) => isPlatformerQuestionType(q.questionType)).map((q) => {
+    const showCorrectness = submitted && showImmediateFeedback && q.questionType !== 'poll'
+    return {
+      id: q.id,
+      questionText: q.questionText,
+      choices: q.choices.map((c) => ({ id: c.id, text: c.choiceText })),
+      points: q.points,
+      selectedChoiceId: answers[q.id]?.selectedChoiceId ?? null,
+      locked: submitted,
+      correctChoiceId: showCorrectness ? (q.choices.find((c) => c.isCorrect)?.id ?? null) : undefined,
+    }
+  })
+  const clampedActiveStep = Math.min(Math.max(activeStep, 0), Math.max(platformerEntries.length - 1, 0))
+  const activePlatformerType = quiz.questions.find((q) => q.id === platformerEntries[clampedActiveStep]?.id)?.questionType
+  let platformerGroupRendered = false
 
   return (
     <div className="space-y-4">
@@ -94,29 +111,20 @@ export function QuizPreview({ quizId }: { quizId: string }) {
             setAnswers((prev) => ({ ...prev, [question.id]: next }))
           }
           const showCorrectness = submitted && showImmediateFeedback && question.questionType !== 'poll'
-          const isPlatformerType = isChoiceBasedType(question.questionType) && question.questionType !== 'multi_select'
+          const isPlatformerType = isPlatformerQuestionType(question.questionType)
 
           if (isPlatformerType) {
+            if (platformerGroupRendered) return null
+            platformerGroupRendered = true
             return (
-              <div key={question.id} className="space-y-2">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-medium text-muted-foreground">Question {index + 1}</span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    ({question.points} pt{question.points === 1 ? '' : 's'})
-                  </span>
-                </div>
-                <PlatformerQuestionScene
-                  questionText={question.questionText}
-                  choices={question.choices.map((c) => ({ id: c.id, text: c.choiceText }))}
-                  questionNumber={index + 1}
-                  totalQuestions={quiz.questions.length}
-                  history={[]}
-                  selectedChoiceId={current?.selectedChoiceId ?? null}
-                  locked={submitted}
-                  correctChoiceId={showCorrectness ? (question.choices.find((c) => c.isCorrect)?.id ?? null) : undefined}
-                  onSelect={(choiceId) => setAnswer({ selectedChoiceId: choiceId })}
+              <div key="platformer-group" className="space-y-2">
+                <PlatformerQuestionGroup
+                  entries={platformerEntries}
+                  activeStep={activeStep}
+                  onStepChange={setActiveStep}
+                  onSelect={(entryId, choiceId) => setAnswers((prev) => ({ ...prev, [entryId]: { selectedChoiceId: choiceId } }))}
                 />
-                {submitted && showImmediateFeedback && question.questionType === 'poll' && (
+                {submitted && showImmediateFeedback && activePlatformerType === 'poll' && (
                   <p className="px-1 text-xs text-muted-foreground">Polls have no correct answer.</p>
                 )}
               </div>

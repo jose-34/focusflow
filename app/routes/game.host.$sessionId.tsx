@@ -1,9 +1,9 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, ClipboardList, LoaderCircle, Play, Users } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ClipboardList, LoaderCircle, Play, Square, Users } from 'lucide-react'
 import { getCurrentUserFn } from '@/features/auth/hooks/useAuth'
-import { useAdvancePhase, useHostGameStateRealtime, useStartGame } from '@/features/games/hooks/useGames'
+import { useAdvancePhase, useEndGame, useHostGameStateRealtime, useStartGame } from '@/features/games/hooks/useGames'
 import { AnswerButton } from '@/features/games/components/AnswerButton'
 import { CountdownTimer } from '@/features/games/components/CountdownTimer'
 import { LiveLeaderboard } from '@/features/games/components/LiveLeaderboard'
@@ -30,6 +30,7 @@ function HostGamePage() {
   const { data: game, isLoading, error, connected } = useHostGameStateRealtime(sessionId)
   const startGame = useStartGame()
   const advancePhase = useAdvancePhase()
+  const endGame = useEndGame()
 
   if (isLoading) {
     return (
@@ -66,6 +67,14 @@ function HostGamePage() {
       await advancePhase.mutateAsync(sessionId)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to advance')
+    }
+  }
+
+  async function handleEndGame() {
+    try {
+      await endGame.mutateAsync(sessionId)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to end game')
     }
   }
 
@@ -130,7 +139,36 @@ function HostGamePage() {
           </motion.div>
         )}
 
-        {game.status === 'question' && game.currentQuestion && (
+        {game.status === 'question' && game.pacingMode === 'student_led' && (
+          <motion.div key="student-led-progress" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <Card className="mb-6">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="font-heading text-base text-foreground">Live Progress</CardTitle>
+                <span className="text-xs text-muted-foreground">Each student moves at their own pace</span>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {game.participantProgress.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2.5">
+                    <span className="flex min-w-0 items-center gap-2">
+                      {p.finished ? <CheckCircle2 className="size-4 shrink-0 text-primary" /> : <span className="size-4 shrink-0" />}
+                      <span className="truncate text-sm font-medium text-foreground">{p.nickname}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+                      <span>{p.finished ? 'Finished' : `${p.currentQuestionIndex + 1} / ${p.totalQuestions}`}</span>
+                      <span className="font-heading text-sm font-bold text-foreground">{p.score.toLocaleString()}</span>
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+            <Button variant="outline" className="w-full gap-2" onClick={handleEndGame} disabled={endGame.isPending}>
+              {endGame.isPending ? <LoaderCircle className="size-4 animate-spin" /> : <Square className="size-4" />}
+              End Game
+            </Button>
+          </motion.div>
+        )}
+
+        {game.status === 'question' && game.pacingMode === 'teacher_led' && game.currentQuestion && (
           <motion.div key="question" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <div className="mb-4 flex items-center justify-between">
               <Badge variant="outline">
@@ -209,7 +247,7 @@ function HostGamePage() {
           <motion.div key="finished" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <h2 className="mb-4 text-center font-heading text-2xl font-bold text-foreground">Game Over!</h2>
             <div className="mx-auto mb-6 h-64 w-full max-w-md">
-              <PodiumScene />
+              <PodiumScene topThree={game.participants.slice(0, 3)} />
             </div>
             <Card>
               <CardHeader>
